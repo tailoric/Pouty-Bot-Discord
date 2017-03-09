@@ -22,7 +22,7 @@ class Search:
         if link is None and not file:
             await self.bot.say('Message didn\'t contain Image')
         else:
-            self.bot.type()
+            await self.bot.type()
             if link:
                 url = link
             else:
@@ -38,9 +38,11 @@ class Search:
 
                     matches = soup.find(id='pages')
                     best_match = matches.select('a')[0].attrs['href']
+                    danbooru_found = False
                     for match in matches.select('a'):
                         source = match.attrs['href']
                         if source.startswith('//danbooru.donmai.us'):
+                            danbooru_found = True
                             danbooru = 'http:'+source
                             characters, artist, franchise = await self._danbooru_api(danbooru)
                             message = ''
@@ -53,7 +55,8 @@ class Search:
 
                             message += '**Source:** <{}> \n'.format(danbooru)
                             await self.bot.reply(message)
-                    await  self.bot.reply('<{}>'.format(best_match))
+                    if not danbooru_found:
+                        await  self.bot.reply('<{}>'.format(best_match))
 
     async def _danbooru_api(self, link):
         with open('data/danbooru/danbooru.json','r') as file:

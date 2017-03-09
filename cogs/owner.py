@@ -12,7 +12,6 @@ class Owner:
     #
     @commands.command(hidden=True)
     @checks.is_owner()
-    @checks.is_shadow()
     async def load(self, *, module: str):
         """Loads a module"""
         try:
@@ -25,7 +24,6 @@ class Owner:
 
     @commands.command(hidden=True)
     @checks.is_owner()
-    @checks.is_shadow()
     async def unload(self, *, module: str):
         """Unloads a module"""
         try:
@@ -38,7 +36,6 @@ class Owner:
 
     @commands.command(name='reload', hidden=True)
     @checks.is_owner()
-    @checks.is_shadow()
     async def _reload(self, *, module : str):
         """Reloads a module."""
         try:
