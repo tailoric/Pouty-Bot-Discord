@@ -41,7 +41,7 @@ class Search:
                     danbooru_found = False
                     for match in matches.select('a'):
                         source = match.attrs['href']
-                        if source.startswith('//danbooru.donmai.us'):
+                        if source.startswith('//danbooru.donmai.us') and not danbooru_found:
                             danbooru_found = True
                             danbooru = 'http:'+source
                             characters, artist, franchise = await self._danbooru_api(danbooru)
