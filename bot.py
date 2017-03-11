@@ -21,7 +21,9 @@ async def on_ready():
 @bot.event
 async def on_command_error(error,ctx):
     if isinstance(error, commands.CommandNotFound):
-        await bot.send_message(ctx.message.channel, "This command does not exist")
+        if not ctx.message.content.startswith('..'):
+            await bot.send_message(ctx.message.channel, "This command does not exist")
+
 
 if __name__ == '__main__':
     credentials = load_credentials()
