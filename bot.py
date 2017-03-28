@@ -30,9 +30,10 @@ if __name__ == '__main__':
     init_extensions = [
         'cogs.owner',
         'cogs.pout',
-        'cogs.rss',
         'cogs.wolfram',
-        'cogs.youtube'
+        'cogs.youtube',
+        'cogs.image_search',
+        'cogs.waifu2x.py'
         ]
     try:
         for extension in init_extensions:

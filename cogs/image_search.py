@@ -1,5 +1,4 @@
 from discord.ext import commands
-from .utils import checks
 import aiohttp
 from bs4 import BeautifulSoup
 import json
@@ -26,7 +25,7 @@ class Search:
         # Structure:
         # {
         #  "user": "username",
-        #  "api_key": "ValidApiKey"
+        #  "api_key": "ValidApiKey123"
         # }
         auth_file_path = 'data/danbooru/danbooru.json'
         with open(auth_file_path, 'r') as file:
