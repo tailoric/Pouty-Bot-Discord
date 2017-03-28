@@ -107,7 +107,7 @@ class Search:
     @commands.command(pass_context=True)
     async def sauce(self, ctx, link=None, similarity=80):
         """
-        reverse image search via saucenao
+       reverse image search via saucenao
        usage:   .sauce <image-link> <similarity (in percent)> or
                 .sauce on image upload comment <similarity (in percent)>
         """
