@@ -11,17 +11,18 @@ class Wuxia:
         self.entries_db = 'data/wuxia.db'
         self.wuxia_session = aiohttp.ClientSession()
         self.url = 'http://www.wuxiaworld.com/feed/'
-        self.channel = discord.Object(id='287695136840876032')
+        self.channel = discord.Object(id='191787792898981888')
     def __unload(self):
         self.wuxia_session.close()
         self.update_feed.cancel()
 
     async def _get_update(self):
-        async with self.wuxia_session.get(self.url) as response:
-            soup = BeautifulSoup(await response.text(), 'html.parser')
-            if not os.path.isfile(self.entries_db):
-                file = open(self.entries_db,'w')
-                file.close()
+        try:
+            async with self.wuxia_session.get(self.url) as response:
+                soup = BeautifulSoup(await response.text(), 'html.parser')
+                if not os.path.isfile(self.entries_db):
+                    file = open(self.entries_db,'w')
+                    file.close()
 
             with open(self.entries_db,'r+',encoding='utf-8') as f:
                 content = f.read()
@@ -35,10 +36,14 @@ class Wuxia:
                         link,
                         pubdate
                     )
+
                     if match and line not in content:
                         f.write(line)
                         await self.bot.send_message(self.channel,link)
                         await asyncio.sleep(10)
+        except Exception as e:
+            user = discord.Object(id='287707546624458763')
+            await self.bot.send_message(user, str(e))
 
 def setup(bot):
     bot.add_cog(Wuxia(bot))

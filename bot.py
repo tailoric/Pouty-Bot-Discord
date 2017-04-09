@@ -4,7 +4,7 @@ import json
 import random
 description = 'a very pouty bot'
 
-bot = commands.Bot(command_prefix='.', description=description)
+bot = commands.Bot(command_prefix=['!','.'], description=description)
 
 
 def load_credentials():
