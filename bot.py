@@ -4,7 +4,7 @@ import json
 import random
 description = 'a very pouty bot'
 
-bot = commands.Bot(command_prefix='.', description=description)
+bot = commands.Bot(command_prefix=['!','.'], description=description)
 
 
 def load_credentials():
@@ -33,7 +33,8 @@ if __name__ == '__main__':
         'cogs.wolfram',
         'cogs.youtube',
         'cogs.image_search',
-        'cogs.waifu2x'
+        'cogs.waifu2x',
+        'cogs.wuxia'
         ]
     try:
         for extension in init_extensions:
