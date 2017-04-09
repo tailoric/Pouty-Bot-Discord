@@ -33,7 +33,8 @@ if __name__ == '__main__':
         'cogs.wolfram',
         'cogs.youtube',
         'cogs.image_search',
-        'cogs.waifu2x.py'
+        'cogs.waifu2x',
+        'cogs.wuxia'
         ]
     try:
         for extension in init_extensions:
