@@ -17,33 +17,36 @@ class Wuxia:
         self.update_feed.cancel()
 
     async def _get_update(self):
-        try:
-            async with self.wuxia_session.get(self.url) as response:
-                soup = BeautifulSoup(await response.text(), 'html.parser')
-                if not os.path.isfile(self.entries_db):
-                    file = open(self.entries_db,'w')
-                    file.close()
+        while not self.bot.is_closed:
+            try:
+                async with self.wuxia_session.get(self.url) as response:
+                    soup = BeautifulSoup(await response.text(), 'html.parser')
+                    if not os.path.isfile(self.entries_db):
+                        file = open(self.entries_db,'w')
+                        file.close()
 
-            with open(self.entries_db,'r+',encoding='utf-8') as f:
-                content = f.read()
-                for item in soup.find_all('item'):
-                    title = item.title.contents[0]
-                    link = item.link.contents[0]
-                    pubdate = item.pubdate.contents[0]
-                    match = re.search(r'ISSTH Chapter (\d+)', title)
-                    line = '{} | {} | {}\n'.format(
-                        title,
-                        link,
-                        pubdate
-                    )
+                with open(self.entries_db,'r+',encoding='utf-8') as f:
+                    content = f.read()
+                    for item in soup.find_all('item'):
+                        title = item.title.contents[0]
+                        link = item.link.contents[0]
+                        pubdate = item.pubdate.contents[0]
+                        match = re.search(r'ISSTH Chapter (\d+)', title)
+                        line = '{} | {} | {}\n'.format(
+                            title,
+                            link,
+                            pubdate
+                        )
 
-                    if match and line not in content:
-                        f.write(line)
-                        await self.bot.send_message(self.channel,link)
-                        await asyncio.sleep(10)
-        except Exception as e:
-            user = discord.Object(id='287707546624458763')
-            await self.bot.send_message(user, str(e))
+                        if match and line not in content:
+                            f.write(line)
+                            await self.bot.send_message(self.channel,link)
+                await asyncio.sleep(10)
+
+            except Exception as e:
+                user = discord.Object(id='287707546624458763')
+                await self.bot.send_message(user, str(e))
+                continue
 
 def setup(bot):
     bot.add_cog(Wuxia(bot))
