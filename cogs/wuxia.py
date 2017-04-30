@@ -42,12 +42,13 @@ class Wuxia:
                                 if match and line not in content:
                                     f.write(line)
                                     await self.bot.send_message(self.channel,link)
-                await asyncio.sleep(10)
+                await asyncio.sleep(300)
 
             except Exception as e:
                 user = discord.Object(id='300764599068786698')
-                await self.bot.send_message(user, str(e))
                 await asyncio.sleep(60)
+                self.wuxia_session.close()
+                self.wuxia_session = aiohttp.ClientSession()
                 continue
 
 def setup(bot):
