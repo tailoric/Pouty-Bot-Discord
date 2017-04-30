@@ -97,7 +97,7 @@ class Youtube:
 
     async def on_message(self, message):
         if self.status and message.author == self.user and self.check_if_link(message.content):
-            self.insert_videos_into_playlist(message.content)
+            await self.insert_videos_into_playlist(message.content)
         else:
             return
 
@@ -105,7 +105,8 @@ class Youtube:
     def check_if_link(content):
         return 'https://www.youtube' in content or 'https://youtu.be' in content
 
-    def insert_videos_into_playlist(self, link):
+
+    async def insert_videos_into_playlist(self, link):
         # regex to get the id from a youtube link
         p = regex.compile('(?<=\d\/|\.be\/|v[=\/])([\w\-]{11,})|^([\w\-]{11})$')
         video_ids = regex.findall(p, link)
@@ -137,6 +138,13 @@ class Youtube:
                     )
                 )
             ).execute()
+        result = youtube.playlistItems().list(
+                    part="id",
+                    playlistId=self.playlist
+                ).execute()
+        channel = discord.Object(id='248987073124630528')
+        message = 'List contains {} songs'.format(result['pageInfo']['totalResults'])
+        await self.bot.send_message(channel, message)
 
 
 def setup(bot):
