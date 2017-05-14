@@ -4,6 +4,7 @@ import aiohttp
 import re
 import os
 import asyncio
+from datetime import datetime
 class Wuxia:
     def __init__(self, bot):
         self.bot = bot
@@ -28,28 +29,44 @@ class Wuxia:
 
                         with open(self.entries_db,'r+',encoding='utf-8') as f:
                             content = f.read()
+                            found_ch = []
+                            f.seek(0)
+                            entries = f.readlines()
                             for item in soup.find_all('item'):
                                 title = item.title.contents[0]
                                 link = item.link.contents[0]
                                 pubdate = item.pubdate.contents[0]
                                 match = re.search(r'ISSTH Chapter (\d+)', title)
-                                line = '{} | {} | {}\n'.format(
-                                    title,
-                                    link,
-                                    pubdate
-                                )
+                                date_obj = datetime.strptime(pubdate, '%a, %d %b %Y %H:%M:%S %z')
+                                if match:
+                                    date_str = "%d-%d-%d" % (date_obj.year,date_obj.month,date_obj.day)
+                                    chapter_id = "%s_%s" % (match.group(1),date_str)
+                                    line = '{}|{}|{}\n'.format(
+                                        chapter_id,
+                                        link,
+                                        pubdate
+                                    )
+                                    found_ch.append(chapter_id)
 
-                                if match and line not in content:
-                                    f.write(line)
-                                    await self.bot.send_message(self.channel,link)
+                                    if chapter_id not in content:
+                                        f.write(line)
+                                        await self.bot.send_message(self.channel,link)
+                        # Stop the file from getting too big
+                        if found_ch and entries:
+                            with open(self.entries_db,'w',encoding='utf-8') as db:
+                                for i,entry in enumerate(entries):
+                                    entry_id,entry_link,entry_date = entry.split('|')
+                                    if entry_id not in found_ch:
+                                        entries[i] = ''
+                                db.writelines(entries)
                 await asyncio.sleep(300)
 
             except Exception as e:
-                user = discord.Object(id='300764599068786698')
                 await asyncio.sleep(60)
                 self.wuxia_session.close()
                 self.wuxia_session = aiohttp.ClientSession()
                 continue
+
 
 def setup(bot):
     bot.add_cog(Wuxia(bot))
