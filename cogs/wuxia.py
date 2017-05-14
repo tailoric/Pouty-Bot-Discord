@@ -12,7 +12,7 @@ class Wuxia:
         self.entries_db = 'data/wuxia.db'
         self.wuxia_session = aiohttp.ClientSession()
         self.url = 'http://www.wuxiaworld.com/feed/'
-        self.channel = discord.Object(id='191787792898981888')
+        self.channel = discord.Object(id='287695136840876032')
     def __unload(self):
         self.wuxia_session.close()
         self.update_feed.cancel()
@@ -30,8 +30,6 @@ class Wuxia:
                         with open(self.entries_db,'r+',encoding='utf-8') as f:
                             content = f.read()
                             found_ch = []
-                            f.seek(0)
-                            entries = f.readlines()
                             for item in soup.find_all('item'):
                                 title = item.title.contents[0]
                                 link = item.link.contents[0]
@@ -51,6 +49,9 @@ class Wuxia:
                                     if chapter_id not in content:
                                         f.write(line)
                                         await self.bot.send_message(self.channel,link)
+                            f.seek(0)
+                            entries = f.readlines()
+
                         # Stop the file from getting too big
                         if found_ch and entries:
                             with open(self.entries_db,'w',encoding='utf-8') as db:
