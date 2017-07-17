@@ -79,8 +79,9 @@ class Search:
                     # This is for the no relevant matches case
                     pages_div = soup.find(id='pages').find_all('div')[1]
                     # stop searching if no relevant match was found
-                    if str(pages_div.find('th')) == '<th> No relevant matches </th>':
+                    if str(pages_div.find('th')) == '<th>No relevant matches</th>':
                         await self.bot.reply('No relevant Match was found')
+                        return
 
                     matches = soup.find(id='pages')
                     best_match = matches.select('a')[0].attrs['href']
