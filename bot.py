@@ -29,7 +29,7 @@ if __name__ == '__main__':
     credentials = load_credentials()
     init_extensions = [
         'cogs.owner',
-        'cogs.pout',
+        'cogs.social',
         'cogs.wolfram',
         'cogs.youtube',
         'cogs.image_search',
