@@ -18,23 +18,22 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('-'*8)
-@bot.event
-async def on_command_error(error,ctx):
-    if isinstance(error, commands.CommandNotFound):
-        if not ctx.message.content.startswith('..'):
-            await bot.send_message(ctx.message.channel, "This command does not exist")
-
+#   @bot.event
+#   async def on_command_error(error,ctx):
+#       if isinstance(error, commands.CommandNotFound):
+#           if not ctx.message.content.startswith('..'):
+#           #    await bot.send_message(ctx.message.channel, "This command does not exist")
+#   
 
 if __name__ == '__main__':
     credentials = load_credentials()
     init_extensions = [
         'cogs.owner',
-        'cogs.social',
-        'cogs.wolfram',
-        'cogs.youtube',
         'cogs.image_search',
         'cogs.waifu2x',
-        'cogs.wuxia'
+        'cogs.social',
+        'cogs.playlist',
+        'cogs.wolfram'
         ]
     try:
         for extension in init_extensions:

@@ -11,7 +11,7 @@ if not discord.opus.is_loaded():
     # you should replace this with the location the
     # opus library is located in and with the proper filename.
     # note that on windows this DLL is automatically provided for you
-    discord.opus.load_opus('opus')
+    discord.opus.load_opus('/usr/local/lib/libopus.so')
 
 class VoiceEntry:
     def __init__(self, message, player):
@@ -145,7 +145,8 @@ class Music:
                 return
 
         try:
-            player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next)
+            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5" 
+            player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next,before_options=beforeArgs)
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
             await self.bot.send_message(ctx.message.channel, fmt.format(type(e).__name__, e))
