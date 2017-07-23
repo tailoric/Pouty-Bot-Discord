@@ -60,6 +60,7 @@ class VoiceState:
             self.play_next_song.clear()
             self.current = await self.songs.get()
             await self.bot.send_message(self.current.channel, 'Now playing ' + str(self.current))
+            await self.bot.change_presence(game=discord.Game(name=self.current.player.title))
             self.current.player.start()
             await self.play_next_song.wait()
 
@@ -154,7 +155,6 @@ class Music:
             player.volume = 0.6
             entry = VoiceEntry(ctx.message, player)
             await self.bot.say('Enqueued ' + str(entry))
-            await self.bot.change_presence(game=discord.Game(name=entry.player.title))
             await state.songs.put(entry)
 
     @commands.command(pass_context=True, no_pm=True)
