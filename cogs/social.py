@@ -76,7 +76,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('lewd',mentioned_users[0])
         else:
-            await self.bot.say('```\n.lewd (at)user\n```')
+            await self.find_file('lewd',None)
 
 
     @commands.command(hidden=False, pass_context=True)
