@@ -208,7 +208,7 @@ class Music:
     async def skip(self, ctx):
         """Vote to skip a song. The song requester can automatically skip.
 
-        3 skip votes are needed for the song to be skipped.
+        50% or more of total voice chat users skip votes are needed for the song to be skipped.
         """
 
         state = self.get_voice_state(ctx.message.server)
@@ -217,30 +217,52 @@ class Music:
             return
 
         voter = ctx.message.author
+        # subtract the bot from the user count
+        user_count = len(state.voice.channel.voice_members) - 1
         if voter == state.current.requester:
             await self.bot.say('Requester requested skipping song...')
             state.skip()
         elif voter.id not in state.skip_votes:
             state.skip_votes.add(voter.id)
             total_votes = len(state.skip_votes)
-            if total_votes >= 3:
+            percentage = int((total_votes/user_count) * 100)
+            if total_votes >= user_count/2:
                 await self.bot.say('Skip vote passed, skipping song...')
                 state.skip()
             else:
-                await self.bot.say('Skip vote added, currently at [{}/3]'.format(total_votes))
+                await self.bot.say("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
+
         else:
             await self.bot.say('You have already voted to skip this song.')
+
+    @commands.command(pass_context=True, no_pm=True)
+    async def unskip(self, ctx):
+        """
+        withdraw skip vote
+        """
+        state = self.get_voice_state(ctx.message.server)
+        voter = ctx.message.author
+        # subtract the bot from the user count
+        user_count = len(state.voice.channel.voice_members) - 1
+        if voter.id not in state.skip_votes:
+            await self.bot.say("You haven't voted skip ")
+        else:
+            state.skip_votes.discard(voter.id)
+            total_votes = len(state.skip_votes)
+            percentage = int((total_votes/user_count) * 100)
+            await self.bot.say("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,(percentage)))
 
     @commands.command(pass_context=True, no_pm=True)
     async def playing(self, ctx):
         """Shows info about the currently played song."""
 
         state = self.get_voice_state(ctx.message.server)
+        user_count = len(state.voice.channel.voice_members) - 1
         if state.current is None:
             await self.bot.say('Not playing anything.')
         else:
             skip_count = len(state.skip_votes)
-            await self.bot.say('Now playing {} [skips: {}/3]'.format(state.current, skip_count))
+            await self.bot.say('Now playing {} [skips: {}/{}]'.format(state.current, skip_count,user_count))
 
 
 def setup(bot):
