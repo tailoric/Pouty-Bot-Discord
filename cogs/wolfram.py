@@ -3,7 +3,7 @@ from discord.ext import commands
 import json
 from bs4 import BeautifulSoup
 from urllib import parse
-import urllib3
+from urllib import request
 
 
 class Wolfram:
@@ -63,9 +63,9 @@ class Wolfram:
                         message = '**Full Response:** {} \n'.format(full_response)
                         message += '**Input:** {} \n'.format(query_input[0])
                         message += '**Result:** \n'
-                        for elem in soup.find_all('img')[1:4]:
-                            message += elem['src'] + '\n'
                         await self.bot.say(message)
+                        for elem in soup.find_all('img')[1:5]:
+                            await self.bot.upload(request.urlopen(elem['src']),filename='wolfram.png')
                     else:
                         await self.bot.say('Query was unsuccessful please try something else')
 
