@@ -60,6 +60,7 @@ class VoiceState:
             self.play_next_song.clear()
             self.current = await self.songs.get()
             await self.bot.send_message(self.current.channel, 'Now playing ' + str(self.current))
+            await self.bot.change_presence(game=discord.Game(name=self.current.player.title))
             self.current.player.start()
             await self.play_next_song.wait()
 
@@ -71,6 +72,22 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
+        self.dc_loop = bot.loop.create_task(self.__disconnect_if_playlist_empty())
+
+    async def __disconnect_if_playlist_empty(self):
+        while not self.bot.is_closed:
+            for state in self.voice_states:
+                print('bla')
+                if not self.voice_states[state].songs:
+                    asyncio.sleep(10)
+                    try:
+                        state.audio_player.cancel()
+                        del self.voice_states[state]
+                        await state.voice.disconnect()
+                    except:
+                        pass
+
+            await asyncio.sleep(20)
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -154,7 +171,6 @@ class Music:
             player.volume = 0.6
             entry = VoiceEntry(ctx.message, player)
             await self.bot.say('Enqueued ' + str(entry))
-            await self.bot.change_presence(game=discord.Game(name=entry.player.title))
             await state.songs.put(entry)
 
     @commands.command(pass_context=True, no_pm=True)

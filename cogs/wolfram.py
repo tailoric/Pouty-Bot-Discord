@@ -3,6 +3,7 @@ from discord.ext import commands
 import json
 from bs4 import BeautifulSoup
 from urllib import parse
+import urllib3
 
 
 class Wolfram:
@@ -38,11 +39,12 @@ class Wolfram:
                         message = '**Full Response:** {} \n'.format(full_response)
                         message += '**Input:** {} \n'.format(query_input[0])
                         message += '**Result:** \n' \
-                                   '```'
-                        for elem in soup.find_all('plaintext')[1:3]:
+                                   '```\n'
+                        for elem in soup.find_all('plaintext')[1:6]:
                             if len(elem) > 0:
                                 message += elem.contents[0] + '\n'
                         message += '```'
+
                         await self.bot.say(message)
                     else:
                         await self.bot.say('Query was unsuccessful please try something else')
@@ -61,7 +63,7 @@ class Wolfram:
                         message = '**Full Response:** {} \n'.format(full_response)
                         message += '**Input:** {} \n'.format(query_input[0])
                         message += '**Result:** \n'
-                        for elem in soup.find_all('img')[1:3]:
+                        for elem in soup.find_all('img')[1:4]:
                             message += elem['src'] + '\n'
                         await self.bot.say(message)
                     else:

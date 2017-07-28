@@ -2,7 +2,8 @@ from discord.ext import commands
 import aiohttp
 from bs4 import BeautifulSoup
 import json
-
+from urllib import parse
+import requests
 class Search:
     """Reverse image search commands"""
 
@@ -167,6 +168,20 @@ class Search:
             if image_link is not None:
                 message += '\n**direct image:** <{}>'.format(image_link)
             await self.bot.reply(message)
+
+    @commands.command()
+    async def youtube(self, *, query: str):
+        url = "https://www.youtube.com/results?search_query=" + query
+        re = requests.get(url)
+        soup = BeautifulSoup(re.text,'html.parser')
+        vid = soup.find(attrs={'class': 'yt-uix-tile-link'})
+        await self.bot.say('https://www.youtube.com' + vid['href'])
+
+    @commands.command()
+    async def google(self, *, query: str):
+        """give a google search link"""
+        search = parse.quote_plus(query)
+        await self.bot.say("https://google.com/search?q={}".format(search))
 
 
 def setup(bot):

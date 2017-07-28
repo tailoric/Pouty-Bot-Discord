@@ -62,33 +62,7 @@ class Youtube:
         else:
             await self.bot.say("**Current Status:** Stop")
 
-    @commands.command()
-    async def youtube(self, *, query: str):
-        """Searches youtube and returns first result"""
-        flow = flow_from_clientsecrets(self.CLIENT_SECRETS_FILE,
-                                       message=self.MISSING_CLIENT_SECRETS_MESSAGE,
-                                       scope=self.YOUTUBE_READ_WRITE_SCOPE)
-        storage = Storage('data/youtube/pouty_bot-oauth2.json')
-        credentials = storage.get()
 
-        if credentials is None or credentials.invalid:
-            flags = argparser.parse_args()
-            credentials = run_flow(flow, storage, flags)
-        youtube = build(self.YOUTUBE_API_SERVICE_NAME, self.YOUTUBE_API_VERSION,
-                        http=credentials.authorize(httplib2.Http()))
-        result = youtube.search().list(
-            q=query,
-            part='id',
-            maxResults=1
-        ).execute()
-        youtube_link = "https://youtu.be/{}".format(result['items'][0]['id']['videoId'])
-        await self.bot.say(youtube_link)
-
-    @commands.command()
-    async def google(self, *, query: str):
-        """give a google search link"""
-        search = parse.quote_plus(query)
-        await self.bot.say("https://google.com/search?q={}".format(search))
 
     @commands.command(name="playlist")
     async def post_playlist(self):
