@@ -184,7 +184,7 @@ class Music:
             player.resume()
 
     @commands.command(pass_context=True, no_pm=True)
-    async def stop(self, ctx):
+    async def stopping(self, ctx):
         """Stops playing audio and leaves the voice channel.
 
         This also clears the queue.

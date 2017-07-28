@@ -12,7 +12,7 @@ class Wuxia:
         self.entries_db = 'data/wuxia.db'
         self.wuxia_session = aiohttp.ClientSession()
         self.url = 'http://www.wuxiaworld.com/feed/'
-        self.channel = discord.Object(id='287695136840876032')
+        self.channel = discord.Object(id='191787792898981888')
     def __unload(self):
         self.wuxia_session.close()
         self.update_feed.cancel()
@@ -66,6 +66,8 @@ class Wuxia:
                 await asyncio.sleep(60)
                 self.wuxia_session.close()
                 self.wuxia_session = aiohttp.ClientSession()
+                self.update_feed.cancel()
+                self.update_feed.create_task(self.__get_update())
                 continue
 
 
