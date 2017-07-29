@@ -35,6 +35,7 @@ class VoiceState:
         self.songs = asyncio.Queue()
         self.skip_votes = set() # a set of user_ids that voted
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
+        self.song_queue = set()
 
     def is_playing(self):
         if self.voice is None or self.current is None:
@@ -155,6 +156,7 @@ class Music:
         else:
             player.volume = 0.6
             entry = VoiceEntry(ctx.message, player)
+            state.song_queue.add(entry)
             await self.bot.say('Enqueued ' + str(entry))
             await state.songs.put(entry)
 
@@ -262,7 +264,11 @@ class Music:
             await self.bot.say('Not playing anything.')
         else:
             skip_count = len(state.skip_votes)
-            await self.bot.say('Now playing {} [skips: {}/{}]'.format(state.current, skip_count,user_count))
+            await self.bot.say('Now playing {} [skips: {}/{}]\n'.format(state.current, skip_count,user_count))
+            message = 'Upcoming songs:\n'
+            for entry in state.song_queue:
+                message += '{}\n'.format(entry)
+            await self.bot.say(message)
 
 
 def setup(bot):
