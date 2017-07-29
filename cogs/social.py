@@ -124,13 +124,24 @@ class Social:
     @commands.command(hidden=False, pass_context=True)
     async def kiss(self,ctx):
         """
-            usage: .slap (at) user
+            usage: .kiss (at) user
         """
         mentioned_users = ctx.message.mentions
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('kiss',mentioned_users[0])
         else:
             await self.bot.say('```\n.kiss (at)user\n```')
-            
+
+    @commands.command(hidden=False, pass_context=True)
+    async def blush(self,ctx):
+        """
+            usage: .blush (at) user
+        """
+        mentioned_users = ctx.message.mentions
+        if mentioned_users and len(mentioned_users) == 1:
+            await self.find_file('Blush',mentioned_users[0])
+        else:
+            await self.find_file('Blush', None)
+
 def setup(bot):
     bot.add_cog(Social(bot))
