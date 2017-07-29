@@ -12,6 +12,9 @@ class Danbooru:
 
     @commands.command()
     async def dan(self,*,tags:str):
+        """
+        look for the most recent image on danbooru with specified tags
+        """
         params = {'tags' : tags, 'limit' : '1'}
         with open(self.auth_file, 'r') as file:
             data = json.load(file)
@@ -31,6 +34,9 @@ class Danbooru:
 
     @commands.command()
     async def danr(self,*,tags:str):
+        """
+        look for a random image on danbooru with specified tags
+        """
         params = {'tags' : tags, 'limit' : '1','random' : 'true'}
         with open(self.auth_file, 'r') as file:
             data = json.load(file)
