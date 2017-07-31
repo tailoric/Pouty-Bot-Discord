@@ -75,6 +75,7 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
+        self.check_running_task = self.bot.loop.create_task(self.disconnect_if_not_playing())
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -97,6 +98,7 @@ class Music:
                     self.bot.loop.create_task(state.voice.disconnect())
             except:
                 pass
+        self.check_running_task.cancel()
 
     @commands.command(pass_context=True, no_pm=True)
     async def join(self, ctx, *, channel : discord.Channel):
@@ -204,6 +206,7 @@ class Music:
             state.audio_player.cancel()
             del self.voice_states[server.id]
             await state.voice.disconnect()
+            await self.bot.change_presence(game=None)
         except:
             pass
 
@@ -271,6 +274,21 @@ class Music:
                 for entry in state.song_queue:
                     message += '{}\n'.format(entry)
                 await self.bot.say(message)
+
+    async def disconnect_if_not_playing(self):
+        await self.bot.wait_until_ready()
+        while not self.bot.is_closed:
+            for state_id in self.voice_states:
+                state = self.voice_states.get(state_id)
+                if not state.is_playing():
+                    await asyncio.sleep(60)
+                    if not state.is_playing():
+                        await self.bot.change_presence(game=None)
+                        await state.voice.disconnect()
+
+                    else:
+                        continue
+            await asyncio.sleep(300)
 
 
 def setup(bot):
