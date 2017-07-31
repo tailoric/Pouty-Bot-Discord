@@ -30,7 +30,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await  self.find_file(file_name,mentioned_users[0])
         else:
-            await  self.find_file(file_name,None)
+            await  self.find_file(file_name,ctx.message.author)
 
 
 
@@ -43,7 +43,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('hug', mentioned_users[0])
         else:
-            await self.bot.say('```\n.hug (at)user\n```')
+            await  self.find_file('hug',ctx.message.author)
 
     @commands.command(hidden=False, pass_context=True)
     async def smug(self, ctx):
@@ -54,7 +54,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('smug',mentioned_users[0])
         else:
-            await  self.find_file('smug',None)
+            await  self.find_file('smug',ctx.message.author)
     @commands.command(hidden=False, pass_context=True)
     async def cuddle(self, ctx):
         """
@@ -64,7 +64,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('cuddle',mentioned_users[0])
         else:
-            await self.bot.say('```\n.cuddle (at)user\n```')
+            await self.find_file('cuddle',ctx.message.author)
 
 
     @commands.command(hidden=False, pass_context=True)
@@ -76,7 +76,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('lewd',mentioned_users[0])
         else:
-            await self.find_file('lewd',None)
+            await self.find_file('lewd',ctx.message.author)
 
 
     @commands.command(hidden=False, pass_context=True)
@@ -88,7 +88,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('pat',mentioned_users[0])
         else:
-            await self.bot.say('```\n.pat (at)user\n```')
+            await self.find_file('pat',ctx.message.author)
 
     @commands.command(hidden=False, pass_context=True)
     async def bully(self,ctx):
@@ -99,7 +99,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('bully',mentioned_users[0])
         else:
-            await self.bot.say('```\n.bully (at)user\n```')
+            await self.find_file('bully',ctx.message.author)
     @commands.command(hidden=False, pass_context=True)
     async def nobully(self,ctx):
         """
@@ -109,7 +109,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('nobullys',mentioned_users[0])
         else:
-            await self.find_file('nobullys', None)
+            await self.find_file('nobullys',ctx.message.author)
     @commands.command(hidden=False, pass_context=True)
     async def slap(self,ctx):
         """
@@ -119,7 +119,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('slaps',mentioned_users[0])
         else:
-            await self.bot.say('```\n.slap (at)user\n```')
+            await self.find_file('slaps',ctx.message.author)
 
     @commands.command(hidden=False, pass_context=True)
     async def kiss(self,ctx):
@@ -130,7 +130,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('kiss',mentioned_users[0])
         else:
-            await self.bot.say('```\n.kiss (at)user\n```')
+            await self.find_file('kiss',ctx.message.author)
 
     @commands.command(hidden=False, pass_context=True)
     async def blush(self,ctx):
@@ -141,7 +141,7 @@ class Social:
         if mentioned_users and len(mentioned_users) == 1:
             await self.find_file('Blush',mentioned_users[0])
         else:
-            await self.find_file('Blush', None)
+            await self.find_file('Blush', ctx.message.author)
 
 def setup(bot):
     bot.add_cog(Social(bot))
