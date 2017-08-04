@@ -60,7 +60,7 @@ class VoiceState:
         while True:
             self.play_next_song.clear()
             self.current = await self.songs.get()
-            self.song_queue.pop()
+            self.song_queue.pop(0)
             self.skip_votes.clear()
             await self.bot.send_message(self.current.channel, 'Now playing ' + str(self.current))
             await self.bot.change_presence(game=discord.Game(name=self.current.player.title))
@@ -75,7 +75,7 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
-        self.check_running_task = self.bot.loop.create_task(self.disconnect_if_not_playing())
+        #self.check_running_task = self.bot.loop.create_task(self.disconnect_if_not_playing())
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -205,6 +205,7 @@ class Music:
         try:
             state.audio_player.cancel()
             del self.voice_states[server.id]
+            state.song_queue.clear()
             await state.voice.disconnect()
             await self.bot.change_presence(game=None)
         except:
@@ -234,6 +235,7 @@ class Music:
             percentage = int((total_votes/user_count) * 100)
             if total_votes >= user_count/2:
                 await self.bot.say('Skip vote passed, skipping song...')
+                state.song_queue.pop(0)
                 state.skip()
             else:
                 await self.bot.say("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
@@ -275,20 +277,20 @@ class Music:
                     message += '{}\n'.format(entry)
                 await self.bot.say(message)
 
-    async def disconnect_if_not_playing(self):
-        await self.bot.wait_until_ready()
-        while not self.bot.is_closed:
-            for state_id in self.voice_states:
-                state = self.voice_states.get(state_id)
-                if not state.is_playing():
-                    await asyncio.sleep(60)
-                    if not state.is_playing():
-                        await self.bot.change_presence(game=None)
-                        await state.voice.disconnect()
-
-                    else:
-                        continue
-            await asyncio.sleep(300)
+    # async def disconnect_if_not_playing(self):
+    #     await self.bot.wait_until_ready()
+    #     while not self.bot.is_closed:
+    #         for state_id in self.voice_states:
+    #             state = self.voice_states.get(state_id)
+    #             if not state.is_playing():
+    #                 await asyncio.sleep(60)
+    #                 if not state.is_playing():
+    #                     await self.bot.change_presence(game=None)
+    #                     await state.voice.disconnect()
+    #
+    #                 else:
+    #                     continue
+    #         await asyncio.sleep(300)
 
 
 def setup(bot):
