@@ -98,7 +98,7 @@ class Music:
                     self.bot.loop.create_task(state.voice.disconnect())
             except:
                 pass
-        self.check_running_task.cancel()
+        #self.check_running_task.cancel()
 
     @commands.command(pass_context=True, no_pm=True)
     async def join(self, ctx, *, channel : discord.Channel):
@@ -238,7 +238,7 @@ class Music:
                 state.song_queue.pop(0)
                 state.skip()
             else:
-                await self.bot.say("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
+                await self.bot.say("Voted to skip currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
 
         else:
             await self.bot.say('You have already voted to skip this song.')
