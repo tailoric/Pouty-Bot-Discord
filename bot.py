@@ -18,6 +18,19 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('-'*8)
+    init_extensions = [
+        'cogs.owner',
+        'cogs.image_search',
+        'cogs.social',
+        'cogs.playlist',
+        'cogs.wolfram',
+        'cogs.danbooru'
+    ]
+    try:
+        for extension in init_extensions:
+            bot.load_extension(extension)
+    except Exception as e:
+        print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
 
 @bot.event
 async def on_command_error(error,ctx):
@@ -27,19 +40,6 @@ async def on_command_error(error,ctx):
 
 if __name__ == '__main__':
     credentials = load_credentials()
-    init_extensions = [
-        'cogs.owner',
-        'cogs.image_search',
-        'cogs.social',
-        'cogs.playlist',
-        'cogs.wolfram',
-        'cogs.danbooru'
-        ]
-    try:
-        for extension in init_extensions:
-            bot.load_extension(extension)
-    except Exception as e:
-        print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
     bot.client_id = credentials['client-id']
     logger = logging.getLogger('discord')
     logger.setLevel(logging.DEBUG)
