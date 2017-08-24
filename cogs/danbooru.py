@@ -57,9 +57,9 @@ class Dansub:
                 self.timestamp = max(timestamp_posted)
                 await self.bot.send_message(self.channel,'**Tags:** '+self.tags+'\n'+dashes)
                 message = self.user.mention + '\n'
+                await self.bot.send_message(self.channel, message)
                 for post in new_posts:
-                    message += post + '\n'
-                await self.bot.send_message(self.channel,message)
+                    await self.bot.send_message(self.channel,post)
                 await self.bot.send_message(self.channel, dashes+ '\n**Tags:** '+self.tags)
                 with open(self.feed_file,'w') as f:
                     f.write(str(self.timestamp))
