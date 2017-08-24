@@ -7,6 +7,7 @@ import datetime
 from dateutil import parser
 from .utils import checks
 import asyncio
+import time
 
 class Dansub:
     def __init__(self,bot, session, server, user, channel, tags):
@@ -62,7 +63,7 @@ class Dansub:
                 await self.bot.send_message(self.channel, dashes+ '\n**Tags:** '+self.tags)
                 with open(self.feed_file,'w') as f:
                     f.write(str(self.timestamp))
-            await asyncio.sleep(300)
+            await asyncio.sleep(1800)
 
 
     async def first_run(self):
@@ -158,6 +159,7 @@ class Danbooru:
                             dansub.set_timestamp(f.read())
                         dansub.create_update_task()
                         self.dansubs.add(dansub)
+                        time.sleep(10)
 
     async def lookup_tag(self,tags, **kwargs):
         params = {'tags' : tags}
