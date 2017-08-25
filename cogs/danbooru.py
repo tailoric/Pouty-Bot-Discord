@@ -118,30 +118,27 @@ class Danbooru:
         self.retrieve_subs()
 
     def __unload(self):
-        while self.dansubs:
-            sub = self.dansubs.pop()
-            if sub.update_loop:
-                sub.update_loop.cancel()
-            del sub
-        del self.dansubs
+        with open(self.subs_db, 'w') as f:
+            while self.dansubs:
+                sub = self.dansubs.pop()
+                f.write(str(sub))
+                if sub.update_loop:
+                    sub.update_loop.cancel()
+                del sub
+            del self.dansubs
         self.danbooru_session.close()
 
     async def delete_sub(self,sub):
         try:
-            with open(self.subs_db, 'r+') as f:
-                lines = f.readlines()
-                for line in lines:
-                    if str(sub) == line:
-                        lines.remove(line)
-                f.seek(0)
-                f.writelines(lines)
-                f.truncate()
-            sub.update_loop.cancel()
-            os.remove(sub.feed_file)
+            if sub.update_loop:
+                sub.update_loop.cancel()
             self.dansubs.remove(sub)
-            del sub
+            os.remove(sub.feed_file)
+            with open(self.subs_db,'w') as f:
+                for item in self.dansubs:
+                    f.write(str(item))
             await self.bot.reply('unsubbed successfully')
-        except:
+        except Exception as e:
             await self.bot.reply("something went wrong while deleting")
 
     async def create_update_tasks(self):
@@ -163,6 +160,9 @@ class Danbooru:
                         user = server.get_member(sub[1])
                         tags = sub[0]
                         dansub = Dansub(self.bot,self.danbooru_session,server,user,channel,tags)
+                        if not os.path.exists(dansub.file_name(user,tags)):
+                            del dansub
+                            continue
                         with open(dansub.file_name(user,tags)) as f:
                             dansub.set_timestamp(f.read())
                         self.dansubs.add(dansub)
