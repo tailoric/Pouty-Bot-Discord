@@ -7,6 +7,7 @@ import datetime
 from dateutil import parser
 from .utils import checks
 import asyncio
+from asyncio import Lock
 import time
 
 class Dansub:
@@ -53,14 +54,14 @@ class Dansub:
                     timestamp_posted.append(created)
                     new_posts.append(image['file_url'])
             if timestamp_posted:
-                dashes = len(self.tags)*'-' + len('**Tags:** ')*'---'
                 self.timestamp = max(timestamp_posted)
-                await self.bot.send_message(self.channel,'**Tags:** '+self.tags+'\n'+dashes)
-                message = self.user.mention + '\n'
-                await self.bot.send_message(self.channel, message)
+                await self.bot.send_message(self.channel, self.user.mention)
+                await self.bot.send_message(self.channel,'**Tags:** ' + self.tags + '\n')
+                await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
                 for post in new_posts:
                     await self.bot.send_message(self.channel,post)
-                await self.bot.send_message(self.channel, dashes+ '\n**Tags:** '+self.tags)
+                await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
+                await self.bot.send_message(self.channel,'**Tags:** ' + self.tags + '\n')
                 with open(self.feed_file,'w') as f:
                     f.write(str(self.timestamp))
             await asyncio.sleep(1800)
@@ -117,10 +118,12 @@ class Danbooru:
         self.retrieve_subs()
 
     def __unload(self):
-        for sub in self.dansubs:
-            self.dansubs.remove(sub)
-            sub.update_loop.cancel()
+        while self.dansubs:
+            sub = self.dansubs.pop()
+            if sub.update_loop:
+                sub.update_loop.cancel()
             del sub
+        del self.dansubs
         self.danbooru_session.close()
 
     async def delete_sub(self,sub):
@@ -141,6 +144,11 @@ class Danbooru:
         except:
             await self.bot.reply("something went wrong while deleting")
 
+    async def create_update_tasks(self):
+        for sub in self.dansubs:
+            sub.create_update_task()
+            await asyncio.sleep(60)
+
     def retrieve_subs(self):
         if not os.path.isfile(self.subs_db):
             open(self.subs_db,'w').close()
@@ -157,9 +165,10 @@ class Danbooru:
                         dansub = Dansub(self.bot,self.danbooru_session,server,user,channel,tags)
                         with open(dansub.file_name(user,tags)) as f:
                             dansub.set_timestamp(f.read())
-                        dansub.create_update_task()
                         self.dansubs.add(dansub)
-                        time.sleep(10)
+                    for i in self.dansubs:
+                        print('{0.tags} {0.user};'.format(i))
+                    self.bot.loop.create_task(self.create_update_tasks())
 
     async def lookup_tag(self,tags, **kwargs):
         params = {'tags' : tags}
@@ -214,7 +223,7 @@ class Danbooru:
         channel = ctx.message.channel
         member = ctx.message.author
         for sub in self.dansubs:
-            if sub.compare_tags(tags):
+            if sub.compare_tags(tags) and ctx.message.author == sub.user:
                 await self.bot.reply('these tags are already subbed')
                 return
         dansub = Dansub(self.bot,self.danbooru_session,server,member,channel,tags)
