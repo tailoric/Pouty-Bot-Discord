@@ -15,26 +15,33 @@ class Dansub:
         self.bot = bot
         self.session = session
         self.server = server
-        self.user = user
+        self.users = list()
+        if type(user) == list:
+            self.users += user
+        else:
+            self.users.append(user)
         self.channel = channel
         self.tags = tags
         self.timestamp = datetime.datetime
         self.auth_file = 'data/danbooru/danbooru.json'
-        self.feed_file = self.file_name(self.user,self.tags)
+        self.feed_file = self.file_name(self.users[0], self.tags)
         self.update_loop = None
 
     def __str__(self):
-        return "{0}|{1.id}|{2.id}|{3.id}|{4}\n".format(self.tags,self.user,self.channel,self.server,str(self.timestamp))
+        user_ids = [i.id for i in self.users]
+        user_string = ';'.join(user_ids)
+        return "{0}|{1}|{2.id}|{3.id}|{4}\n".format(self.tags, user_string, self.channel, self.server, str(self.timestamp))
 
+    def add_user(self,user):
+        self.users.append(user)
 
     def set_timestamp(self,timestamp):
         self.timestamp = parser.parse(timestamp)
 
     def file_name(self,user,tags):
-        fmt = 'data/danbooru/subs/{0}_{1}.txt'
-        id = user.id
+        fmt = 'data/danbooru/subs/{0}.txt'
         tag_names = tags.replace(' ','_').replace(':','')
-        return fmt.format(id,tag_names)
+        return fmt.format(tag_names)
 
     def compare_tags(self, tags):
         my_tags = self.tags.split()
@@ -55,7 +62,8 @@ class Dansub:
                     new_posts.append(image['file_url'])
             if timestamp_posted:
                 self.timestamp = max(timestamp_posted)
-                await self.bot.send_message(self.channel, self.user.mention)
+                for user in self.users:
+                    await self.bot.send_message(self.channel, user.mention)
                 await self.bot.send_message(self.channel,'**Tags:** ' + self.tags + '\n')
                 await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
                 for post in new_posts:
@@ -65,7 +73,6 @@ class Dansub:
                 with open(self.feed_file,'w') as f:
                     f.write(str(self.timestamp))
             await asyncio.sleep(1800)
-
 
     async def first_run(self):
         images = await self.lookup_tag(self.tags, limit='3')
@@ -157,17 +164,20 @@ class Danbooru:
                         sub = line.split('|')
                         server = self.bot.get_server(sub[3])
                         channel = self.bot.get_channel(sub[2])
-                        user = server.get_member(sub[1])
+                        users = sub[1].split(';')
+                        userlist = []
+                        for user in users:
+                            userlist.append(server.get_member(user))
                         tags = sub[0]
-                        dansub = Dansub(self.bot,self.danbooru_session,server,user,channel,tags)
-                        if not os.path.exists(dansub.file_name(user,tags)):
-                            del dansub
-                            continue
-                        with open(dansub.file_name(user,tags)) as f:
+                        dansub = Dansub(self.bot,self.danbooru_session,server,userlist,channel,tags)
+                        with open(dansub.file_name(userlist[0],tags)) as f:
                             dansub.set_timestamp(f.read())
                         self.dansubs.add(dansub)
                     for i in self.dansubs:
-                        print('{0.tags} {0.user};'.format(i))
+                        users_str = str(i.users[0])
+                        for user in i.users[1:]:
+                            users_str += ', ' + str(user)
+                        print('{0.tags} {1};'.format(i, users_str))
                     self.bot.loop.create_task(self.create_update_tasks())
 
     async def lookup_tag(self,tags, **kwargs):
@@ -214,17 +224,33 @@ class Danbooru:
 
     @commands.group(pass_context=True)
     async def dans(self,ctx):
+        '''
+        danbooru subscribing service
+        use .help dans for more info
+        '''
         if ctx.invoked_subcommand is None:
             await self.bot.say('Invalid dans command passed ')
 
     @dans.command(pass_context=True)
     async def sub(self,ctx, *, tags):
+        '''
+        subscribe to a number of tags
+        '''
         server = ctx.message.server
         channel = ctx.message.channel
         member = ctx.message.author
         for sub in self.dansubs:
-            if sub.compare_tags(tags) and ctx.message.author == sub.user:
+            if sub.compare_tags(tags) and ctx.message.author in sub.users:
                 await self.bot.reply('these tags are already subbed')
+                return
+            elif sub.compare_tags(tags) and not ctx.message.author in sub.users:
+                sub.add_user(member)
+                with open(self.subs_db, 'w') as f:
+                    lines = list()
+                    for sub in self.dansubs:
+                        lines.append(str(sub))
+                    f.writelines(lines)
+                await self.bot.say('user added to existing sub')
                 return
         dansub = Dansub(self.bot,self.danbooru_session,server,member,channel,tags)
         self.dansubs.add(dansub)
@@ -234,6 +260,9 @@ class Danbooru:
 
     @dans.command(pass_context=True)
     async def preview(self,ctx, *, tags):
+        '''
+        see up to three random images from the tags
+        '''
         message = await self.bot.say('fetching three random results please wait...')
         images = await self.lookup_tag(tags, limit='3', random='true')
         for image in images:
@@ -242,11 +271,23 @@ class Danbooru:
 
     @dans.command(pass_context=True)
     async def unsub(self,ctx, *, tags):
+        '''
+        unsubscribe from tags
+        '''
         sub_found = False
         for sub in self.dansubs:
-            if sub.compare_tags(tags) and ctx.message.author.id == sub.user.id:
+            if sub.compare_tags(tags) and ctx.message.author in sub.users:
                 sub_found = True
-                await self.delete_sub(sub)
+                if len(sub.users) > 1:
+                    sub.users.remove(ctx.message.author)
+                    with open(self.subs_db, 'w') as f:
+                        lines = list()
+                        for sub in self.dansubs:
+                            lines.append(str(sub))
+                        f.writelines(lines)
+                    await self.bot.say('sucessfully unsubscribed')
+                else:
+                    await self.delete_sub(sub)
         if not sub_found:
             await self.bot.reply('you are not subscribed to that tag')
 
