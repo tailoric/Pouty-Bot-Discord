@@ -285,7 +285,7 @@ class Danbooru:
                         for sub in self.dansubs:
                             lines.append(str(sub))
                         f.writelines(lines)
-                    await self.bot.say('sucessfully unsubscribed')
+                    await self.bot.say('successfully unsubscribed')
                 else:
                     await self.delete_sub(sub)
         if not sub_found:
