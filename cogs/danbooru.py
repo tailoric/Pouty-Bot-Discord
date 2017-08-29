@@ -77,6 +77,8 @@ class Dansub:
     async def first_run(self):
         images = await self.lookup_tag(self.tags, limit='3')
         timestamps = list()
+        if not images:
+            return False
         for image in images:
             new_timestamp = parser.parse(image['created_at'])
             timestamps.append(new_timestamp)
@@ -87,6 +89,7 @@ class Dansub:
                 output = str(self.timestamp)
                 f.write(output)
                 self.update_loop = self.bot.loop.create_task(self.update_feed())
+                return True
 
     def create_update_task(self):
         self.update_loop = self.bot.loop.create_task(self.update_feed())
@@ -253,8 +256,10 @@ class Danbooru:
                 await self.bot.say('user added to existing sub')
                 return
         dansub = Dansub(self.bot,self.danbooru_session,server,member,channel,tags)
+        success = await dansub.first_run()
+        if not success:
+            return
         self.dansubs.add(dansub)
-        await dansub.first_run()
         with open(self.subs_db, 'a+') as file:
             file.write(str(dansub))
 
