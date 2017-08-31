@@ -64,12 +64,12 @@ class Dansub:
                 self.timestamp = max(timestamp_posted)
                 for user in self.users:
                     await self.bot.send_message(self.channel, user.mention)
-                await self.bot.send_message(self.channel,'**Tags:** ' + self.tags + '\n')
+                await self.bot.send_message(self.channel,'**Tags:** `' + self.tags + '`\n')
                 await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
                 for post in new_posts:
                     await self.bot.send_message(self.channel,post)
                 await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
-                await self.bot.send_message(self.channel,'**Tags:** ' + self.tags + '\n')
+                await self.bot.send_message(self.channel,'**Tags:** `' + self.tags + '`\n')
                 with open(self.feed_file,'w') as f:
                     f.write(str(self.timestamp))
             await asyncio.sleep(1800)
