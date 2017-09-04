@@ -39,8 +39,11 @@ class Dansub:
         self.timestamp = parser.parse(timestamp)
 
     def file_name(self,user,tags):
+        bad_chars = ['/','\0',':','?','|']
         fmt = 'data/danbooru/subs/{0}.txt'
-        tag_names = tags.replace(' ','_').replace(':','')
+        tag_names = tags.replace(' ','_')
+        for char in bad_chars:
+            tag_names = tag_names.replace(char,'')
         return fmt.format(tag_names)
 
     def compare_tags(self, tags):
