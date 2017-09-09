@@ -155,9 +155,10 @@ class Danbooru:
             await self.bot.reply("something went wrong while deleting")
 
     async def create_update_tasks(self):
-        for sub in self.dansubs:
+        cp_dansubs = self.dansubs.copy()
+        for sub in cp_dansubs:
             sub.create_update_task()
-            await asyncio.sleep(60)
+            await asyncio.sleep(10)
 
     def retrieve_subs(self):
         if not os.path.isfile(self.subs_db):
