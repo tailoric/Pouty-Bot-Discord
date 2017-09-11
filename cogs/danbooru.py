@@ -5,309 +5,326 @@ import json
 import os
 import datetime
 from dateutil import parser
-from .utils import checks
 import asyncio
-from asyncio import Lock
-import time
+import re
+import traceback
 
-class Dansub:
-    def __init__(self,bot, session, server, user, channel, tags):
+class Helper:
+    def __init__(self, session, bot, auth_file):
         self.bot = bot
         self.session = session
-        self.server = server
-        self.users = list()
-        if type(user) == list:
-            self.users += user
-        else:
-            self.users.append(user)
-        self.channel = channel
-        self.tags = tags
-        self.timestamp = datetime.datetime
-        self.auth_file = 'data/danbooru/danbooru.json'
-        self.feed_file = self.file_name(self.users[0], self.tags)
-        self.update_loop = None
+        self.auth_file = auth_file
 
-    def __str__(self):
-        user_ids = [i.id for i in self.users]
-        user_string = ';'.join(user_ids)
-        return "{0}|{1}|{2.id}|{3.id}|{4}\n".format(self.tags, user_string, self.channel, self.server, str(self.timestamp))
-
-    def add_user(self,user):
-        self.users.append(user)
-
-    def set_timestamp(self,timestamp):
-        self.timestamp = parser.parse(timestamp)
-
-    def file_name(self,user,tags):
-        bad_chars = ['/','\0',':','?','|']
-        fmt = 'data/danbooru/subs/{0}.txt'
-        tag_names = tags.replace(' ','_')
-        for char in bad_chars:
-            tag_names = tag_names.replace(char,'')
-        return fmt.format(tag_names)
-
-    def compare_tags(self, tags):
-        my_tags = self.tags.split()
-        my_tags.sort()
-        other_tags = tags.split()
-        other_tags.sort()
-        return my_tags == other_tags
-
-    async def update_feed(self):
-        while not self.bot.is_closed:
-            images = await self.lookup_tag(self.tags)
-            timestamp_posted = list()
-            new_posts = list()
-            for image in images:
-                created = parser.parse(image['created_at'])
-                if created > self.timestamp:
-                    timestamp_posted.append(created)
-                    new_posts.append(image['file_url'])
-            if timestamp_posted:
-                self.timestamp = max(timestamp_posted)
-                for user in self.users:
-                    await self.bot.send_message(self.channel, user.mention)
-                await self.bot.send_message(self.channel,'**Tags:** `' + self.tags + '`\n')
-                await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
-                for post in new_posts:
-                    await self.bot.send_message(self.channel,post)
-                await self.bot.send_message(self.channel,(len('Tags: ')+len(self.tags))*'-' + '\n')
-                await self.bot.send_message(self.channel,'**Tags:** `' + self.tags + '`\n')
-                with open(self.feed_file,'w') as f:
-                    f.write(str(self.timestamp))
-            await asyncio.sleep(1800)
-
-    async def first_run(self):
-        images = await self.lookup_tag(self.tags, limit='3')
-        timestamps = list()
-        if not images:
-            return False
-        for image in images:
-            new_timestamp = parser.parse(image['created_at'])
-            timestamps.append(new_timestamp)
-            await self.bot.say(image['file_url'])
-        if timestamps:
-            self.timestamp = max(timestamps)
-            with open(self.feed_file,'w') as f:
-                output = str(self.timestamp)
-                f.write(output)
-                self.update_loop = self.bot.loop.create_task(self.update_feed())
-                return True
-
-    def create_update_task(self):
-        self.update_loop = self.bot.loop.create_task(self.update_feed())
-
-    async def lookup_tag(self,tags, **kwargs):
+    async def lookup_tags(self, tags, **kwargs):
         params = {'tags' : tags}
-        for key in kwargs:
-            params[key] = kwargs[key]
-
-        with open(self.auth_file, 'r') as file:
+        for key, value in kwargs.items():
+            params[key] = value
+        with open(self.auth_file) as file:
             data = json.load(file)
             user = data['user']
             api_key = data['api_key']
         auth = aiohttp.BasicAuth(user, api_key)
-        url = 'http://danbooru.donmai.us/'
-        async with self.session.get('{}posts.json'.format(url),params=params,auth=auth) as response:
+        url = 'http://danbooru.donmai.us'
+        async with self.session.get('{}/posts.json'.format(url), params=params, auth=auth) as response:
             if response.status == 200:
                 json_dump = await response.json()
-                if json_dump:
-                    for key in json_dump:
-                        key['file_url'] = url + key['file_url']
-                    return  json_dump
-                else:
-                    await self.bot.say('empty Server response')
+                for image in json_dump:
+                    image['file_url'] = url + image['file_url']
+                return json_dump
             else:
-                await self.bot.say('Danbooru server answered with error code:\n```\n{}\n```'.format(response.status))
-class Danbooru:
+                return None
 
-    def __init__(self, bot):
+class Dansub:
+
+    def __init__(self, users, tags, server: discord.Server, channel: discord.Channel):
+        self.users = list()
+        if type(users) == list:
+            self.users += users
+        else:
+            self.users.append(users)
+        self.tags = list()
+        self.tags += tags
+        self.server = server
+        self.channel = channel
+        self.old_timestamp = None
+        self.new_timestamp = datetime.datetime
+        self.already_posted = list()
+        self.feed_file = 'data/danbooru/subs/{}.json'.format(self.tags_to_filename())
+
+    def users_to_mention(self):
+        mention_string = ','.join(user.mention for user in self.users)
+        return mention_string
+
+    def tags_to_string(self):
+        self.tags.sort()
+        return ' '.join(self.tags)
+
+    def compare_tags(self,tags):
+        tags.sort()
+        return tags == self.tags
+
+    def tags_to_filename(self):
+        # delete any character that isn't a word char - _ or . from the filename
+        return re.sub('[^\w\-_\.]','_', self.tags_to_string())
+
+    def sub_to_json(self):
+        ret_val = dict()
+        ret_val['users'] = {}
+        for counter, user in enumerate(self.users):
+            ret_val['users'][counter] = {}
+            ret_val['users'][counter]['id'] = user.id
+            ret_val['users'][counter]['name'] = user.name
+            ret_val['users'][counter]['mention'] = user.mention
+        ret_val['tags'] = self.tags
+        ret_val['server'] = self.server.id
+        ret_val['channel'] = self.channel.id
+        ret_val['old_timestamp'] = str(self.old_timestamp)
+        ret_val['new_timestamp'] = str(self.new_timestamp)
+        ret_val['already_posted'] = self.already_posted
+        return json.dumps(ret_val,indent=2)
+
+    def write_sub_to_file(self):
+        content = self.sub_to_json()
+        with open(self.feed_file,'w') as file:
+            file.write(content)
+
+
+
+class Scheduler:
+    def __init__(self, bot, session):
         self.bot = bot
-        self.danbooru_session = aiohttp.ClientSession()
+        self.session = session
+        self.subscriptions = list()
         self.auth_file = 'data/danbooru/danbooru.json'
-        self.dansubs = set()
-        self.subs_channel = discord.Channel
-        self.subs_db = 'data/danbooru/subs.db'
+        self.subs_file = 'data/danbooru/subs.db'
         self.retrieve_subs()
+        self.schedule_task = self.bot.loop.create_task(self.schedule_task())
+        self.helper = Helper(self.session,self.bot,self.auth_file)
 
-    def __unload(self):
-        with open(self.subs_db, 'w') as f:
-            while self.dansubs:
-                sub = self.dansubs.pop()
-                f.write(str(sub))
-                if sub.update_loop:
-                    sub.update_loop.cancel()
-                del sub
-            del self.dansubs
-        self.danbooru_session.close()
+    async def schedule_task(self):
+        #iterate through all subscriptions and update information
+        while(not self.bot.is_closed):
+            subs_copy = self.subscriptions.copy()
+            for sub in subs_copy:
+                new_posts = list()
+                timestamp_posted = list()
+                try:
+                    tags = sub.tags_to_string()
+                    images = await self.helper.lookup_tags(tags)
+                    for image in images:
+                        created = parser.parse(image['created_at'])
+                        if not sub.old_timestamp:
+                            sub.old_timestamp = created
+                        if created > sub.old_timestamp:
+                            new_posts.append(image['file_url'])
+                            timestamp_posted.append(created)
+                    if new_posts:
+                        await self.send_new_posts(sub,new_posts)
+                        sub.old_timestamp = max(timestamp_posted)
+                    await asyncio.sleep(5)
 
-    async def delete_sub(self,sub):
-        try:
-            if sub.update_loop:
-                sub.update_loop.cancel()
-            self.dansubs.remove(sub)
-            os.remove(sub.feed_file)
-            with open(self.subs_db,'w') as f:
-                for item in self.dansubs:
-                    f.write(str(item))
-            await self.bot.reply('unsubbed successfully')
-        except Exception as e:
-            await self.bot.reply("something went wrong while deleting")
-
-    async def create_update_tasks(self):
-        cp_dansubs = self.dansubs.copy()
-        for sub in cp_dansubs:
-            sub.create_update_task()
-            await asyncio.sleep(10)
+                except Exception as e:
+                    owner = discord.User(id='134310073014026242')
+                    self.write_to_file()
+                    for sub in self.subscriptions:
+                        sub.write_sub_to_file()
+                    await self.bot.send_message(owner,
+                                                'Error during update Task: `{}`'.format(repr(e)))
+                    await self.bot.send_message(owner, 'during Sub: `{}`'.format(sub.tags_to_string()))
+                    await self.bot.send_message(owner, '```\n{}\n```'.format(traceback.print_exc()))
+            self.write_to_file()
+            await asyncio.sleep(15)
 
     def retrieve_subs(self):
-        if not os.path.isfile(self.subs_db):
-            open(self.subs_db,'w').close()
-        else:
-            with open(self.subs_db, 'r') as file:
-                lines = file.readlines()
-                if lines:
-                    for line in lines:
-                        sub = line.split('|')
-                        server = self.bot.get_server(sub[3])
-                        channel = self.bot.get_channel(sub[2])
-                        users = sub[1].split(';')
-                        userlist = []
-                        for user in users:
-                            userlist.append(server.get_member(user))
-                        tags = sub[0]
-                        dansub = Dansub(self.bot,self.danbooru_session,server,userlist,channel,tags)
-                        with open(dansub.file_name(userlist[0],tags)) as f:
-                            dansub.set_timestamp(f.read())
-                        self.dansubs.add(dansub)
-                    for i in self.dansubs:
-                        users_str = str(i.users[0])
-                        for user in i.users[1:]:
-                            users_str += ', ' + str(user)
-                        print('{0.tags} {1};'.format(i, users_str))
-                    self.bot.loop.create_task(self.create_update_tasks())
-
-    async def lookup_tag(self,tags, **kwargs):
-        params = {'tags' : tags}
-        for key in kwargs:
-            params[key] = kwargs[key]
-
-        with open(self.auth_file, 'r') as file:
-            data = json.load(file)
-            user = data['user']
-            api_key = data['api_key']
-        auth = aiohttp.BasicAuth(user, api_key)
-        url = 'http://danbooru.donmai.us/'
-        async with self.danbooru_session.get('{}posts.json'.format(url),params=params,auth=auth) as response:
-            if response.status == 200:
-                json_dump = await response.json()
-                if json_dump:
-                    for key in json_dump:
-                        key['file_url'] = url + key['file_url']
-                    return  json_dump
-                else:
-                    await self.bot.say('empty Server response')
-            else:
-                await self.bot.say('Danbooru server answered with error code:\n```\n{}\n```'.format(response.status))
+        with open(self.subs_file) as f:
+            lines = f.readlines()
+        for line in lines:
+            line = line.replace('\n','')
+            line = line.replace('\'','')
+            sub = self.create_sub_from_file(line)
+            print(sub.tags_to_string())
+            self.subscriptions.append(sub)
 
 
+    def create_sub_from_file(self,json_path):
+        with open(json_path) as sub_file:
+            data = json.load(sub_file)
+        server = self.bot.get_server(data['server'])
+        channel = self.bot.get_channel(data['channel'])
+        user_list = []
+        for user in data['users']:
+            # try to get the member through Discord and their ID
+            member = server.get_member(data['users'][user]['id'])
+            # if that fails create own user with the necessary information
+            if member == None:
+                id = data['users'][user]['id']
+                name = data['users'][user]['name']
+                member = discord.User(username=name,id=id)
+            user_list.append(member)
+
+        tags = data['tags']
+        timestamp = data['old_timestamp']
+        retrieved_sub =  Dansub(user_list,tags,server,channel)
+        if timestamp != 'None':
+            retrieved_sub.old_timestamp = parser.parse(timestamp)
+        return  retrieved_sub
+
+
+
+    async def send_new_posts(self, sub, new_posts):
+        await self.bot.send_message(sub.channel, sub.users_to_mention())
+        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_string()))
+        for post in new_posts:
+            await self.bot.send_message(sub.channel, post)
+        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_string()))
+
+    def find_matching_subs(self, tags, subs, image):
+        matched_subs = list()
+        for sub in subs:
+            if sub.tags_to_string() in image['tag_string']:
+                matched_subs.append(sub.users)
+        return matched_subs
+
+
+    def sort_tags(self, image):
+        tags = image['tag_string'].split(' ')
+        tags.sort()
+        sorted_tags = ' '.join(tags)
+        image['tag_string'] = sorted_tags
+
+    def write_to_file(self):
+        try:
+            subscriptions = '\n'.join(sub.feed_file for sub in self.subscriptions)
+            with open(self.subs_file, 'w') as f:
+                f.write(subscriptions)
+        except Exception as e:
+            print(e)
+            raise e
+
+
+
+class Danbooru:
+    def __init__(self, bot):
+        self.bot = bot
+        self.auth_file = 'data/danbooru/danbooru.json'
+        self.session = aiohttp.ClientSession()
+        self.scheduler = Scheduler(self.bot,self.session)
+        self.helper = Helper(self.session,self.bot,self.auth_file)
+        self.init_directories()
+
+    def __unload(self):
+        self.scheduler.schedule_task.cancel()
+        try:
+            if not self.scheduler.subscriptions:
+                return
+            self.scheduler.write_to_file()
+            for sub in self.scheduler.subscriptions:
+                sub.write_sub_to_file()
+                del sub
+            self.session.close()
+            del self.scheduler
+        except Exception as e:
+            print(e)
+            raise e
+
+    def init_directories(self):
+        if not os.path.exists('data/danbooru'):
+            os.mkdir('data/danbooru')
+        if not os.path.exists('data/danbooru/subs/'):
+            os.mkdir('data/danbooru/subs')
+        if not os.path.exists(self.auth_file):
+            print('authentication file is missing')
 
 
     @commands.command()
-    async def dan(self,*,tags:str):
-        """
-        look for the most recent image on danbooru with specified tags
-        """
-        images = await self.lookup_tag(tags,limit='1')
-        await self.bot.say(images[0]['file_url'])
+    async def dan(self, *, tags):
+        image = await self.helper.lookup_tags(tags,limit='1')
+        await self.bot.say(image[0]['file_url'])
 
     @commands.command()
-    async def danr(self,*,tags:str):
-        """
-        look for a random image on danbooru with specified tags
-        """
-        images = await self.lookup_tag(tags, limit='1', random='true')
-        await self.bot.say(images[0]['file_url'])
+    async def danr(self, *, tags):
+        image = await self.helper.lookup_tags(tags,limit='1',random='true')
+        await self.bot.say(image[0]['file_url'])
+
 
     @commands.group(pass_context=True)
-    async def dans(self,ctx):
+    async def dans(self, ctx):
         '''
-        danbooru subscribing service
-        use .help dans for more info
+        Danbooru subscribing service
         '''
         if ctx.invoked_subcommand is None:
-            await self.bot.say('Invalid dans command passed ')
+            await self.bot.say("invalid command use `.help dans`")
 
     @dans.command(pass_context=True)
-    async def sub(self,ctx, *, tags):
-        '''
-        subscribe to a number of tags
-        '''
-        server = ctx.message.server
-        channel = ctx.message.channel
-        member = ctx.message.author
-        for sub in self.dansubs:
-            if sub.compare_tags(tags) and ctx.message.author in sub.users:
-                await self.bot.reply('these tags are already subbed')
-                return
-            elif sub.compare_tags(tags) and not ctx.message.author in sub.users:
-                sub.add_user(member)
-                with open(self.subs_db, 'w') as f:
-                    lines = list()
-                    for sub in self.dansubs:
-                        lines.append(str(sub))
-                    f.writelines(lines)
-                await self.bot.say('user added to existing sub')
-                return
-        dansub = Dansub(self.bot,self.danbooru_session,server,member,channel,tags)
-        success = await dansub.first_run()
-        if not success:
+    async def sub(self, ctx, *, tags):
+        if not await self.helper.lookup_tags(tags, limit='1'):
+            await self.bot.say("Error while looking up tag. Try again or correct your tags.")
             return
-        self.dansubs.add(dansub)
-        with open(self.subs_db, 'a+') as file:
-            file.write(str(dansub))
+        tags_list = tags.split(' ')
+        message = ctx.message
+        try:
+            for sub in self.scheduler.subscriptions:
+                if sub.compare_tags(tags_list):
+                    for user in sub.users:
+                        if user.id == message.author.id:
+                            await self.bot.reply('You are already subscribed to those tags')
+                            return
+                    sub.users.append(message.author)
+                    sub.write_sub_to_file()
+                    await self.bot.reply('Successfully added to existing sub {}'.format(tags))
+                    return
+            new_sub = Dansub(message.author,tags_list,message.server,message.channel)
+            self.scheduler.subscriptions.append(new_sub)
+            new_sub.write_sub_to_file()
+        except Exception as e:
+            await self.bot.say('Error while adding sub `{}`'.format(repr(e)))
+            raise e
+        await self.bot.say('successfully subscribed to the tags: `{}`'.format(tags))
+
 
     @dans.command(pass_context=True)
-    async def preview(self,ctx, *, tags):
-        '''
-        see up to three random images from the tags
-        '''
-        message = await self.bot.say('fetching three random results please wait...')
-        images = await self.lookup_tag(tags, limit='3', random='true')
-        for image in images:
-            await self.bot.say(image['file_url'])
-        await self.bot.delete_message(message)
+    async def unsub(self, ctx, *, tags):
+        tags_list = tags.split(' ')
+        message = ctx.message
+        user_unsubscribed = False
+        for sub in self.scheduler.subscriptions:
+            if sub.compare_tags(tags_list):
+                for user in sub.users:
+                        if user.id == message.author.id:
+                           try:
+                                user_unsubscribed = True
+                                sub.users.remove(user)
+                                self.scheduler.write_to_file()
+                                await self.bot.reply('successfully unsubscribed')
+                           except Exception as e:
+                               await self.bot.say('Error while unsubscribing: `{}`'.format(repr(e)))
+                               raise e
+                if not user_unsubscribed:
+                    await self.bot.reply('You aren\'t subscribed to that tag')
+                if not sub.users:
+                    try:
+                        self.scheduler.subscriptions.remove(sub)
+                        os.remove(sub.feed_file)
+                        await self.bot.say('subscription fully removed')
+                    except Exception as e:
+                        await self.bot.say('Error while removing feed file. `{}`'.format(repr(e)))
+
+
 
     @dans.command(pass_context=True)
-    async def unsub(self,ctx, *, tags):
-        '''
-        unsubscribe from tags
-        '''
-        sub_found = False
-        for sub in self.dansubs:
-            if sub.compare_tags(tags) and ctx.message.author in sub.users:
-                sub_found = True
-                if len(sub.users) > 1:
-                    sub.users.remove(ctx.message.author)
-                    with open(self.subs_db, 'w') as f:
-                        lines = list()
-                        for sub in self.dansubs:
-                            lines.append(str(sub))
-                        f.writelines(lines)
-                    await self.bot.say('successfully unsubscribed')
-                else:
-                    await self.delete_sub(sub)
-        if not sub_found:
-            await self.bot.reply('you are not subscribed to that tag')
+    async def list(self, ctx):
+        message = ctx.message
+        found_subs = ''
+        for sub in self.scheduler.subscriptions:
+            if message.author in sub.users:
+                found_subs += '\n`{}`'.format(sub.tags_to_string())
+
+        if not found_subs == '':
+            await self.bot.reply(found_subs)
+        else:
+            await self.bot.reply('You aren\'t subscribed to any tags')
 
 
-    @dans.command(pass_context=True,hidden=True)
-    @checks.is_owner()
-    async def setup(self,ctx):
-        self.subs_channel = ctx.message.channel
-        channel_file = 'data/danbooru/channel.txt'
-        with open(channel_file, 'w') as file:
-            file.write(ctx.message.channel.id)
-        await self.bot.say('setup complete')
+
 def setup(bot):
     bot.add_cog(Danbooru(bot))
