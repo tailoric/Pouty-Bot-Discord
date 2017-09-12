@@ -18,14 +18,8 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('-'*8)
-    init_extensions = [
-        'cogs.owner',
-        'cogs.image_search',
-        'cogs.social',
-        'cogs.playlist',
-        'cogs.wolfram',
-        'cogs.danbooru'
-    ]
+    with open('data/initial_cogs.json') as f:
+        init_extensions = json.load(f)
     try:
         for extension in init_extensions:
             bot.load_extension(extension)
