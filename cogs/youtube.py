@@ -45,7 +45,7 @@ class Youtube:
         await self.bot.say("Collecting Links")
 
     @commands.command()
-    async def stopping(self):
+    async def stop(self):
         """Stops collecting your Youtube links"""
         self.status = False
         await self.bot.change_presence(game=discord.Game(name="Stop"))
