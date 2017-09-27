@@ -8,6 +8,7 @@ from dateutil import parser
 import asyncio
 import re
 import traceback
+from .utils import checks
 
 class Helper:
     def __init__(self, session, bot, auth_file):
@@ -106,6 +107,9 @@ class Scheduler:
         while(not self.bot.is_closed):
             subs_copy = self.subscriptions.copy()
             for sub in subs_copy:
+                # skip the subscription if the sub was already removed
+                if sub not in self.subscriptions:
+                    continue
                 new_posts = list()
                 timestamp_posted = list()
                 try:
@@ -115,27 +119,46 @@ class Scheduler:
                         created = parser.parse(image['created_at'])
                         if not sub.old_timestamp:
                             sub.old_timestamp = created
+                            await self.send_new_posts(sub,[image['file_url']])
+                            sub.write_sub_to_file()
                         if created > sub.old_timestamp:
                             new_posts.append(image['file_url'])
                             timestamp_posted.append(created)
                     if new_posts:
                         await self.send_new_posts(sub,new_posts)
                         sub.old_timestamp = max(timestamp_posted)
-                    await asyncio.sleep(5)
+                        sub.write_sub_to_file()
+                    number_subs = len(self.subscriptions)
+                    if number_subs < 1800:
+                        await asyncio.sleep(1800//number_subs)
+                    else:
+                        await asyncio.sleep(1)
 
+
+                except asyncio.CancelledError as e:
+                    self.write_to_file()
+                    for subscription in self.subscriptions:
+                        subscription.write_sub_to_file()
+                    await self.bot.send_message(sub.channel,'Subscription module deactivated')
+                    return
                 except Exception as e:
                     owner = discord.User(id='134310073014026242')
                     self.write_to_file()
-                    for sub in self.subscriptions:
-                        sub.write_sub_to_file()
+                    for subscription in self.subscriptions:
+                        subscription.write_sub_to_file()
                     await self.bot.send_message(owner,
                                                 'Error during update Task: `{}`'.format(repr(e)))
                     await self.bot.send_message(owner, 'during Sub: `{}`'.format(sub.tags_to_string()))
                     await self.bot.send_message(owner, '```\n{}\n```'.format(traceback.print_exc()))
+                    await self.bot.send_message(sub.channel, 'Error during update Task, deactivating task.')
+                    await self.bot.send_message(sub.channel, '{}, Please reload cog'.format(owner.mention))
+                    return
+
             self.write_to_file()
-            await asyncio.sleep(15)
 
     def retrieve_subs(self):
+        if not os.path.exists(self.subs_file):
+            open(self.subs_file,'w').close()
         with open(self.subs_file) as f:
             lines = f.readlines()
         for line in lines:
@@ -257,7 +280,8 @@ class Danbooru:
 
     @dans.command(pass_context=True)
     async def sub(self, ctx, *, tags):
-        if not await self.helper.lookup_tags(tags, limit='1'):
+        resp = await self.helper.lookup_tags(tags, limit='1')
+        if not resp:
             await self.bot.say("Error while looking up tag. Try again or correct your tags.")
             return
         tags_list = tags.split(' ')
@@ -271,7 +295,7 @@ class Danbooru:
                             return
                     sub.users.append(message.author)
                     sub.write_sub_to_file()
-                    await self.bot.reply('Successfully added to existing sub {}'.format(tags))
+                    await self.bot.reply('Successfully added to existing sub `{}`'.format(tags))
                     return
             new_sub = Dansub(message.author,tags_list,message.server,message.channel)
             self.scheduler.subscriptions.append(new_sub)
@@ -280,6 +304,7 @@ class Danbooru:
             await self.bot.say('Error while adding sub `{}`'.format(repr(e)))
             raise e
         await self.bot.say('successfully subscribed to the tags: `{}`'.format(tags))
+        await self.bot.say('here is the newest image: {}'.format(resp[0]['file_url']))
 
 
     @dans.command(pass_context=True)
@@ -295,6 +320,7 @@ class Danbooru:
                                 user_unsubscribed = True
                                 sub.users.remove(user)
                                 self.scheduler.write_to_file()
+                                sub.write_sub_to_file()
                                 await self.bot.reply('successfully unsubscribed')
                            except Exception as e:
                                await self.bot.say('Error while unsubscribing: `{}`'.format(repr(e)))
@@ -324,6 +350,32 @@ class Danbooru:
         else:
             await self.bot.reply('You aren\'t subscribed to any tags')
 
+    @dans.command(hidden=True)
+    @checks.is_owner()
+    async def convert(self):
+        with open('data/danbooru/subs_old.db') as file:
+            lines = file.readlines()
+            if lines:
+                for line in lines:
+                    sub = line.split('|')
+                    await self.bot.say('converting the following sub:`{}`'.format(sub[0]))
+                    server = self.bot.get_server(sub[3])
+                    channel = self.bot.get_channel(id=sub[2])
+                    users = sub[1].split(';')
+                    userlist = []
+                    for user in users:
+                        member = server.get_member(user)
+                        if not member:
+                            member = discord.User(id=user)
+                        userlist.append(member)
+
+                    tags = sub[0]
+                    tags = tags.split(' ')
+                    dansub = Dansub(userlist,tags,server,channel)
+                    dansub.old_timestamp = parser.parse(sub[4])
+                    self.scheduler.subscriptions.append(dansub)
+                    dansub.write_sub_to_file()
+                self.scheduler.write_to_file()
 
 
 def setup(bot):
