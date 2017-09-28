@@ -1,0 +1,15 @@
+data/danbooru/subs/*
+data/youtube
+.idea/
+cogs/__pycache__/
+cogs/utils/__pycache__/
+data/credentials.json
+data/danbooru/
+data/initial_cogs.json
+data/rss.json
+data/temp/
+data/wolfram.json
+data/wuxia.db
+discord.log
+tags
+wuxia_feed/

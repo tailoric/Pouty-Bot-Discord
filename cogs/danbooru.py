@@ -115,6 +115,9 @@ class Scheduler:
                 try:
                     tags = sub.tags_to_string()
                     images = await self.helper.lookup_tags(tags)
+                    # skip if nothing was send back
+                    if not images:
+                        continue
                     for image in images:
                         created = parser.parse(image['created_at'])
                         if not sub.old_timestamp:
@@ -153,7 +156,7 @@ class Scheduler:
                     await self.bot.send_message(sub.channel, 'Error during update Task, deactivating task.')
                     await self.bot.send_message(sub.channel, '{}, Please reload cog'.format(owner.mention))
                     return
-
+            await asyncio.sleep(5)
             self.write_to_file()
 
     def retrieve_subs(self):
@@ -360,11 +363,12 @@ class Danbooru:
                     sub = line.split('|')
                     await self.bot.say('converting the following sub:`{}`'.format(sub[0]))
                     server = self.bot.get_server(sub[3])
-                    channel = self.bot.get_channel(id=sub[2])
+                    channel = self.bot.get_channel(sub[2])
                     users = sub[1].split(';')
                     userlist = []
                     for user in users:
-                        member = server.get_member(user)
+                        if server:
+                            member = server.get_member(user)
                         if not member:
                             member = discord.User(id=user)
                         userlist.append(member)
