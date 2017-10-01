@@ -2,6 +2,7 @@ from discord.ext import commands
 import aiohttp
 import os
 import uuid
+from bs4 import BeautifulSoup
 class Waifu2x:
 
     def __init__(self, bot):
@@ -14,34 +15,28 @@ class Waifu2x:
     @commands.command(pass_context=True)
     async def upscale(self, ctx, url=None, scale='2x', noise='medium'):
         """
-        Upscale image via http://waifu2x.udp.jp
-        :param scale: decide upscale factor (1x,1.6x,2x)
+        Upscale image via https://waifu2x.booru.pics
+        :param scale: decide upscale factor (1x,2x)
         :param url: image url, please write 'file' instead of the url if using file upload
-        :param noise: jpg-noise-reduction  (none,low,medium,high,highest)
+        :param noise: jpg-noise-reduction  (none,medium,high)
         """
-        scales = ('1x', '1.6x', '2x')
-        noises = ('none','low', 'medium', 'high', 'highest')
+        scales = ('1x', '2x')
+        noises = ('none', 'low', 'medium', 'high', 'highest')
         await self.bot.type()
         if scale in scales:
             if scale == '1x':
-                scale = 0
-            elif scale == '1.6x':
                 scale = 1
             elif scale == '2x':
                 scale = 2
         else:
-            scale = 1
+            scale = 2
         if noise in noises:
             if noise == 'none':
-                noise = -1
-            elif noise == 'low':
                 noise = 0
             elif noise == 'medium':
                 noise = 1
             elif noise == 'high':
                 noise = 2
-            elif noise == 'highest':
-                noise = 3
         else:
             noise = 1
         if ctx.message.attachments:
@@ -51,17 +46,21 @@ class Waifu2x:
         else:
             await self.bot.say('need a file')
             return
-        params = {'url': link, 'scale': str(scale), 'noise': str(noise)}
-        async with self.session.post('http://waifu2x.udp.jp/api', params=params) as response:
+        if noise == 0 and scale == 1:
+            await self.bot.say("result would be source image either increase size or denoise image")
+            return
+        params = {'url': link, 'scale': str(scale), 'denoise': str(noise)}
+        async with self.session.get('https://waifu2x.booru.pics/Home/fromlink', params=params) as response:
             if response.status == 200:
                 await self.bot.type()
-                if not os.path.exists('data/temp'):
-                    os.makedirs('data/temp')
-                with open('data/temp/{}.png'.format(str(uuid.uuid4())), 'wb') as f:
-                    f.write(await response.read())
-                    file_path = f.name
-                await self.bot.send_file(ctx.message.channel, file_path)
-                os.remove(file_path)
+                file_url = 'https://waifu2x.booru.pics/outfiles/{}.png'
+                if 'hash' not in response.url.query.keys():
+                    await self.bot.say("No image response\nfile is either too big or not an image")
+                    return
+                hash_string = response.url.query['hash']
+                post_url = file_url.format(hash_string)
+                await self.bot.say(post_url)
+
             else:
                 message = "Response Code from waifu2x server: {} \n".format(response.status)
                 if response.status == 502:
