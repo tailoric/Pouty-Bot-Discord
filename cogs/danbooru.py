@@ -132,11 +132,10 @@ class Scheduler:
                         sub.old_timestamp = max(timestamp_posted)
                         sub.write_sub_to_file()
                     number_subs = len(self.subscriptions)
-                    # if number_subs < 1800:
-                    #     await asyncio.sleep(1800//number_subs)
-                    # else:
-                    #     await asyncio.sleep(1)
-                    await asyncio.sleep(1)
+                    if number_subs < 1800:
+                        await asyncio.sleep(1800//number_subs)
+                    else:
+                        await asyncio.sleep(1)
 
                 except asyncio.CancelledError as e:
                     self.write_to_file()
