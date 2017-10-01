@@ -50,23 +50,26 @@ class Waifu2x:
             await self.bot.say("result would be source image either increase size or denoise image")
             return
         params = {'url': link, 'scale': str(scale), 'denoise': str(noise)}
-        async with self.session.get('https://waifu2x.booru.pics/Home/fromlink', params=params) as response:
-            if response.status == 200:
-                await self.bot.type()
-                file_url = 'https://waifu2x.booru.pics/outfiles/{}.png'
-                if 'hash' not in response.url.query.keys():
-                    await self.bot.say("No image response\nfile is either too big or not an image")
-                    return
-                hash_string = response.url.query['hash']
-                post_url = file_url.format(hash_string)
-                await self.bot.say(post_url)
+        try:
+            async with self.session.get('https://waifu2x.booru.pics/Home/fromlink', params=params) as response:
+                if response.status == 200:
+                    await self.bot.type()
+                    file_url = 'https://waifu2x.booru.pics/outfiles/{}.png'
+                    if 'hash' not in response.url.query.keys():
+                        await self.bot.say("No image response\nfile is either too big or not an image")
+                        return
+                    hash_string = response.url.query['hash']
+                    post_url = file_url.format(hash_string)
+                    await self.bot.say(post_url)
 
-            else:
-                message = "Response Code from waifu2x server: {} \n".format(response.status)
-                if response.status == 502:
-                    message += "File probably too large \n"
-                    message += "Please only upload files smaller than 5MB and 1500x1500px"
-                await self.bot.say(message)
+                else:
+                    message = "Response Code from waifu2x server: {} \n".format(response.status)
+                    if response.status == 502:
+                        message += "File probably too large \n"
+                        message += "Please only upload files smaller than 5MB and 1500x1500px"
+                    await self.bot.say(message)
+        except Exception as e:
+            print(e.with_traceback())
 
 
 def setup(bot):
