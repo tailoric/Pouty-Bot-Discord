@@ -104,7 +104,7 @@ class Scheduler:
 
     async def schedule_task(self):
         #iterate through all subscriptions and update information
-        while(not self.bot.is_closed):
+        while not self.bot.is_closed:
             subs_copy = self.subscriptions.copy()
             for sub in subs_copy:
                 # skip the subscription if the sub was already removed
@@ -132,17 +132,17 @@ class Scheduler:
                         sub.old_timestamp = max(timestamp_posted)
                         sub.write_sub_to_file()
                     number_subs = len(self.subscriptions)
-                    if number_subs < 1800:
-                        await asyncio.sleep(1800//number_subs)
-                    else:
-                        await asyncio.sleep(1)
-
+                    # if number_subs < 1800:
+                    #     await asyncio.sleep(1800//number_subs)
+                    # else:
+                    #     await asyncio.sleep(1)
+                    await asyncio.sleep(1)
 
                 except asyncio.CancelledError as e:
                     self.write_to_file()
                     for subscription in self.subscriptions:
                         subscription.write_sub_to_file()
-                    await self.bot.send_message(sub.channel,'Subscription module deactivated')
+                    await self.bot.send_message(sub.channel, 'Subscription module deactivated')
                     return
                 except Exception as e:
                     owner = discord.User(id='134310073014026242')
@@ -284,9 +284,11 @@ class Danbooru:
     @dans.command(pass_context=True)
     async def sub(self, ctx, *, tags):
         resp = await self.helper.lookup_tags(tags, limit='1')
+
         if not resp:
             await self.bot.say("Error while looking up tag. Try again or correct your tags.")
             return
+        timestamp = parser.parse(resp[0]['created_at'])
         tags_list = tags.split(' ')
         message = ctx.message
         try:
@@ -301,6 +303,7 @@ class Danbooru:
                     await self.bot.reply('Successfully added to existing sub `{}`'.format(tags))
                     return
             new_sub = Dansub(message.author,tags_list,message.server,message.channel)
+            new_sub.old_timestamp = timestamp
             self.scheduler.subscriptions.append(new_sub)
             new_sub.write_sub_to_file()
         except Exception as e:
