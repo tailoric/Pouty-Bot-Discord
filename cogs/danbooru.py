@@ -16,6 +16,19 @@ class Helper:
         self.session = session
         self.auth_file = auth_file
 
+
+    async def lookup_pool(self, pool_id):
+        with open(self.auth_file) as file:
+            data = json.load(file)
+            user = data['user']
+            api_key = data['api_key']
+        auth = aiohttp.BasicAuth(user, api_key)
+        url = 'http://danbooru.donmai.us/pools/{}.json'.format(pool_id)
+        async with self.session.get(url, auth=auth) as response:
+            if response.status == 200:
+                json_dump = await response.json()
+                return json_dump['name']
+
     async def lookup_tags(self, tags, **kwargs):
         params = {'tags' : tags}
         for key, value in kwargs.items():
@@ -37,14 +50,14 @@ class Helper:
 
 class Dansub:
 
-    def __init__(self, users, tags, server: discord.Server, channel: discord.Channel):
+    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel):
         self.users = list()
         if type(users) == list:
             self.users += users
         else:
             self.users.append(users)
-        self.tags = list()
-        self.tags += tags
+        self.tags = tags
+        self.pools = pools
         self.server = server
         self.channel = channel
         self.old_timestamp = None
@@ -68,6 +81,22 @@ class Dansub:
         # delete any character that isn't a word char - _ or . from the filename
         return re.sub('[^\w\-_\.]','_', self.tags_to_string())
 
+    def tags_to_message(self):
+        tags_list = self.tags.copy()
+        for tag in self.tags:
+            if 'pool:' in tag:
+                for pool in self.pools:
+                    if pool['tag'] == tag:
+                        tags_list.remove(tag)
+                        tag = '{0[name]}({0[tag]})'.format(pool)
+                        tags_list.append(tag)
+        return ' '.join(tags_list)
+
+
+
+
+
+
     def sub_to_json(self):
         ret_val = dict()
         ret_val['users'] = {}
@@ -82,7 +111,8 @@ class Dansub:
         ret_val['old_timestamp'] = str(self.old_timestamp)
         ret_val['new_timestamp'] = str(self.new_timestamp)
         ret_val['already_posted'] = self.already_posted
-        return json.dumps(ret_val,indent=2)
+        ret_val['pools'] = self.pools
+        return json.dumps(ret_val, indent=2)
 
     def write_sub_to_file(self):
         content = self.sub_to_json()
@@ -135,7 +165,7 @@ class Scheduler:
                     if number_subs < 1800:
                         await asyncio.sleep(1800//number_subs)
                     else:
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(5)
 
                 except asyncio.CancelledError as e:
                     self.write_to_file()
@@ -170,7 +200,6 @@ class Scheduler:
             print(sub.tags_to_string())
             self.subscriptions.append(sub)
 
-
     def create_sub_from_file(self,json_path):
         with open(json_path) as sub_file:
             data = json.load(sub_file)
@@ -189,19 +218,19 @@ class Scheduler:
 
         tags = data['tags']
         timestamp = data['old_timestamp']
-        retrieved_sub =  Dansub(user_list,tags,server,channel)
+        pools = data['pools']
+        retrieved_sub = Dansub(user_list,tags,pools,server,channel)
         if timestamp != 'None':
             retrieved_sub.old_timestamp = parser.parse(timestamp)
-        return  retrieved_sub
-
+        return retrieved_sub
 
 
     async def send_new_posts(self, sub, new_posts):
         await self.bot.send_message(sub.channel, sub.users_to_mention())
-        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_string()))
+        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
         for post in new_posts:
             await self.bot.send_message(sub.channel, post)
-        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_string()))
+        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
 
     def find_matching_subs(self, tags, subs, image):
         matched_subs = list()
@@ -289,6 +318,14 @@ class Danbooru:
             return
         timestamp = parser.parse(resp[0]['created_at'])
         tags_list = tags.split(' ')
+        pool_list = []
+        for tag in tags_list:
+            if "pool:" in tag:
+                pool_id = tag[len('pool:'):]
+                pool_name = await self.helper.lookup_pool(pool_id)
+                pool_tag = tag
+                pool = {'tag': pool_tag, 'name': pool_name, 'id': pool_id}
+                pool_list.append(pool)
         message = ctx.message
         try:
             for sub in self.scheduler.subscriptions:
@@ -301,7 +338,7 @@ class Danbooru:
                     sub.write_sub_to_file()
                     await self.bot.reply('Successfully added to existing sub `{}`'.format(tags))
                     return
-            new_sub = Dansub(message.author,tags_list,message.server,message.channel)
+            new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel)
             new_sub.old_timestamp = timestamp
             self.scheduler.subscriptions.append(new_sub)
             new_sub.write_sub_to_file()

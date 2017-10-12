@@ -69,7 +69,7 @@ class Waifu2x:
                         message += "Please only upload files smaller than 5MB and 1500x1500px"
                     await self.bot.say(message)
         except Exception as e:
-            print(e.with_traceback())
+            print(repr(e))
 
 
 def setup(bot):
