@@ -218,7 +218,10 @@ class Scheduler:
 
         tags = data['tags']
         timestamp = data['old_timestamp']
-        pools = data['pools']
+        if 'pools' in data:
+            pools = data['pools']
+        else:
+            pools = []
         retrieved_sub = Dansub(user_list,tags,pools,server,channel)
         if timestamp != 'None':
             retrieved_sub.old_timestamp = parser.parse(timestamp)
