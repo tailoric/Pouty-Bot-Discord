@@ -339,7 +339,7 @@ class Danbooru:
                             return
                     sub.users.append(message.author)
                     sub.write_sub_to_file()
-                    await self.bot.reply('Successfully added to existing sub `{}`'.format(tags))
+                    await self.bot.reply('Successfully added to existing sub `{}`'.format(sub.tags_to_message()))
                     return
             new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel)
             new_sub.old_timestamp = timestamp
@@ -348,7 +348,7 @@ class Danbooru:
         except Exception as e:
             await self.bot.say('Error while adding sub `{}`'.format(repr(e)))
             raise e
-        await self.bot.say('successfully subscribed to the tags: `{}`'.format(tags))
+        await self.bot.say('successfully subscribed to the tags: `{}`'.format(new_sub.tags_to_message()))
         await self.bot.say('here is the newest image: {}'.format(resp[0]['file_url']))
 
 
