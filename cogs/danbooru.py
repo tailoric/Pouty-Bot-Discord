@@ -388,7 +388,7 @@ class Danbooru:
         found_subs = ''
         for sub in self.scheduler.subscriptions:
             if message.author in sub.users:
-                found_subs += '\n`{}`'.format(sub.tags_to_string())
+                found_subs += '\n`{}`'.format(sub.tags_to_message())
 
         if not found_subs == '':
             await self.bot.reply(found_subs)
