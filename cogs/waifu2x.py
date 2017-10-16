@@ -4,6 +4,9 @@ import os
 import uuid
 from bs4 import BeautifulSoup
 class Waifu2x:
+    """
+    For upscaling images and removing image noise
+    """
 
     def __init__(self, bot):
         self.bot = bot
