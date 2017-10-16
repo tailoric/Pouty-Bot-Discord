@@ -1,147 +1,198 @@
 from discord.ext import commands
+from discord.utils import find
 import random
 import json
 
 
 class Social:
+    """
+    Answers with image to certain interactions
+    """
 
     def __init__(self, bot):
         self.bot = bot
 
-
-    async def find_file(self, command, mention):
+    @staticmethod
+    async def find_file(command):
         with open('data/social/{}.json'.format(command), 'r') as f:
-            data = json.load(f)
-        if mention:
-            await self.bot.say("{}\n{}".format(mention.mention,random.choice(data)))
-        else:
-            await self.bot.say(random.choice(data))
+            return json.load(f)
 
     @commands.command(hidden=False, pass_context=True)
-    async def pout(self,ctx, mood="none"):
+    async def pout(self, ctx, *, user=None):
         """ 
         usage: .pout 
         """
-        mood_list = ('angry','sad','embarrassed')
-        file_name = 'pouts'
-        if mood in mood_list:
-            file_name = '{}_pouts'.format(mood)
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await  self.find_file(file_name,mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'pouts'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await  self.find_file(file_name,ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
-
-
-    @commands.command(hidden=False,pass_context=True)
-    async def hug(self,ctx):
+    @commands.command(hidden=False, pass_context=True)
+    async def hug(self, ctx, *, user=None):
         """
             usage: .hug (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('hug', mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'hug'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await  self.find_file('hug',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def smug(self, ctx):
+    async def smug(self, ctx, *, user=None):
         """
             usage: .smug (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('smug',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'smug'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await  self.find_file('smug',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+
     @commands.command(hidden=False, pass_context=True)
-    async def cuddle(self, ctx):
+    async def cuddle(self, ctx, *, user=None):
         """
             usage: .cuddle (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('cuddle',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'cuddle'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('cuddle',ctx.message.author)
-
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def lewd(self, ctx):
+    async def lewd(self, ctx, *, user=None):
         """
             usage: .lewd (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('lewd',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'lewd'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('lewd',ctx.message.author)
-
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def pat(self,ctx):
+    async def pat(self, ctx, *, user=None):
         """
             usage: .pat (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('pat',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'pat'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('pat',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def bully(self,ctx):
+    async def bully(self, ctx, *, user=None):
         """
             usage: .bully (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('bully',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'bully'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('bully',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+
     @commands.command(hidden=False, pass_context=True)
-    async def nobully(self,ctx):
+    async def nobully(self, ctx, *, user=None):
         """
             usage: .nobully
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('nobullys',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'nobullys'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('nobullys',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+
     @commands.command(hidden=False, pass_context=True)
-    async def slap(self,ctx):
+    async def slap(self, ctx, *, user=None):
         """
             usage: .slap (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('slaps',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'slaps'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('slaps',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def kiss(self,ctx):
+    async def kiss(self, ctx, *, user=None):
         """
             usage: .kiss (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('kiss',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'kiss'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('kiss',ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
-    async def blush(self,ctx):
+    async def blush(self, ctx, *, user=None):
         """
             usage: .blush (at) user
         """
         mentioned_users = ctx.message.mentions
-        if mentioned_users and len(mentioned_users) == 1:
-            await self.find_file('Blush',mentioned_users[0])
+        server = ctx.message.server
+        file_name = 'Blush'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
         else:
-            await self.find_file('Blush', ctx.message.author)
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+
 
 def setup(bot):
     bot.add_cog(Social(bot))
