@@ -261,6 +261,9 @@ class Scheduler:
 
 
 class Danbooru:
+    """
+    Danbooru requests and subscription service.
+    """
     def __init__(self, bot):
         self.bot = bot
         self.auth_file = 'data/danbooru/danbooru.json'
@@ -295,25 +298,37 @@ class Danbooru:
 
     @commands.command()
     async def dan(self, *, tags):
+        """
+        display newest image from danbooru with certain tags
+        tags: tags that will be looked up.
+        """
         image = await self.helper.lookup_tags(tags,limit='1')
         await self.bot.say(image[0]['file_url'])
 
     @commands.command()
     async def danr(self, *, tags):
+        """
+        display random image from danbooru with certain tags
+        tags: tags that will be looked up.
+        """
         image = await self.helper.lookup_tags(tags,limit='1',random='true')
         await self.bot.say(image[0]['file_url'])
 
 
     @commands.group(pass_context=True)
     async def dans(self, ctx):
-        '''
+        """
         Danbooru subscribing service
-        '''
+        """
         if ctx.invoked_subcommand is None:
             await self.bot.say("invalid command use `.help dans`")
 
     @dans.command(pass_context=True)
     async def sub(self, ctx, *, tags):
+        """
+        subscribe to provided tags
+        tags: tags that will be looked up
+        """
         resp = await self.helper.lookup_tags(tags, limit='1')
 
         if not resp:
@@ -354,6 +369,10 @@ class Danbooru:
 
     @dans.command(pass_context=True)
     async def unsub(self, ctx, *, tags):
+        """
+        unsubscribe from subscription
+        tags:
+        """
         tags_list = tags.split(' ')
         message = ctx.message
         user_unsubscribed = False
@@ -384,6 +403,9 @@ class Danbooru:
 
     @dans.command(pass_context=True)
     async def list(self, ctx):
+        """
+        list all subscribed tags
+        """
         message = ctx.message
         found_subs = ''
         for sub in self.scheduler.subscriptions:
