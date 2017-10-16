@@ -15,7 +15,7 @@ class Owner:
     async def load(self, *, module: str):
         """Loads a module"""
         try:
-            self.bot.load_extension(module)
+            self.bot.load_extension('cogs.'+module)
         except Exception as e:
             await self.bot.say('\N{THUMBS DOWN SIGN}')
             await self.bot.say('`{}: {}`'.format(type(e).__name__, e))
@@ -24,10 +24,10 @@ class Owner:
 
     @commands.command(hidden=True)
     @checks.is_owner()
-    async def unload(self, *, module: str):
+    async def unload(self, *, module:str):
         """Unloads a module"""
         try:
-            self.bot.unload_extension(module)
+            self.bot.unload_extension('cogs.'+module)
         except Exception as e:
             await self.bot.say('\N{THUMBS DOWN SIGN}')
             await self.bot.say('`{}: {}`'.format(type(e).__name__, e))
@@ -39,8 +39,8 @@ class Owner:
     async def _reload(self, *, module : str):
         """Reloads a module."""
         try:
-            self.bot.unload_extension(module)
-            self.bot.load_extension(module)
+            self.bot.unload_extension('cogs.'+module)
+            self.bot.load_extension('cogs.'+module)
         except Exception as e:
             await self.bot.say('\N{THUMBS DOWN SIGN}')
             await self.bot.say('{}: {}'.format(type(e).__name__, e))
