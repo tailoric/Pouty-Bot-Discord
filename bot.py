@@ -2,9 +2,10 @@ import discord
 from discord.ext import commands
 import json
 import logging
-description = 'a very pouty bot'
+from cogs.utils.formatter import CustomHelpFormatter
+description = 'Pouty Bot MKII by Saikimo'
 
-bot = commands.Bot(command_prefix=['!','.'], description=description)
+bot = commands.Bot(command_prefix=['!', '.'], description=description, formatter=CustomHelpFormatter())
 
 
 def load_credentials():
@@ -27,9 +28,9 @@ async def on_ready():
         print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
 
 @bot.event
-async def on_command_error(error,ctx):
+async def on_command_error(error, ctx):
   if isinstance(error, commands.CommandNotFound):
-      logger.log(logging.INFO,error)
+      logger.log(logging.INFO, error)
 
 
 if __name__ == '__main__':
