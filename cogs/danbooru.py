@@ -171,8 +171,13 @@ class Scheduler:
                     self.write_to_file()
                     for subscription in self.subscriptions:
                         subscription.write_sub_to_file()
-                    await self.bot.send_message(sub.channel, 'Subscription module deactivated')
                     return
+                except aiohttp.ClientOSError as cle:
+                    self.write_to_file()
+                    for subscription in self.subscriptions:
+                        subscription.write_sub_to_file()
+                    await asyncio.sleep(10)
+                    continue
                 except Exception as e:
                     owner = discord.User(id='134310073014026242')
                     self.write_to_file()
@@ -184,7 +189,8 @@ class Scheduler:
                     await self.bot.send_message(owner, '```\n{}\n```'.format(traceback.print_exc()))
                     await self.bot.send_message(sub.channel, 'Error during update Task, deactivating task.')
                     await self.bot.send_message(sub.channel, '{}, Please reload cog'.format(owner.mention))
-                    return
+                    await asyncio.sleep(10)
+                    continue
             await asyncio.sleep(5)
             self.write_to_file()
 
@@ -444,6 +450,14 @@ class Danbooru:
                     self.scheduler.subscriptions.append(dansub)
                     dansub.write_sub_to_file()
                 self.scheduler.write_to_file()
+
+    @dans.command()
+    async def restart(self):
+        """
+        ONLY USE WHEN STUCK!
+        """
+        self.__unload()
+        setup(self.bot)
 
 
 def setup(bot):
