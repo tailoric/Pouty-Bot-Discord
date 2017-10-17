@@ -176,6 +176,7 @@ class Scheduler:
                     self.write_to_file()
                     for subscription in self.subscriptions:
                         subscription.write_sub_to_file()
+                        print(cle)
                     await asyncio.sleep(10)
                     continue
                 except Exception as e:
