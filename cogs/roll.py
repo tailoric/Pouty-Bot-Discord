@@ -22,8 +22,11 @@ class Roll:
         else:
             number, sides = roll.split('d')
             try:
-                number = int(number)
                 sides = int(sides)
+                if number:
+                    number = int(number)
+                else:
+                    number = 1
             except ValueError as ve:
                 await self.bot.say('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.''')
                 return
