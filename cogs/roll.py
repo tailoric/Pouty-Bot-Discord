@@ -32,10 +32,14 @@ class Roll:
                 return
 
             results = []
+            sum = 0
             for i in range(number):
-                results.append(str(random.randint(1, sides)))
+                throw_result = random.randint(1, sides)
+                sum += throw_result
+                results.append(str(throw_result))
 
-        answer_text = 'you have rolled the following results:\n\n' + ', '.join(results)
+        answer_text = 'you have rolled the following results:\n\n' + ', '.join(results) + '\nSum: '+str(sum)
+
         if len(answer_text) > self.char_limit:
             last_pos = answer_text[:2000].rfind(',')
             await self.bot.say(answer_text[0:last_pos])
