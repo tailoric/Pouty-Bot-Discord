@@ -9,6 +9,7 @@ import asyncio
 import re
 import traceback
 from .utils import checks
+import logging
 
 class Helper:
     def __init__(self, session, bot, auth_file):
@@ -131,6 +132,7 @@ class Scheduler:
         self.retrieve_subs()
         self.schedule_task = self.bot.loop.create_task(self.schedule_task())
         self.helper = Helper(self.session,self.bot,self.auth_file)
+        self.logger = logging.getLogger('discord')
 
     async def schedule_task(self):
         #iterate through all subscriptions and update information
@@ -171,12 +173,13 @@ class Scheduler:
                     self.write_to_file()
                     for subscription in self.subscriptions:
                         subscription.write_sub_to_file()
+                    self.logger.info('Scheduler was cancelled')
                     return
                 except aiohttp.ClientOSError as cle:
                     self.write_to_file()
                     for subscription in self.subscriptions:
                         subscription.write_sub_to_file()
-                        print(cle)
+                        self.logger.error(cle)
                     await asyncio.sleep(10)
                     continue
                 except Exception as e:
@@ -188,8 +191,6 @@ class Scheduler:
                                                 'Error during update Task: `{}`'.format(repr(e)))
                     await self.bot.send_message(owner, 'during Sub: `{}`'.format(sub.tags_to_string()))
                     await self.bot.send_message(owner, '```\n{}\n```'.format(traceback.print_exc()))
-                    await self.bot.send_message(sub.channel, 'Error during update Task, deactivating task.')
-                    await self.bot.send_message(sub.channel, '{}, Please reload cog'.format(owner.mention))
                     await asyncio.sleep(10)
                     continue
             await asyncio.sleep(5)

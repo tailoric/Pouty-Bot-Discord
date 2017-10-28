@@ -37,7 +37,7 @@ class Roll:
                 else:
                     number = 1
             except ValueError as ve:
-                await self.bot.say('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.''')
+                await self.bot.say('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.\n(modifier allowed too)')
                 return
 
             results = []
