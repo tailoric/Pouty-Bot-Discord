@@ -44,7 +44,10 @@ class Helper:
             if response.status == 200:
                 json_dump = await response.json()
                 for image in json_dump:
-                    image['file_url'] = url + image['file_url']
+                    if image['has_large'] and image['file_ext'] == 'zip':
+                        image['file_url'] = url + image['large_file_url']
+                    else:
+                        image['file_url'] = url + image['file_url']
                 return json_dump
             else:
                 return None
