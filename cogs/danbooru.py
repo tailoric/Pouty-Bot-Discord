@@ -54,7 +54,7 @@ class Helper:
 
 class Dansub:
 
-    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel):
+    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel, is_private: bool):
         self.users = list()
         if type(users) == list:
             self.users += users
@@ -62,12 +62,16 @@ class Dansub:
             self.users.append(users)
         self.tags = tags
         self.pools = pools
-        self.server = server
-        self.channel = channel
+        if not is_private:
+            self.server = server
+            self.channel = channel
         self.old_timestamp = None
         self.new_timestamp = datetime.datetime
         self.already_posted = list()
+        self.is_private = is_private
         self.feed_file = 'data/danbooru/subs/{}.json'.format(self.tags_to_filename())
+
+    # use this one to create private subs
 
     def users_to_mention(self):
         mention_string = ','.join(user.mention for user in self.users)
@@ -75,6 +79,9 @@ class Dansub:
 
     def tags_to_string(self):
         self.tags.sort()
+        if self.is_private:
+            file_name = ' '.join(self.tags) + self.users[0].id
+            return  file_name
         return ' '.join(self.tags)
 
     def compare_tags(self,tags):
@@ -110,8 +117,10 @@ class Dansub:
             ret_val['users'][counter]['name'] = user.name
             ret_val['users'][counter]['mention'] = user.mention
         ret_val['tags'] = self.tags
-        ret_val['server'] = self.server.id
-        ret_val['channel'] = self.channel.id
+        ret_val['is_private'] = self.is_private
+        if not self.is_private:
+            ret_val['server'] = self.server.id
+            ret_val['channel'] = self.channel.id
         ret_val['old_timestamp'] = str(self.old_timestamp)
         ret_val['new_timestamp'] = str(self.new_timestamp)
         ret_val['already_posted'] = self.already_posted
@@ -134,7 +143,7 @@ class Scheduler:
         self.subs_file = 'data/danbooru/subs.db'
         self.retrieve_subs()
         self.schedule_task = self.bot.loop.create_task(self.schedule_task())
-        self.helper = Helper(self.session,self.bot,self.auth_file)
+        self.helper = Helper(self.session, self.bot, self.auth_file)
         self.logger = logging.getLogger('discord')
 
     async def schedule_task(self):
@@ -145,59 +154,62 @@ class Scheduler:
                 # skip the subscription if the sub was already removed
                 if sub not in self.subscriptions:
                     continue
-                new_posts = list()
-                timestamp_posted = list()
                 try:
                     tags = sub.tags_to_string()
                     images = await self.helper.lookup_tags(tags)
                     # skip if nothing was send back
+                    new_posts, timestamp_posted = await self._find_all_new_posts(images,sub)
                     if not images:
                         continue
-                    for image in images:
-                        created = parser.parse(image['created_at'])
-                        if not sub.old_timestamp:
-                            sub.old_timestamp = created
-                            await self.send_new_posts(sub,[image['file_url']])
-                            sub.write_sub_to_file()
-                        if created > sub.old_timestamp:
-                            new_posts.append(image['file_url'])
-                            timestamp_posted.append(created)
                     if new_posts:
                         await self.send_new_posts(sub,new_posts)
                         sub.old_timestamp = max(timestamp_posted)
                         sub.write_sub_to_file()
                     number_subs = len(self.subscriptions)
-                    if number_subs < 1800:
-                        await asyncio.sleep(1800//number_subs)
-                    else:
-                        await asyncio.sleep(5)
+                    # if number_subs < 1800:
+                    #     await asyncio.sleep(1800//number_subs)
+                    # else:
+                    #     await asyncio.sleep(5)
+                    await asyncio.sleep(5)
 
                 except asyncio.CancelledError as e:
-                    self.write_to_file()
-                    for subscription in self.subscriptions:
-                        subscription.write_sub_to_file()
-                    self.logger.info('Scheduler was cancelled')
+                    self._write_subs_information_to_file()
                     return
                 except aiohttp.ClientOSError as cle:
-                    self.write_to_file()
-                    for subscription in self.subscriptions:
-                        subscription.write_sub_to_file()
-                        self.logger.error(cle)
+                    self._write_subs_information_to_file()
                     await asyncio.sleep(10)
                     continue
                 except Exception as e:
                     owner = discord.User(id='134310073014026242')
-                    self.write_to_file()
-                    for subscription in self.subscriptions:
-                        subscription.write_sub_to_file()
-                    await self.bot.send_message(owner,
-                                                'Error during update Task: `{}`'.format(repr(e)))
-                    await self.bot.send_message(owner, 'during Sub: `{}`'.format(sub.tags_to_string()))
-                    await self.bot.send_message(owner, '```\n{}\n```'.format(traceback.print_exc()))
+                    self._write_subs_information_to_file()
+                    message = ('Error during update Task: `{}`\n'
+                               'during Sub: `{}`\n'
+                               '```\n{}\n```'
+                               .format(repr(e),sub.tags_to_string(),traceback.print_exc()))
+                    await self.bot.send_message(owner, message)
                     await asyncio.sleep(10)
                     continue
             await asyncio.sleep(5)
             self.write_to_file()
+
+    def _write_subs_information_to_file(self):
+        self.write_to_file()
+        for subscription in self.subscriptions:
+            subscription.write_sub_to_file()
+
+    async def _find_all_new_posts(self, images, sub):
+        new_posts = list()
+        timestamp_posted = list()
+        for image in images:
+            created = parser.parse(image['created_at'])
+            if not sub.old_timestamp:
+                sub.old_timestamp = created
+                await self.send_new_posts(sub,[image['file_url']])
+                sub.write_sub_to_file()
+            if created > sub.old_timestamp:
+                new_posts.append(image['file_url'])
+                timestamp_posted.append(created)
+        return new_posts,timestamp_posted
 
     def retrieve_subs(self):
         if not os.path.exists(self.subs_file):
@@ -214,18 +226,27 @@ class Scheduler:
     def create_sub_from_file(self,json_path):
         with open(json_path) as sub_file:
             data = json.load(sub_file)
-        server = self.bot.get_server(data['server'])
-        channel = self.bot.get_channel(data['channel'])
+
         user_list = []
-        for user in data['users']:
-            # try to get the member through Discord and their ID
-            member = server.get_member(data['users'][user]['id'])
-            # if that fails create own user with the necessary information
-            if member == None:
-                id = data['users'][user]['id']
-                name = data['users'][user]['name']
-                member = discord.User(username=name,id=id)
-            user_list.append(member)
+
+        if 'is_private' in data and bool(data['is_private']):
+            is_private = True
+            id = data['users']['0']['id']
+            name = data['users']['0']['name']
+            user_list.append(discord.User(username=name, id=id))
+        else:
+            is_private = False
+            server = self.bot.get_server(data['server'])
+            channel = self.bot.get_channel(data['channel'])
+            for user in data['users']:
+                # try to get the member through Discord and their ID
+                member = server.get_member(data['users'][user]['id'])
+                # if that fails create own user with the necessary information
+                if member == None:
+                    id = data['users'][user]['id']
+                    name = data['users'][user]['name']
+                    member = discord.User(username=name,id=id)
+                user_list.append(member)
 
         tags = data['tags']
         timestamp = data['old_timestamp']
@@ -233,18 +254,27 @@ class Scheduler:
             pools = data['pools']
         else:
             pools = []
-        retrieved_sub = Dansub(user_list,tags,pools,server,channel)
+        if is_private:
+            retrieved_sub = Dansub(user_list, tags, pools, None, None, is_private)
+        else:
+            retrieved_sub = Dansub(user_list, tags, pools, server, channel, is_private)
         if timestamp != 'None':
             retrieved_sub.old_timestamp = parser.parse(timestamp)
         return retrieved_sub
 
-
     async def send_new_posts(self, sub, new_posts):
-        await self.bot.send_message(sub.channel, sub.users_to_mention())
-        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
-        for post in new_posts:
-            await self.bot.send_message(sub.channel, post)
-        await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
+        if sub.is_private:
+            await self.bot.send_message(sub.users[0], sub.users_to_mention())
+            await self.bot.send_message(sub.users[0], '`{}`'.format(sub.tags_to_message()))
+            for post in new_posts:
+                await self.bot.send_message(sub.users[0], post)
+            await self.bot.send_message(sub.users[0], '`{}`'.format(sub.tags_to_message()))
+        else:
+            await self.bot.send_message(sub.channel, sub.users_to_mention())
+            await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
+            for post in new_posts:
+                await self.bot.send_message(sub.channel, post)
+            await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
 
     def find_matching_subs(self, tags, subs, image):
         matched_subs = list()
@@ -356,18 +386,21 @@ class Danbooru:
                 pool = {'tag': pool_tag, 'name': pool_name, 'id': pool_id}
                 pool_list.append(pool)
         message = ctx.message
+        is_private = ctx.message.channel.is_private
         try:
             for sub in self.scheduler.subscriptions:
-                if sub.compare_tags(tags_list):
+                if sub.compare_tags(tags_list) and (not sub.is_private or is_private):
                     for user in sub.users:
                         if user.id == message.author.id:
                             await self.bot.reply('You are already subscribed to those tags')
                             return
+                    if sub.is_private:
+                        break
                     sub.users.append(message.author)
                     sub.write_sub_to_file()
                     await self.bot.reply('Successfully added to existing sub `{}`'.format(sub.tags_to_message()))
                     return
-            new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel)
+            new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel,is_private)
             new_sub.old_timestamp = timestamp
             self.scheduler.subscriptions.append(new_sub)
             new_sub.write_sub_to_file()
@@ -420,8 +453,10 @@ class Danbooru:
         message = ctx.message
         found_subs = ''
         for sub in self.scheduler.subscriptions:
-            if message.author in sub.users:
+            if message.author in sub.users and (not sub.is_private or message.channel.is_private):
                 found_subs += '\n`{}`'.format(sub.tags_to_message())
+                if sub.is_private:
+                    found_subs += ' [private]'
 
         if not found_subs == '':
             await self.bot.reply(found_subs)
