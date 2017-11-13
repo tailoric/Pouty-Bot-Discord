@@ -79,9 +79,6 @@ class Dansub:
 
     def tags_to_string(self):
         self.tags.sort()
-        if self.is_private:
-            file_name = ' '.join(self.tags) + self.users[0].id
-            return  file_name
         return ' '.join(self.tags)
 
     def compare_tags(self,tags):
@@ -90,7 +87,10 @@ class Dansub:
 
     def tags_to_filename(self):
         # delete any character that isn't a word char - _ or . from the filename
-        return re.sub('[^\w\-_\.]','_', self.tags_to_string())
+        if self.is_private:
+            return re.sub('[^\w\-_\.]','_', self.tags_to_string()) + str(self.users[0].id)
+        else:
+            return re.sub('[^\w\-_\.]','_', self.tags_to_string())
 
     def tags_to_message(self):
         tags_list = self.tags.copy()
