@@ -158,9 +158,9 @@ class Scheduler:
                     tags = sub.tags_to_string()
                     images = await self.helper.lookup_tags(tags)
                     # skip if nothing was send back
-                    new_posts, timestamp_posted = await self._find_all_new_posts(images,sub)
                     if not images:
                         continue
+                    new_posts, timestamp_posted = await self._find_all_new_posts(images,sub)
                     if new_posts:
                         await self.send_new_posts(sub,new_posts)
                         sub.old_timestamp = max(timestamp_posted)
@@ -199,6 +199,8 @@ class Scheduler:
     async def _find_all_new_posts(self, images, sub):
         new_posts = list()
         timestamp_posted = list()
+        if not images:
+            return
         for image in images:
             created = parser.parse(image['created_at'])
             if not sub.old_timestamp:
