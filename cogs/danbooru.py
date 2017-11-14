@@ -1,4 +1,5 @@
 from discord.ext import commands
+from math import ceil
 import discord
 import aiohttp
 import json
@@ -265,17 +266,13 @@ class Scheduler:
 
     async def send_new_posts(self, sub, new_posts):
         if sub.is_private:
-            await self.bot.send_message(sub.users[0], sub.users_to_mention())
-            await self.bot.send_message(sub.users[0], '`{}`'.format(sub.tags_to_message()))
-            for post in new_posts:
-                await self.bot.send_message(sub.users[0], post)
-            await self.bot.send_message(sub.users[0], '`{}`'.format(sub.tags_to_message()))
+            message_list = self._reduce_message_spam(sub,new_posts)
+            for partial_message in message_list:
+                await self.bot.send_message(sub.users[0], partial_message)
         else:
-            await self.bot.send_message(sub.channel, sub.users_to_mention())
-            await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
-            for post in new_posts:
-                await self.bot.send_message(sub.channel, post)
-            await self.bot.send_message(sub.channel, '`{}`'.format(sub.tags_to_message()))
+            message_list = self._split_message_in_groups_of_four(sub, new_posts)
+            for partial_message in message_list:
+                await self.bot.send_message(sub.channel, partial_message)
 
     def find_matching_subs(self, tags, subs, image):
         matched_subs = list()
@@ -283,6 +280,37 @@ class Scheduler:
             if sub.tags_to_string() in image['tag_string']:
                 matched_subs.append(sub.users)
         return matched_subs
+
+    def _split_message_in_groups_of_four(self, sub, new_posts):
+        message_list = []
+        message = ('{}\n'
+                   '`{}`\n'
+                   .format(sub.users_to_mention(),sub.tags_to_message()))
+        for index, post in enumerate(new_posts,1):
+            if index%4 == 0:
+                if post is new_posts[-1]:
+                    break
+                message_list.append(message)
+
+                message = ""
+            message += post + "\n"
+        message += ('`{}`'.format(sub.tags_to_message()))
+        message_list.append(message)
+        return message_list
+
+
+    def _reduce_message_spam(self, sub, new_posts):
+        message_list = []
+        message = ('{}\n'
+                   '`{}`\n'
+                   .format(sub.users_to_mention(),sub.tags_to_message()))
+        for post in new_posts:
+            if len(message + post + '\n') > 2000:
+                message_list.append(message)
+                message = ""
+            message += post+'\n'
+        message_list.append(message)
+        return message_list
 
 
     def sort_tags(self, image):
