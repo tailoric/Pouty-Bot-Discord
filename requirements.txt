@@ -27,3 +27,4 @@ urllib3==1.22
 virtualenv==15.1.0
 websockets==3.2
 youtube-dl==2017.7.15
+wikipedia
