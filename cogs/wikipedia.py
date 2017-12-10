@@ -10,7 +10,10 @@ class Wikipedia:
     @commands.command()
     async def wiki(self, *, query):
         res = wikipedia.search(query)
-        link = wikipedia.page(res[0]).url
+        try:
+            link = wikipedia.page(res[0]).url
+        except wikipedia.exceptions.DisambiguationError as e:
+            link = wikipedia.page(e.options[0]).url
         await self.bot.say(link)
 
 
