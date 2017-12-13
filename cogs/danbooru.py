@@ -238,8 +238,14 @@ class Scheduler:
             user_list.append(discord.User(username=name, id=id))
         else:
             is_private = False
-            server = self.bot.get_server(data['server'])
-            channel = self.bot.get_channel(data['channel'])
+            if os.path.exists('data/danbooru/sub_channel.json'):
+                with open('data/danbooru/sub_channel.json','r') as f:
+                    sub_channel_file = json.load(f)
+                server = self.bot.get_server(sub_channel_file['server'])
+                channel = self.bot.get_channel(sub_channel_file['channel'])
+            else:
+                server = self.bot.get_server(data['server'])
+                channel = self.bot.get_channel(data['channel'])
             for user in data['users']:
                 # try to get the member through Discord and their ID
                 member = server.get_member(data['users'][user]['id'])
@@ -519,6 +525,20 @@ class Danbooru:
                     self.scheduler.subscriptions.append(dansub)
                     dansub.write_sub_to_file()
                 self.scheduler.write_to_file()
+
+    @dans.command(hidden=True, pass_context=True)
+    @checks.is_owner()
+    async def setup(self, ctx):
+        message = ctx.message
+        server = message.server
+        channel = message.channel
+        with open('data/danbooru/sub_channel.json', 'w') as f:
+           input = {
+               'server': server.id,
+               'channel': channel.id
+               }
+           json.dump(input,f)
+        await self.bot.say('channel setup for subscription')
 
     @dans.command()
     async def restart(self):
