@@ -167,10 +167,10 @@ class Scheduler:
                         sub.old_timestamp = max(timestamp_posted)
                         sub.write_sub_to_file()
                     number_subs = len(self.subscriptions)
-                    if number_subs < 1800:
-                        await asyncio.sleep(1800//number_subs)
-                    else:
-                        await asyncio.sleep(5)
+                    # if number_subs < 1800:
+                    #     await asyncio.sleep(1800//number_subs)
+                    # else:
+                    await asyncio.sleep(5)
 
                 except asyncio.CancelledError as e:
                     self._write_subs_information_to_file()
@@ -435,7 +435,15 @@ class Danbooru:
                     sub.write_sub_to_file()
                     await self.bot.reply('Successfully added to existing sub `{}`'.format(sub.tags_to_message()))
                     return
-            new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel,is_private)
+            if os.path.exists('data/danbooru/sub_channel.json'):
+                with open('data/danbooru/sub_channel.json') as f:
+                    data = json.load(f)
+                    server = self.bot.get_server(data['server'])
+                    channel = self.bot.get_channel(data['channel'])
+                new_sub = Dansub(message.author, tags_list, pool_list, server, channel, is_private)
+            else:
+                new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel,is_private)
+
             new_sub.old_timestamp = timestamp
             self.scheduler.subscriptions.append(new_sub)
             new_sub.write_sub_to_file()
