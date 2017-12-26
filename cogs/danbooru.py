@@ -496,17 +496,19 @@ class Danbooru:
         message = ctx.message
         found_subs = ''
         found_subs_messages = []
+        one_sub_found = False
         for sub in self.scheduler.subscriptions:
             if message.author in sub.users and (not sub.is_private or message.channel.is_private):
-                if(len(found_subs) + len(sub.tags_to_message) >= 2000):
+                if len(found_subs) + len(sub.tags_to_message()) >= 2000:
                     found_subs_messages.append(found_subs)
                     found_subs = ''
+                    one_sub_found = True
                 found_subs += '\n`{}`'.format(sub.tags_to_message())
                 if sub.is_private:
                     found_subs += ' [private]'
+        found_subs_messages.append(found_subs)
 
-
-        if not found_subs == '':
+        if not one_sub_found:
             for element in found_subs_messages:
                 await self.bot.say(element)
         else:
