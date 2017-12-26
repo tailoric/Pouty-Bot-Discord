@@ -495,14 +495,20 @@ class Danbooru:
         """
         message = ctx.message
         found_subs = ''
+        found_subs_messages = []
         for sub in self.scheduler.subscriptions:
             if message.author in sub.users and (not sub.is_private or message.channel.is_private):
+                if(len(found_subs) + len(sub.tags_to_message) >= 2000):
+                    found_subs_messages.append(found_subs)
+                    found_subs = ''
                 found_subs += '\n`{}`'.format(sub.tags_to_message())
                 if sub.is_private:
                     found_subs += ' [private]'
 
+
         if not found_subs == '':
-            await self.bot.reply(found_subs)
+            for element in found_subs_messages:
+                await self.bot.say(element)
         else:
             await self.bot.reply('You aren\'t subscribed to any tags')
 
