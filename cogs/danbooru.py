@@ -429,7 +429,7 @@ class Danbooru:
                         if user.id == message.author.id:
                             await self.bot.reply('You are already subscribed to those tags')
                             return
-                    if sub.is_private:
+                    if sub.is_private or is_private:
                         break
                     sub.users.append(message.author)
                     sub.write_sub_to_file()
