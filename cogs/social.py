@@ -193,6 +193,18 @@ class Social:
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
+    @commands.command(hidden=True, pass_context=True, aliases=["licc","lic","pero"])
+    async def lick(self, ctx, *, user=None):
+        mentioned_users = ctx.message.mentions
+        server = ctx.message.server
+        file_name = 'lick'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await self.bot.say(random.choice(images))
+        else:
+            found_user = find(lambda m: m.name == user, server.members)
+            fmt = '{0}\n{1}'
+            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
 def setup(bot):
     bot.add_cog(Social(bot))
