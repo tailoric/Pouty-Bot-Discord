@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import json
 from urllib import parse
 import requests
+import youtube_dl
 class Search:
     """Reverse image search commands"""
 
@@ -171,11 +172,10 @@ class Search:
 
     @commands.command()
     async def youtube(self, *, query: str):
-        url = "https://www.youtube.com/results?search_query=" + query
-        re = requests.get(url)
-        soup = BeautifulSoup(re.text,'html.parser')
-        vid = soup.find(attrs={'class': 'yt-uix-tile-link'})
-        await self.bot.say('https://www.youtube.com' + vid['href'])
+        ytdl = youtube_dl.YoutubeDL({"quiet": True})
+        info = ytdl.extract_info("ytsearch: "+ query, download=False)
+        url = info["entries"][0]["webpage_url"]
+        await self.bot.say(url)
 
     @commands.command()
     async def google(self, *, query: str):
