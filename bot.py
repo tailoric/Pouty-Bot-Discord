@@ -26,6 +26,7 @@ async def on_ready():
     try:
         for extension in init_extensions:
             bot.load_extension(extension)
+        print(discord.utils.oauth_url(credentials['client-id']))
     except Exception as e:
         print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
 
