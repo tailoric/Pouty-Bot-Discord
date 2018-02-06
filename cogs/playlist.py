@@ -143,6 +143,7 @@ class Music:
         opts = {
             'default_search': 'auto',
             'quiet': True,
+            'geo-bypass': True
         }
 
         if state.voice is None:
@@ -158,6 +159,9 @@ class Music:
             await self.bot.send_message(ctx.message.channel, fmt.format(type(e).__name__, e))
         else:
             player.volume = 0.6
+            if player.is_live:
+                await self.bot.say("livestream, skipped.")
+                return
             entry = VoiceEntry(ctx.message, player)
             state.song_queue.append(entry)
             await self.bot.say('Enqueued ' + str(entry))
@@ -190,7 +194,7 @@ class Music:
             player.resume()
 
     @commands.command(pass_context=True, no_pm=True)
-    async def stopping(self, ctx):
+    async def stop(self, ctx):
         """Stops playing audio and leaves the voice channel.
 
         This also clears the queue.
