@@ -20,7 +20,7 @@ class VoiceEntry:
         self.player = player
 
     def __str__(self):
-        fmt = '*{0.title}* uploaded by {0.uploader} and requested by {1.display_name}'
+        fmt = '**{0.title}** requested by **{1.display_name}**'
         duration = self.player.duration
         if duration:
             fmt = fmt + ' [length: {0[0]}m {0[1]}s]'.format(divmod(duration, 60))
@@ -171,6 +171,8 @@ class Music:
     async def volume(self, ctx, value : int):
         """Sets the volume of the currently playing song."""
 
+        if value > 80:
+            await self.bot.say("Earrape mode disabled, please don't make me shout >.<")
         state = self.get_voice_state(ctx.message.server)
         if state.is_playing():
             player = state.player
@@ -276,9 +278,9 @@ class Music:
             skip_count = len(state.skip_votes)
             await self.bot.say('Now playing {} [skips: {}/{}]\n'.format(state.current, skip_count,user_count))
             if state.song_queue:
-                message = 'Upcoming songs:\n'
-                for entry in state.song_queue:
-                    message += '{}\n'.format(entry)
+                message = '\nUpcoming songs:\n'
+                for index, entry in enumerate(state.song_queue):
+                    message += str(index+1) + '. {}\n'.format(entry)
                 await self.bot.say(message)
 
     # async def disconnect_if_not_playing(self):
