@@ -1,8 +1,5 @@
 from discord.ext import commands
 import aiohttp
-import os
-import uuid
-from bs4 import BeautifulSoup
 class Waifu2x:
     """
     For upscaling images and removing image noise

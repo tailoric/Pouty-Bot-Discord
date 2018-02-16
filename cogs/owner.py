@@ -1,7 +1,6 @@
 from discord.ext import commands
 from .utils import checks
 from bot import shutdown
-import sys
 
 class Owner:
     def __init__(self, bot):

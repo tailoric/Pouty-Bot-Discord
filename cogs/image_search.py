@@ -3,7 +3,6 @@ import aiohttp
 from bs4 import BeautifulSoup
 import json
 from urllib import parse
-import requests
 import youtube_dl
 class Search:
     """Reverse image search commands"""

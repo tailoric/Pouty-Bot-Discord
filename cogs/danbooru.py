@@ -1,5 +1,4 @@
 from discord.ext import commands
-from math import ceil
 import discord
 import aiohttp
 import json
@@ -57,6 +56,7 @@ class Helper:
         if file_url[0] != "/":
             file_url = "/" + file_url
         return baseUrl + file_url
+
 class Dansub:
 
     def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel, is_private: bool):

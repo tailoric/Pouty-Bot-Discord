@@ -5,7 +5,6 @@ import regex
 
 import httplib2
 import os
-from urllib import parse
 
 from googleapiclient.discovery import build
 from oauth2client.client import flow_from_clientsecrets
