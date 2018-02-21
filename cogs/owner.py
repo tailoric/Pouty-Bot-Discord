@@ -11,7 +11,7 @@ class Owner:
     #       https://github.com/Rapptz/
     #
     @commands.command(hidden=True)
-    @checks.is_owner()
+    @checks.is_owner_or_moderator()
     async def load(self, *, module: str):
         """Loads a module"""
         try:
@@ -23,7 +23,7 @@ class Owner:
             await self.bot.say('\N{THUMBS UP SIGN}')
 
     @commands.command(hidden=True)
-    @checks.is_owner()
+    @checks.is_owner_or_moderator()
     async def unload(self, *, module:str):
         """Unloads a module"""
         try:
@@ -35,7 +35,7 @@ class Owner:
             await self.bot.say('\N{THUMBS UP SIGN}')
 
     @commands.command(name='reload', hidden=True)
-    @checks.is_owner()
+    @checks.is_owner_or_moderator()
     async def _reload(self, *, module : str):
         """Reloads a module."""
         try:
@@ -48,7 +48,7 @@ class Owner:
             await self.bot.say('\N{THUMBS UP SIGN}')
 
     @commands.command(name='shutdown', hidden=True)
-    @checks.is_owner()
+    @checks.is_owner_or_admin()
     async def _shutdown(self):
         """Shutdown bot"""
         try:
