@@ -1,6 +1,7 @@
 import asyncio
 import discord
 from discord.ext import commands
+from .utils import checks
 
 """
 Credits to https://github.com/Rapptz/ for the cog
@@ -152,7 +153,7 @@ class Music:
                 return
 
         try:
-            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5" 
+            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15" 
             player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next,before_options=beforeArgs)
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
@@ -173,6 +174,7 @@ class Music:
 
         if value > 80:
             await self.bot.say("Earrape mode disabled, please don't make me shout >.<")
+            return
         state = self.get_voice_state(ctx.message.server)
         if state.is_playing():
             player = state.player
@@ -180,22 +182,7 @@ class Music:
             await self.bot.say('Set the volume to {:.0%}'.format(player.volume))
 
     @commands.command(pass_context=True, no_pm=True)
-    async def pause(self, ctx):
-        """Pauses the currently played song."""
-        state = self.get_voice_state(ctx.message.server)
-        if state.is_playing():
-            player = state.player
-            player.pause()
-
-    @commands.command(pass_context=True, no_pm=True)
-    async def resume(self, ctx):
-        """Resumes the currently played song."""
-        state = self.get_voice_state(ctx.message.server)
-        if state.is_playing():
-            player = state.player
-            player.resume()
-
-    @commands.command(pass_context=True, no_pm=True)
+    @checks.is_owner_or_moderator()
     async def stop(self, ctx):
         """Stops playing audio and leaves the voice channel.
 

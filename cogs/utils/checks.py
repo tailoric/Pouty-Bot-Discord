@@ -23,9 +23,11 @@ def is_owner_or_admin_check(message):
 
 
 def is_owner_or_moderator_check(message):
-    if is_owner_check(message):
+    if is_owner_or_admin_check(message):
         return True
-    return message.author.server_permissions.manage_server
+    for role in message.author.roles:
+        if role.name == "Discord-Senpai":
+            return True
 
 
 def is_owner_or_admin():
