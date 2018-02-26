@@ -2,6 +2,7 @@ import asyncio
 import discord
 from discord.ext import commands
 from .utils import checks
+import time
 
 """
 Credits to https://github.com/Rapptz/ for the cog
@@ -37,6 +38,7 @@ class VoiceState:
         self.skip_votes = set() # a set of user_ids that voted
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
         self.song_queue = list()
+        self.wait_timer = time.time()
 
     def is_playing(self):
         if self.voice is None or self.current is None:
@@ -57,9 +59,12 @@ class VoiceState:
     def toggle_next(self):
         self.bot.loop.call_soon_threadsafe(self.play_next_song.set)
 
+
     async def audio_player_task(self):
         while True:
             self.play_next_song.clear()
+            await self.bot.change_presence(game=None)
+            self.wait_timer = time.time()
             self.current = await self.songs.get()
             self.song_queue.pop(0)
             self.skip_votes.clear()
@@ -76,6 +81,7 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
+        self.timeout_timer_task = self.bot.loop.create_task(self.timeout_timer(300))
         #self.check_running_task = self.bot.loop.create_task(self.disconnect_if_not_playing())
 
     def get_voice_state(self, server):
@@ -100,6 +106,26 @@ class Music:
             except:
                 pass
         #self.check_running_task.cancel()
+
+    async def leave_voice_channel(self, voice_channel, voice_id):
+        voice_channel.audio_player.cancel()
+        del self.voice_states[voice_id]
+        voice_channel.song_queue.clear()
+        await voice_channel.voice.disconnect()
+        await self.bot.change_presence(game=None)
+    """disconnect on timeout"""
+
+    async def timeout_timer(self, timeout):
+        while self == self.bot.get_cog('Music'):
+            voice_states_copy = self.voice_states.copy()
+            for voice_id in voice_states_copy:
+                voice_channel = self.voice_states.get(voice_id)
+                if not voice_channel.is_playing() and time.time() - voice_channel.wait_timer > timeout:
+                    try:
+                        await self.leave_voice_channel(voice_channel, voice_id)
+                    except:
+                        pass
+            await asyncio.sleep(5)
 
     @commands.command(pass_context=True, no_pm=True)
     async def join(self, ctx, *, channel : discord.Channel):
@@ -196,12 +222,8 @@ class Music:
             player.stop()
 
         try:
-            state.audio_player.cancel()
-            del self.voice_states[server.id]
-            state.song_queue.clear()
-            await state.voice.disconnect()
-            await self.bot.change_presence(game=None)
-        except:
+            await self.leave_voice_channel(voice_channel=state, voice_id=server.id)
+        except Exception as e:
             pass
 
     @commands.command(pass_context=True, no_pm=True)
