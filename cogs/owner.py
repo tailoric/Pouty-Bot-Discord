@@ -1,10 +1,20 @@
 from discord.ext import commands
+from discord import User
 from .utils import checks
 from bot import shutdown
+import json
+import os
 
 class Owner:
     def __init__(self, bot):
         self.bot = bot
+        if os.path.exists("data/ignores.json"):
+            with open("data/ignores.json") as f:
+                self.global_ignores = json.load(f)
+        else:
+            self.global_ignores = []
+
+
     #
     #
     # loading and unloading command by Rapptz
@@ -60,5 +70,38 @@ class Owner:
             self.bot.unload_extension(extension)
         await shutdown(bot=self.bot)
 
+    @commands.group(pass_context=True, aliases=['bl'])
+    @checks.is_owner_or_moderator()
+    async def blacklist(self, ctx):
+        """
+        Blacklist management commands
+        :return:
+        """
+        if ctx.invoked_subcommand is None:
+            await self.bot.say("use `blacklist add` or `global_ignores remove`")
+
+    @blacklist.command(name="add", pass_context=True)
+    async def _blacklist_add(self, ctx, user: User):
+        if ctx.message.author.id == user.id:
+            await self.bot.say("Don't blacklist yourself, dummy")
+            return
+        if user.id not in self.global_ignores:
+            self.global_ignores.append(user.id)
+            with open("data/ignores.json", "w") as f:
+                json.dump(self.global_ignores,f)
+            await self.bot.say('User {} has been blacklisted'.format(user.name))
+        else:
+            await self.bot.say("User {} already is blacklisted".format(user.name))
+
+
+    @blacklist.command(name="remove")
+    async def _blacklist_remove(self, user:User):
+        if user.id in self.global_ignores:
+            self.global_ignores.remove(user.id)
+            with open("data/ignores.json", "w") as f:
+                json.dump(self.global_ignores, f)
+            await self.bot.say("User {} has been removed from blacklist".format(user.name))
+        else:
+            await self.bot.say("User {} is not blacklisted".format(user.name))
 def setup(bot):
     bot.add_cog(Owner(bot))
