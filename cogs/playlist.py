@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from .utils import checks
 import time
+import re
 
 """
 Credits to https://github.com/Rapptz/ for the cog
@@ -82,7 +83,6 @@ class Music:
         self.bot = bot
         self.voice_states = {}
         self.timeout_timer_task = self.bot.loop.create_task(self.timeout_timer(300))
-        #self.check_running_task = self.bot.loop.create_task(self.disconnect_if_not_playing())
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -114,9 +114,13 @@ class Music:
         voice_channel.song_queue.clear()
         await voice_channel.voice.disconnect()
         await self.bot.change_presence(game=None)
-    """disconnect on timeout"""
 
     async def timeout_timer(self, timeout):
+        """
+        disconnect after playing no music for a certain amount of time
+        :param timeout: number of seconds the bot will wait until disconnecting
+        :return: null
+        """
         while self == self.bot.get_cog('Music'):
             voice_states_copy = self.voice_states.copy()
             for voice_id in voice_states_copy:
@@ -129,7 +133,7 @@ class Music:
             await asyncio.sleep(5)
 
     @commands.command(pass_context=True, no_pm=True)
-    async def join(self, ctx, *, channel : discord.Channel):
+    async def join(self, ctx, *, channel: discord.Channel):
         """Joins a voice channel."""
         try:
             await self.create_voice_client(channel)
@@ -168,6 +172,10 @@ class Music:
         https://rg3.github.io/youtube-dl/supportedsites.html
         """
         state = self.get_voice_state(ctx.message.server)
+        user_voice_channel = ctx.message.author.voice_channel
+        if user_voice_channel is None:
+            await self.bot.say('You are not in a voice channel.')
+            return
         opts = {
             'default_search': 'auto',
             'quiet': True,
@@ -180,7 +188,8 @@ class Music:
                 return
 
         try:
-            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15" 
+            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15"
+            song = self.format_non_embed_link(song)
             player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next,before_options=beforeArgs)
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
@@ -292,20 +301,12 @@ class Music:
                     message += str(index+1) + '. {}\n'.format(entry)
                 await self.bot.say(message)
 
-    # async def disconnect_if_not_playing(self):
-    #     await self.bot.wait_until_ready()
-    #     while not self.bot.is_closed:
-    #         for state_id in self.voice_states:
-    #             state = self.voice_states.get(state_id)
-    #             if not state.is_playing():
-    #                 await asyncio.sleep(60)
-    #                 if not state.is_playing():
-    #                     await self.bot.change_presence(game=None)
-    #                     await state.voice.disconnect()
-    #
-    #                 else:
-    #                     continue
-    #         await asyncio.sleep(300)
+    def format_non_embed_link(self, link: str):
+        find_url_regex = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', link)
+        if find_url_regex:
+            if '<' in link[0] or '>' in link[len(link)-1]:
+                return link[1:len(link)-1]
+        return link
 
 
 def setup(bot):
