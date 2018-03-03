@@ -100,6 +100,7 @@ class Music:
     def __unload(self):
         for state in self.voice_states.values():
             try:
+                self.timeout_timer_task.cancel()
                 state.audio_player.cancel()
                 if state.voice:
                     self.bot.loop.create_task(state.voice.disconnect())
@@ -208,7 +209,6 @@ class Music:
             await self.bot.say('Set the volume to {:.0%}'.format(player.volume))
 
     @commands.command(pass_context=True, no_pm=True)
-    @checks.is_owner_or_moderator()
     async def stop(self, ctx):
         """Stops playing audio and leaves the voice channel.
 

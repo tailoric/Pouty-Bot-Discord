@@ -8,7 +8,7 @@ from cogs.utils import checks
 
 description = 'Pouty Bot MKII by Saikimo'
 
-bot = commands.Bot(command_prefix=['!', '.'], description=description, formatter=CustomHelpFormatter())
+bot = commands.Bot(command_prefix=['!'], description=description, formatter=CustomHelpFormatter())
 
 
 def load_credentials():
@@ -38,8 +38,11 @@ async def on_command_error(error, ctx):
 
 @bot.event
 async def on_message(message):
-    global_ignores = bot.get_cog("Owner").global_ignores
-    if not message.author.id in global_ignores or checks.is_owner_check(message):
+    if bot.get_cog("Owner"):
+        global_ignores = bot.get_cog("Owner").global_ignores
+        if not message.author.id in global_ignores or checks.is_owner_check(message):
+            await bot.process_commands(message)
+    else:
         await bot.process_commands(message)
 async def shutdown(bot, *,restart=False):
     """Gracefully quits bot with exit code 0"""
