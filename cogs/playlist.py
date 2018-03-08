@@ -4,6 +4,7 @@ from discord.ext import commands
 from .utils import checks
 import time
 import re
+import youtube_dl as ytdl
 
 """
 Credits to https://github.com/Rapptz/ for the cog
@@ -179,7 +180,9 @@ class Music:
         opts = {
             'default_search': 'auto',
             'quiet': True,
-            'geo-bypass': True
+            'geo-bypass': True,
+            'extractaudio': True,
+            'format': 'best'
         }
 
         if state.voice is None:
@@ -293,8 +296,16 @@ class Music:
         if state.current is None:
             await self.bot.say('Not playing anything.')
         else:
+            find_url_regex = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', state.current.player.url)
+            url = None
+            if not find_url_regex:
+                yt = ytdl.YoutubeDL({'quiet': True})
+                info = yt.extract_info("ytsearch: "+ state.current.player.url, download=False)
+                url = info['entries'][0]['webpage_url']
+            else:
+                url = state.current.player.url
             skip_count = len(state.skip_votes)
-            await self.bot.say('Now playing {} [skips: {}/{}]\n'.format(state.current, skip_count,user_count))
+            await self.bot.say('Now playing {} [skips: {}/{}]\n<{}>'.format(state.current, skip_count,user_count,url))
             if state.song_queue:
                 message = '\nUpcoming songs:\n'
                 for index, entry in enumerate(state.song_queue):
