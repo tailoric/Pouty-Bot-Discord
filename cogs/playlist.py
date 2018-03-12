@@ -28,6 +28,7 @@ class VoiceEntry:
         duration = self.player.duration
         if duration:
             fmt = fmt + ' [length: {0[0]}m {0[1]}s]'.format(divmod(duration, 60))
+
         return fmt.format(self.player, self.requester)
 
 class VoiceState:
@@ -41,6 +42,7 @@ class VoiceState:
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
         self.song_queue = list()
         self.wait_timer = time.time()
+        self.start_time = time
 
     def is_playing(self):
         if self.voice is None or self.current is None:
@@ -73,6 +75,7 @@ class VoiceState:
             await self.bot.send_message(self.current.channel, 'Now playing ' + str(self.current))
             await self.bot.change_presence(game=discord.Game(name=self.current.player.title))
             self.current.player.start()
+            self.start_time = time.time()
             await self.play_next_song.wait()
 
 class Music:
@@ -296,6 +299,7 @@ class Music:
         if state.current is None:
             await self.bot.say('Not playing anything.')
         else:
+            player = state.current.player
             find_url_regex = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', state.current.player.url)
             url = None
             if not find_url_regex:
@@ -305,13 +309,23 @@ class Music:
             else:
                 url = state.current.player.url
             skip_count = len(state.skip_votes)
-            await self.bot.say('Now playing {} [skips: {}/{}]\n<{}>'.format(state.current, skip_count,user_count,url))
+            fmt_playtime = self.get_playtime(player)
+            await self.bot.say('Now playing {} [skips: {}/{}]{}\n<{}>\n'.format(state.current, skip_count,user_count,fmt_playtime, url))
             if state.song_queue:
                 message = '\nUpcoming songs:\n'
                 for index, entry in enumerate(state.song_queue):
                     message += str(index+1) + '. {}\n'.format(entry)
                 await self.bot.say(message)
 
+    def get_playtime(self, player):
+        playtime = time.time() - player._start
+        if player.duration:
+            return '`[{0}/{1}]`'.format(
+                time.strftime('%H:%M:%S', time.gmtime(playtime)),
+                time.strftime('%H:%M:%S', time.gmtime(player.duration))
+            )
+        else:
+            return '`[{0}]`'.format(time.strftime('%H:%M:%S', time.gmtime(playtime)))
     def format_non_embed_link(self, link: str):
         find_url_regex = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', link)
         if find_url_regex:
