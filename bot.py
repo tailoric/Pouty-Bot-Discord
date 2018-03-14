@@ -8,7 +8,7 @@ from cogs.utils import checks
 
 description = 'Pouty Bot MKII by Saikimo'
 
-bot = commands.Bot(command_prefix=['!'], description=description, formatter=CustomHelpFormatter())
+bot = commands.Bot(command_prefix=['!','.'], description=description, formatter=CustomHelpFormatter())
 
 
 def load_credentials():

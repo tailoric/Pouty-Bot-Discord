@@ -98,15 +98,6 @@ class Search:
                             danbooru_found = True
                             danbooru = 'http:'+source
                             characters, artist, franchise, source_url = await self._danbooru_api(danbooru)
-                            # message = ''
-                            # if characters:
-                            #     message += '\n**Characters:** {} \n'.format(characters)
-                            # if artist:
-                            #     message += '**Artist:** {} \n'.format(artist)
-                            # if franchise:
-                            #     message += '**Copyright:** {} \n'.format(franchise)
-                            #
-                            # message += '**Source:** <{}> \n'.format(danbooru)
                             embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [iqdb](https://iqdb.org/)")
 
                             embed.set_thumbnail(url=url)
