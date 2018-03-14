@@ -1,4 +1,5 @@
 from discord.ext import commands
+import discord
 import aiohttp
 from bs4 import BeautifulSoup
 import json
@@ -34,7 +35,7 @@ class Search:
             user = data['user']
             api_key = data['api_key']
         auth = aiohttp.BasicAuth(user, api_key)
-        characters, artist, franchise = None, None, None
+        characters, artist, franchise, source = None, None, None, None
         async with self.dans_session.get('{}.json'.format(link), auth=auth) as response:
             if response.status == 200:
                 json_dump = await response.json()
@@ -44,7 +45,11 @@ class Search:
                     artist = self._tag_to_title(json_dump['tag_string_artist'])
                 if json_dump['tag_count_copyright'] > 0:
                     franchise = self._tag_to_title(json_dump['tag_string_copyright'])
-                return characters, artist, franchise
+                if json_dump['pixiv_id']:
+                    source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + str(json_dump['pixiv_id'])
+                elif json_dump['source']:
+                    source = json_dump['source']
+                return characters, artist, franchise, source
             else:
                 await self.bot.reply("\n HTTP Error occured with following Status Code:{}".format(response.status))
 
@@ -56,7 +61,7 @@ class Search:
 
 
     def _tag_to_title(self, tag):
-        return tag.replace(' ', ', ').replace('_', ' ').title()
+        return tag.replace(' ', '\n').replace('_', ' ').title()
 
     @commands.command(pass_context=True)
     async def iqdb(self, ctx, link=None):
@@ -92,17 +97,35 @@ class Search:
                         if source.startswith('//danbooru.donmai.us') and not danbooru_found:
                             danbooru_found = True
                             danbooru = 'http:'+source
-                            characters, artist, franchise = await self._danbooru_api(danbooru)
-                            message = ''
-                            if characters:
-                                message += '\n**Characters:** {} \n'.format(characters)
-                            if artist:
-                                message += '**Artist:** {} \n'.format(artist)
-                            if franchise:
-                                message += '**Copyright:** {} \n'.format(franchise)
+                            characters, artist, franchise, source_url = await self._danbooru_api(danbooru)
+                            # message = ''
+                            # if characters:
+                            #     message += '\n**Characters:** {} \n'.format(characters)
+                            # if artist:
+                            #     message += '**Artist:** {} \n'.format(artist)
+                            # if franchise:
+                            #     message += '**Copyright:** {} \n'.format(franchise)
+                            #
+                            # message += '**Source:** <{}> \n'.format(danbooru)
+                            embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [iqdb](https://iqdb.org/)")
 
-                            message += '**Source:** <{}> \n'.format(danbooru)
-                            await self.bot.reply(message)
+                            embed.set_thumbnail(url=url)
+
+                            if characters:
+                                embed.add_field(name="Character", value=characters)
+                            if artist or source_url:
+                                if source_url and artist:
+                                    embed.add_field(name="Artist", value="[{}]({})".format(artist, source_url))
+                                elif artist:
+                                    embed.add_field(name="Artist", value=artist)
+                                else:
+                                    embed.add_field(name="Source", value=source_url)
+
+                            if franchise:
+                                embed.add_field(name="Copyright", value=franchise)
+                            embed.add_field(name="Danbooru", value=danbooru)
+
+                            await self.bot.say(embed=embed)
                     if not danbooru_found:
                         await  self.bot.reply('<{}>'.format(best_match))
 
