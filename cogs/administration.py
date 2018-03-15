@@ -40,7 +40,7 @@ class Admin:
             report_message.add_field(name="Channel", value=channel.mention)
         if ctx.message.attachments:
             report_message.add_field(name="Included Screenshot", value="[Screenshot]({})".format(ctx.message.attachments[0]['url']))
-            report_message.set_thumbnail(url=ctx.message.attachments[0]['url'])
+            report_message.set_image(url=ctx.message.attachments[0]['url'])
 
         await self.bot.send_message(self.report_channel, embed=report_message)
 
