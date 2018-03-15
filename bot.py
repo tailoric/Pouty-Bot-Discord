@@ -34,7 +34,6 @@ async def on_ready():
 @bot.event
 async def on_command_error(error, ctx):
     logger.log(logging.INFO, error)
-    await bot.send_message(ctx.message.channel, "```\n{}\n```".format(ctx.command.help))
 
 @bot.event
 async def on_message(message):

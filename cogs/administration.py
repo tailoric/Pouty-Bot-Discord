@@ -17,13 +17,14 @@ class Admin:
     async def report(self, ctx, message: str, reported_user: discord.User=None, channel: discord.Channel=None):
         """
         usage:
-        !report "report reason" reported_user_id (optional) channel_id (optional)
+        !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
 
         don't forget the quotes around the reason, optionally you can attach a screenshot via file upload
 
         examples:
         !report "I was meanly bullied by <user>" 123456789 0987654321
         !report "I was bullied by <user>"
+        !report "I was bullied by <user>" User_Name general
         """
         if message == 'setup':
             await ctx.invoke(self.setup, ctx=ctx)
