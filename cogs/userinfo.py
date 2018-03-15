@@ -1,5 +1,6 @@
 from discord.ext import commands
 from discord import Member, Embed, Role, utils
+import discord
 import time
 
 
@@ -22,6 +23,7 @@ class Userinfo:
         time_fmt = "%d %b %Y %H:%M"
         joined_number_of_days_diff = int((time.time() - time.mktime(join_date.timetuple())) // (3600 * 24))
         created_number_of_days_diff = int((time.time() - time.mktime(created_at.timetuple())) // (3600 * 24))
+        member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
         embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar_url), color=user_color)
         if member.avatar_url:
             embed.set_thumbnail(url=member.avatar_url)
@@ -37,11 +39,39 @@ class Userinfo:
                         inline=True)
 
         member.roles.pop(0)
-        member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
 
         if member.roles:
             embed.add_field(name="Roles", value=", ".join([x.name for x in member.roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
+        await self.bot.say(embed=embed)
+
+    @commands.command(pass_context=True)
+    async def serverinfo(self, ctx):
+        server = ctx.message.server
+        time_fmt = "%d %b %Y %H:%M"
+        creation_time_diff = int(time.time() - time.mktime(server.created_at.timetuple())) // (3600 * 24)
+        users_total = len(server.members)
+        users_online = len([m for m in server.members if m.status == discord.Status.online or
+                            m.status == discord.Status.idle])
+        colour = server.me.colour
+        if server.icon:
+            embed = Embed(description="[{}]({})\nCreated {} ({} days ago)"
+                          .format(server.name, server.icon_url, server.created_at.strftime(time_fmt), creation_time_diff),
+                          color=colour)
+            embed.set_thumbnail(url=server.icon_url)
+        else:
+            embed = Embed(description="{}\nCreated {} ({} days ago)"
+                          .format(server.name, server.created_at.strftime(time_fmt), creation_time_diff))
+        embed.add_field(name="Region", value=str(server.region))
+        embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
+        embed.add_field(name="Text Channels", value="{}"
+                        .format(len([x for x in server.channels if x.type == discord.ChannelType.text])))
+        embed.add_field(name="Voice Channels", value="{}"
+                        .format(len([x for x in server.channels if x.type == discord.ChannelType.voice])))
+        embed.add_field(name="Roles", value="{}".format(len(server.roles)))
+        embed.add_field(name="Owner", value=str(server.owner))
+        embed.set_footer(text="Server ID: {}".format(server.id))
+
         await self.bot.say(embed=embed)
 
 
