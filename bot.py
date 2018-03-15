@@ -35,6 +35,8 @@ async def on_ready():
 async def on_command_error(error, ctx):
   if isinstance(error, commands.CommandNotFound):
       logger.log(logging.INFO, error)
+  if isinstance(error, commands.BadArgument):
+      await bot.send_message(ctx.message.channel, "```\n{}\n```".format(ctx.command.help))
 
 @bot.event
 async def on_message(message):
