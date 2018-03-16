@@ -135,6 +135,11 @@ class Danbooru:
     
     @mlist.command(pass_context=True)
     async def authorize(self, ctx, list, userToAdd):
+        """
+        Authorizes a user to broadcast to a list
+        list: list to add the user too
+        userToAdd: user to authorize
+        """
         mentioned_user = ctx.message.mentions[0]
         requester_id = message.author.id
         if requester_id in self.json["subs"][list]["authorized"]:
