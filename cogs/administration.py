@@ -50,12 +50,16 @@ class Admin:
             await self.bot.say("report channel not set up yet, message a moderator")
             return
         report_message = "**Report Message:**\n{}\n".format(message)
+        reported_user = []
+        reported_channel = []
         for arg in args:
             if isinstance(arg, discord.User):
-                report_message += "**Reported User:**\n{}\n".format(arg.mention)
+                reported_user.append(arg.mention)
             if isinstance(arg, discord.Channel):
-                report_message += "**in Channel:**\n{}\n".format(arg.mention)
+                reported_channel.append(arg.mention)
 
+        report_message += "**Reported User(s):**\n{}\n".format(", ".join(reported_user))
+        report_message += "**In Channel(s):**\n{}\n".format(", ".join(reported_channel))
         if ctx.message.attachments:
             report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
 
