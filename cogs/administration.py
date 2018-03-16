@@ -32,17 +32,16 @@ class Admin:
         if not self.report_channel:
             await self.bot.say("report channel not set up yet, message a moderator")
             return
-        report_message = discord.Embed(title="User Report",description=message)
+        report_message = "**Report Message:**\n{}\n".format(message)
 
         if reported_user:
-            report_message.add_field(name="Reported User", value=reported_user.mention)
+            report_message += "**Reported User:**\n{}\n".format(reported_user.mention)
         if channel:
-            report_message.add_field(name="Channel", value=channel.mention)
+            report_message +="**Channel:**\n{}\n".format(channel.mention)
         if ctx.message.attachments:
-            report_message.add_field(name="Included Screenshot", value="[Screenshot]({})".format(ctx.message.attachments[0]['url']))
-            report_message.set_image(url=ctx.message.attachments[0]['url'])
+            report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
 
-        await self.bot.send_message(self.report_channel, embed=report_message)
+        await self.bot.send_message(self.report_channel, report_message)
 
 
 
