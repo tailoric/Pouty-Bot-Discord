@@ -135,7 +135,7 @@ class Mailinglist:
             return
     
     @mlist.command(pass_context=True)
-    async def authorize(self, ctx, list, userToAdd):
+    async def authorize(self, ctx, list):
         """
         Authorizes a user to broadcast to a list
         list: list to add the user too
@@ -155,11 +155,11 @@ class Mailinglist:
             return
 
     @mlist.command(pass_context=True)
-    async def broadcast(self, ctx, list, message):
+    async def broadcast(self, ctx, list, messageToSend):
         """
         Send a message to the given list
         list: list that will be broadcasted to
-        message: message that will be sent
+        messageToSend: message that will be sent
         """
         message = ctx.message
         requester_id = message.author.id
@@ -168,8 +168,7 @@ class Mailinglist:
         # If it does add the user only if they are not already in the list
         if list in self.json["subs"]:
             if requester_id in self.json["subs"][list]["authorized"]:
-                for userID in self.json["subs"][list]["subbed"]:
-                    await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, message, list, self.pingList(self.json["subs"][list]["subbed"])))
+                await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, messageToSend, list, self.pingList(self.json["subs"][list]["subbed"])))
                 return
             else:
                 await self.bot.say('You are not authorized to broadcast to {}. Ask <@{}> to add you to the authorized '
