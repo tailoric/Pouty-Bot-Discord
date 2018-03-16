@@ -55,6 +55,28 @@ class Danbooru:
     async def mlist(self, ctx):
         if ctx.invoked_subcommand is None:
             await self.bot.say("use `.help mlist`")
+
+    @commands.group(pass_context = True)
+    async def create(self, ctx):
+        """
+        Create provided list
+        list: list that will be created
+        """
+        message = ctx.message
+        requesterID = message.author.id
+
+        # Make sure list exists
+        # If it does add the user only if they are not already in the list
+        if list in self.json["subs"]:
+            await self.bot.say('List %(list) already exists.' % list)
+            return
+        else:
+            # Here is where we actually add the user to the list
+            self.json["subs"][list] = [];
+            self.writeUpdatedList()
+            await self.bot.say('%(list) has been created. You are not subcribed to it by default, use `mlist sub` to subscribe.' % list)
+            return
+    
     @mlist.command(pass_context=True)
     async def sub(self, ctx, list):
         """
@@ -66,7 +88,7 @@ class Danbooru:
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.subs:
+        if list in self.json["subs"]:
             for userID in self.json["subs"][list]:
                 if userID == requesterID:
                     await self.bot.say('You are already in %(list).' % list)
@@ -82,8 +104,6 @@ class Danbooru:
             await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
             return
 
-
-
     @mlist.command(pass_context=True)
     async def unsub(self, ctx, list):
         """
@@ -95,7 +115,7 @@ class Danbooru:
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.subs:
+        if list in self.json["subs"]:
             for index, userID in enumerate(self.json["subs"][list]):
                 if userID == requesterID:
                     self.json["users"][requesterID].remove(list)
@@ -119,11 +139,11 @@ class Danbooru:
         message: message that will be sent
         """
         message = ctx.message
-        requester_id= message.author.id
+        requester_id = message.author.id
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.subs:
+        if list in self.json["subs"]:
             for userID in self.json["subs"][list]:
                 await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, message, list, self.pingList(self.json["subs"][list])))
             return
