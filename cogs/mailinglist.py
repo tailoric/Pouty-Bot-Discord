@@ -60,105 +60,105 @@ class Mailinglist:
             await self.bot.say("use `.help mlist`")
 
     @commands.group(pass_context = True)
-    async def create(self, ctx):
+    async def create(self, ctx, mail_list):
         """
         Create provided list
-        list: list that will be created
+        mail_list: list that will be created
         """
         message = ctx.message
         requesterID = message.author.id
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.json["subs"]:
-            await self.bot.say('List %(list) already exists.' % list)
+        if mail_list in self.json["subs"]:
+            await self.bot.say('List %(mail_list) already exists.' % mail_list)
             return
         else:
             # Here is where we actually add the user to the list
-            self.json["subs"][list] = {"subbed": [], "authorized": [requesterID]}
+            self.json["subs"][mail_list] = {"subbed": [], "authorized": [requesterID]}
             self.writeUpdatedList()
-            await self.bot.say('%(list) has been created. You are not subscribed to it by default, use `mlist sub` to '
-                               'subscribe.' % list)
+            await self.bot.say('%(mail_list) has been created. You are not subscribed to it by default, use `mlist '
+                               'sub` to subscribe.' % mail_list)
             return
     
     @mlist.command(pass_context=True)
-    async def sub(self, ctx, list):
+    async def sub(self, ctx, mail_list):
         """
         subscribe to provided list
-        list: list that will be subscribed to
+        mail_list: list that will be subscribed to
         """
         message = ctx.message
         requesterID = message.author.id
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.json["subs"]:
-            for userID in self.json["subs"][list]["subbed"]:
+        if mail_list in self.json["subs"]:
+            for userID in self.json["subs"][mail_list]["subbed"]:
                 if userID == requesterID:
-                    await self.bot.say('You are already in %ds(list).' % list)
+                    await self.bot.say('You are already in %ds(mail_list).' % mail_list)
                     return
 
             # Here is where we actually add the user to the list
-            self.json["subs"][list]["subbed"].append(requesterID)
-            self.json["users"][requesterID].append(list)
+            self.json["subs"][mail_list]["subbed"].append(requesterID)
+            self.json["users"][requesterID].append(mail_list)
             self.writeUpdatedList()
-            await self.bot.say('You have been added to %ds(list).' % list)
+            await self.bot.say('You have been added to %ds(mail_list).' % mail_list)
             return
         else:
-            await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
+            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
 
     @mlist.command(pass_context=True)
-    async def unsub(self, ctx, list):
+    async def unsub(self, ctx, mail_list):
         """
         unsubscribe from given list
-        list: list that will be unsubscribed from
+        mail_list: list that will be unsubscribed from
         """
         message = ctx.message
         requesterID = message.author.id
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.json["subs"]:
-            for index, userID in enumerate(self.json["subs"][list]["subbed"]):
+        if mail_list in self.json["subs"]:
+            for index, userID in enumerate(self.json["subs"][mail_list]["subbed"]):
                 if userID == requesterID:
-                    self.json["users"][requesterID].remove(list)
-                    self.json["subs"][list]["subbed"].remove(requesterID)
+                    self.json["users"][requesterID].remove(mail_list)
+                    self.json["subs"][mail_list]["subbed"].remove(requesterID)
                     self.writeUpdatedList()
-                    await self.bot.say('You have been removed from %ds(list).' % list)
+                    await self.bot.say('You have been removed from %ds(mail_list).' % mail_list)
                     return
 
-            await self.bot.say('You are not in list %ds(list).' % list)
+            await self.bot.say('You are not in list %ds(mail_list).' % mail_list)
             return
         else:
-            await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
+            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
     
     @mlist.command(pass_context=True)
-    async def authorize(self, ctx, list):
+    async def authorize(self, ctx, mail_list):
         """
         Authorizes a user to broadcast to a list
-        list: list to add the user too
+        mail_list: list to add the user too
         userToAdd: user to authorize
         """
         message = ctx.message
         mentioned_user = ctx.message.mentions[0]
         requester_id = message.author.id
-        if requester_id in self.json["subs"][list]["authorized"]:
-            self.json["subs"][list]["authorized"].append(mentioned_user)
+        if requester_id in self.json["subs"][mail_list]["authorized"]:
+            self.json["subs"][mail_list]["authorized"].append(mentioned_user)
             self.writeUpdatedList()
-            await self.bot.say('User has been added to the authorized group for %ds(list).' % list)
+            await self.bot.say('User has been added to the authorized group for %ds(mail_list).' % mail_list)
             return
         else:
             await self.bot.say('You are not authorized to add authorized users. Ask <@{}> to add you to the '
-                               'authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
+                               'authorized users.'.format(mail_list, self.json["subs"][mail_list]["authorized"][0]))
             return
 
     @mlist.command(pass_context=True)
-    async def broadcast(self, ctx, list, messageToSend):
+    async def broadcast(self, ctx, mail_list, messageToSend):
         """
         Send a message to the given list
-        list: list that will be broadcasted to
+        mail_list: list that will be broadcasted to
         messageToSend: message that will be sent
         """
         message = ctx.message
@@ -166,25 +166,25 @@ class Mailinglist:
 
         # Make sure list exists
         # If it does add the user only if they are not already in the list
-        if list in self.json["subs"]:
-            if requester_id in self.json["subs"][list]["authorized"]:
-                await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, messageToSend, list, self.pingList(self.json["subs"][list]["subbed"])))
+        if mail_list in self.json["subs"]:
+            if requester_id in self.json["subs"][mail_list]["authorized"]:
+                await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, messageToSend, mail_list, self.pingList(self.json["subs"][mail_list]["subbed"])))
                 return
             else:
                 await self.bot.say('You are not authorized to broadcast to {}. Ask <@{}> to add you to the authorized '
-                                   'users.'.format(list, self.json["subs"][list]["authorized"][0]))
+                                   'users.'.format(mail_list, self.json["subs"][mail_list]["authorized"][0]))
                 return
         else:
-            await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
+            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
 
     # Generate a string with pings for all the userIDs in the list
-    def pingList(self, list):
+    def pingList(self, mail_list):
         """
         Generate a string with pings for all the userIDs in the list
         list: list of usersIDs
         """
-        return ' '.join(list(map(lambda userID: '<@{}>'.format(userID))))
+        return ' '.join(mail_list(map(lambda userID: '<@{}>'.format(userID))))
 
     @mlist.command(pass_context=True)
     async def list(self, ctx):
