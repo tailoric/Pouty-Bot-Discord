@@ -20,7 +20,7 @@ Schema of Subs
 }
 """
 
-class Danbooru:
+class Mailinglist:
     """
     Danbooru requests and subscription service.
     """
@@ -77,7 +77,8 @@ class Danbooru:
             # Here is where we actually add the user to the list
             self.json["subs"][list] = {"subbed": [], "authorized": [requesterID]}
             self.writeUpdatedList()
-            await self.bot.say('%(list) has been created. You are not subcribed to it by default, use `mlist sub` to subscribe.' % list)
+            await self.bot.say('%(list) has been created. You are not subscribed to it by default, use `mlist sub` to '
+                               'subscribe.' % list)
             return
     
     @mlist.command(pass_context=True)
@@ -94,14 +95,14 @@ class Danbooru:
         if list in self.json["subs"]:
             for userID in self.json["subs"][list]["subbed"]:
                 if userID == requesterID:
-                    await self.bot.say('You are already in %(list).' % list)
+                    await self.bot.say('You are already in %ds(list).' % list)
                     return
 
             # Here is where we actually add the user to the list
             self.json["subs"][list]["subbed"].append(requesterID)
             self.json["users"][requesterID].append(list)
             self.writeUpdatedList()
-            await self.bot.say('You have been added to %(list).' % list)
+            await self.bot.say('You have been added to %ds(list).' % list)
             return
         else:
             await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
@@ -140,15 +141,17 @@ class Danbooru:
         list: list to add the user too
         userToAdd: user to authorize
         """
+        message = ctx.message
         mentioned_user = ctx.message.mentions[0]
         requester_id = message.author.id
         if requester_id in self.json["subs"][list]["authorized"]:
             self.json["subs"][list]["authorized"].append(mentioned_user)
             self.writeUpdatedList()
-            await self.bot.say('User has been added to the authorized group for %(list).' % list)
+            await self.bot.say('User has been added to the authorized group for %ds(list).' % list)
             return
         else:
-            await self.bot.say('You are not authorized to add authorized users. Ask <@{}> to add you to the authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
+            await self.bot.say('You are not authorized to add authorized users. Ask <@{}> to add you to the '
+                               'authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
             return
 
     @mlist.command(pass_context=True)
@@ -169,7 +172,8 @@ class Danbooru:
                     await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, message, list, self.pingList(self.json["subs"][list]["subbed"])))
                 return
             else:
-                await self.bot.say('You are not authorized to broadcast to {}. Ask <@{}> to add you to the authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
+                await self.bot.say('You are not authorized to broadcast to {}. Ask <@{}> to add you to the authorized '
+                                   'users.'.format(list, self.json["subs"][list]["authorized"][0]))
                 return
         else:
             await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
@@ -212,7 +216,6 @@ class Danbooru:
         list all subs
         """
         message = ctx.message
-        list_requester = message.author.id
 
         subList = ', '.join([str(x) for x in self.json["subs"]])
 
@@ -223,4 +226,4 @@ class Danbooru:
 
 
 def setup(bot):
-    bot.add_cog(Danbooru(bot))
+    bot.add_cog(Mailinglist(bot))
