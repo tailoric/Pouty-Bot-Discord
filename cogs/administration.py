@@ -49,7 +49,7 @@ class Admin:
         if not self.report_channel:
             await self.bot.say("report channel not set up yet, message a moderator")
             return
-        report_message = "**Report Message:**\n{}\n\n".format(message)
+        report_message = "**Report Message:**\n```{}```\n\n".format(message)
         reported_user = []
         reported_channel = []
         for arg in args:
