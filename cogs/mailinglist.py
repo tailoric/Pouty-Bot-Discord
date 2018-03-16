@@ -101,7 +101,7 @@ class Mailinglist:
             # Here is where we actually add the user to the list
             self.json["subs"][mail_list]["subbed"].append(requesterID)
             self.json["users"][requesterID].append(mail_list)
-            self.writeUpdatedList()
+            await self.writeUpdatedList()
             await self.bot.say('You have been added to %ds(mail_list).' % mail_list)
             return
         else:
