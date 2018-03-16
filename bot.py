@@ -16,6 +16,7 @@ def load_credentials():
         return json.load(f)
 
 
+
 @bot.event
 async def on_ready():
     print('Logged in as')

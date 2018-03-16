@@ -2,6 +2,23 @@ import discord
 from discord.ext import commands
 import os.path
 import json
+
+
+class UserOrChannel(commands.Converter):
+    async def convert(self):
+        user_converter = commands.UserConverter(ctx=self.ctx, argument=self.argument)
+        channel_converter = commands.ChannelConverter(ctx=self.ctx, argument=self.argument)
+        try:
+            found_member = user_converter.convert()
+            return found_member
+        except commands.BadArgument:
+            try:
+                found_channel = channel_converter.convert()
+                return found_channel
+            except commands.BadArgument:
+                raise commands.BadArgument("Didn't found Member or Channel with name {}.".format(self.argument))
+
+
 class Admin:
     def __init__(self, bot):
         self.bot = bot
@@ -14,7 +31,7 @@ class Admin:
 
 
     @commands.group(pass_context=True)
-    async def report(self, ctx, message: str, reported_user: discord.User=None, channel: discord.Channel=None):
+    async def report(self, ctx, message: str, *args: UserOrChannel):
         """
         usage:
         !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
@@ -33,11 +50,12 @@ class Admin:
             await self.bot.say("report channel not set up yet, message a moderator")
             return
         report_message = "**Report Message:**\n{}\n".format(message)
+        for arg in args:
+            if isinstance(arg, discord.User):
+                report_message += "**Reported User:**\n{}\n".format(arg.mention)
+            if isinstance(arg, discord.Channel):
+                report_message += "**in Channel:**\n{}\n".format(arg.mention)
 
-        if reported_user:
-            report_message += "**Reported User:**\n{}\n".format(reported_user.mention)
-        if channel:
-            report_message +="**Channel:**\n{}\n".format(channel.mention)
         if ctx.message.attachments:
             report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
 
