@@ -71,13 +71,13 @@ class Mailinglist:
         # Make sure list exists
         # If it does add the user only if they are not already in the list
         if mail_list in self.json["subs"]:
-            await self.bot.say('List %(mail_list) already exists.' % mail_list)
+            await self.bot.say('List %ds(mail_list) already exists.' % mail_list)
             return
         else:
             # Here is where we actually add the user to the list
             self.json["subs"][mail_list] = {"subbed": [], "authorized": [requesterID]}
             self.writeUpdatedList()
-            await self.bot.say('%(mail_list) has been created. You are not subscribed to it by default, use `mlist '
+            await self.bot.say('%ds(mail_list) has been created. You are not subscribed to it by default, use `mlist '
                                'sub` to subscribe.' % mail_list)
             return
     
@@ -105,7 +105,7 @@ class Mailinglist:
             await self.bot.say('You have been added to %ds(mail_list).' % mail_list)
             return
         else:
-            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
+            await self.bot.say('List %ds(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
 
     @mlist.command(pass_context=True)
@@ -131,7 +131,7 @@ class Mailinglist:
             await self.bot.say('You are not in list %ds(mail_list).' % mail_list)
             return
         else:
-            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
+            await self.bot.say('List %ds(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
     
     @mlist.command(pass_context=True)
@@ -175,7 +175,7 @@ class Mailinglist:
                                    'users.'.format(mail_list, self.json["subs"][mail_list]["authorized"][0]))
                 return
         else:
-            await self.bot.say('List %(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
+            await self.bot.say('List %ds(mail_list) doesn\'t exist. Create it with `mlist create`.' % mail_list)
             return
 
     # Generate a string with pings for all the userIDs in the list
