@@ -6,15 +6,18 @@ from discord.ext import commands
 
 """
 Schema of Subs
-[
+{
     "subs": {
-        "listName": [1112, 32],
+        "listName": {
+          "subbed": [1112, 32],
+          "authorized": [1123]
+        },
         "listName2": [123, 453]
     },
     "users": {
         someUserId: ["listName", listName2"]
     }
-]
+}
 """
 
 class Danbooru:
@@ -41,7 +44,7 @@ class Danbooru:
             os.mkdir('data/mailinglist/subs')
         if not os.path.exists('data/mailinglist/subs/data.json'):
             with open('data/mailinglist/subs/data.json', 'w') as newJson:
-                newJson.write('[]')
+                newJson.write('{"subs": {}, "users": {}}')
 
     async def writeUpdatedList(self):
         try:
@@ -72,7 +75,7 @@ class Danbooru:
             return
         else:
             # Here is where we actually add the user to the list
-            self.json["subs"][list] = [];
+            self.json["subs"][list] = {"subbed": [], "authorized": [requesterID]}
             self.writeUpdatedList()
             await self.bot.say('%(list) has been created. You are not subcribed to it by default, use `mlist sub` to subscribe.' % list)
             return
@@ -89,13 +92,13 @@ class Danbooru:
         # Make sure list exists
         # If it does add the user only if they are not already in the list
         if list in self.json["subs"]:
-            for userID in self.json["subs"][list]:
+            for userID in self.json["subs"][list]["subbed"]:
                 if userID == requesterID:
                     await self.bot.say('You are already in %(list).' % list)
                     return
 
             # Here is where we actually add the user to the list
-            self.json["subs"][list].append(requesterID)
+            self.json["subs"][list]["subbed"].append(requesterID)
             self.json["users"][requesterID].append(list)
             self.writeUpdatedList()
             await self.bot.say('You have been added to %(list).' % list)
@@ -116,10 +119,10 @@ class Danbooru:
         # Make sure list exists
         # If it does add the user only if they are not already in the list
         if list in self.json["subs"]:
-            for index, userID in enumerate(self.json["subs"][list]):
+            for index, userID in enumerate(self.json["subs"][list]["subbed"]):
                 if userID == requesterID:
                     self.json["users"][requesterID].remove(list)
-                    self.json["subs"][list].remove(requesterID)
+                    self.json["subs"][list]["subbed"].remove(requesterID)
                     self.writeUpdatedList()
                     await self.bot.say('You have been removed from %ds(list).' % list)
                     return
@@ -129,7 +132,19 @@ class Danbooru:
         else:
             await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
             return
-
+    
+    @mlist.command(pass_context=True)
+    async def authorize(self, ctx, list, userToAdd):
+        mentioned_user = ctx.message.mentions[0]
+        requester_id = message.author.id
+        if requester_id in self.json["subs"][list]["authorized"]:
+            self.json["subs"][list]["authorized"].append(mentioned_user)
+            self.writeUpdatedList()
+            await self.bot.say('User has been added to the authorized group for %(list).' % list)
+            return
+        else:
+            await self.bot.say('You are not authorized to add authorized users. Ask <@{}> to add you to the authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
+            return
 
     @mlist.command(pass_context=True)
     async def broadcast(self, ctx, list, message):
@@ -144,9 +159,13 @@ class Danbooru:
         # Make sure list exists
         # If it does add the user only if they are not already in the list
         if list in self.json["subs"]:
-            for userID in self.json["subs"][list]:
-                await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, message, list, self.pingList(self.json["subs"][list])))
-            return
+            if requester_id in self.json["subs"][list]["authorized"]:
+                for userID in self.json["subs"][list]["subbed"]:
+                    await self.bot.say('<@{}> says {} on list {}.\n{}'.format(requester_id, message, list, self.pingList(self.json["subs"][list]["subbed"])))
+                return
+            else:
+                await self.bot.say('You are not authorized to broadcast to {}. Ask <@{}> to add you to the authorized users.'.format(list, self.json["subs"][list]["authorized"][0]))
+                return
         else:
             await self.bot.say('List %(list) doesn\'t exist. Create it with `mlist create`.' % list)
             return
