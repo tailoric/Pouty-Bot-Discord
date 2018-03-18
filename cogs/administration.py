@@ -34,6 +34,7 @@ class Admin:
     async def report(self, ctx, message: str, *args: UserOrChannel):
         """
         usage:
+        ONLY WORKS IN PRIVATE MESSAGES TO THE BOT!
         !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
 
         don't forget the quotes around the reason, optionally you can attach a screenshot via file upload
@@ -45,6 +46,10 @@ class Admin:
         """
         if message == 'setup':
             await ctx.invoke(self.setup, ctx=ctx)
+            return
+        if ctx.message.channel.type is not discord.ChannelType.private:
+            await self.bot.whisper("Only use the `report` command in private messages")
+            await self.bot.say("Only use the `report` command in private messages")
             return
         if not self.report_channel:
             await self.bot.say("report channel not set up yet, message a moderator")
