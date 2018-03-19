@@ -2,6 +2,9 @@ import discord
 from discord.ext import commands
 import os.path
 import json
+from .utils import checks
+import time
+
 
 
 class UserOrChannel(commands.Converter):
@@ -28,6 +31,8 @@ class Admin:
                 self.report_channel = self.bot.get_channel(json_data['channel'])
         else:
             self.report_channel = None
+        self.invocations = []
+        self.report_countdown = 60
 
 
     @commands.group(pass_context=True)
@@ -44,9 +49,14 @@ class Admin:
         !report "I was bullied by <user>"
         !report "I was bullied by <user>" User_Name general
         """
+        author = ctx.message.author
         if message == 'setup':
-            await ctx.invoke(self.setup, ctx=ctx)
-            return
+            if checks.is_owner_or_moderator_check(ctx.message):
+                await ctx.invoke(self.setup, ctx=ctx)
+                return
+            else:
+                await self.bot.say("You don't have permission to do this")
+                return
         if ctx.message.channel.type is not discord.ChannelType.private:
             await self.bot.whisper("Only use the `report` command in private messages")
             await self.bot.say("Only use the `report` command in private messages")
@@ -54,6 +64,21 @@ class Admin:
         if not self.report_channel:
             await self.bot.say("report channel not set up yet, message a moderator")
             return
+        if author.id not in [i['user'] for i in self.invocations]:
+            invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
+            self.invocations.append(invocation)
+        else:
+            last_invocation = [i['timestamp'] for i in self.invocations if author.id == i['user']]
+            time_diff = int(time.time() - last_invocation[0])
+            if time_diff < self.report_countdown:
+                await self.bot.whisper("Too early to report again wait for another {} seconds"
+                                       .format(self.report_countdown - time_diff))
+                return
+            else:
+                invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
+                self.invocations.remove([i for i in self.invocations if author.id == i['user']][0])
+                self.invocations.append(invocation)
+
         report_message = "**Report Message:**\n```{}```\n\n".format(message)
         reported_user = []
         reported_channel = []
@@ -73,8 +98,8 @@ class Admin:
         await self.bot.send_message(self.report_channel, report_message)
 
 
-
     @report.command(name="setup")
+    @checks.is_owner_or_moderator()
     async def setup(self, ctx):
         """
         use '[.,!]report setup' in the channel that should become the report channel
@@ -83,6 +108,7 @@ class Admin:
         with open('data/report_channel.json' , 'w') as f:
             json.dump({"channel" : self.report_channel.id}, f)
         await self.bot.say('This channel is now the report channel')
+
 
 
 def setup(bot):
