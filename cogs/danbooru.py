@@ -45,17 +45,19 @@ class Helper:
                 json_dump = await response.json()
                 for image in json_dump:
                     if image['has_large'] and image['file_ext'] == 'zip':
-                        image['file_url'] = self.build_url(url , image['large_file_url'])
+                        image['file_url'] = self.build_url(url, image['large_file_url'])
                     else:
-                        image['file_url'] = self.build_url(url , image['file_url'])
+                        image['file_url'] = self.build_url(url, image['file_url'])
                 return json_dump
             else:
                 return None
 
-    def build_url(self, baseUrl:str, file_url: str):
+    def build_url(self, base_url: str, file_url: str):
+        if file_url.startswith("http"):
+            return file_url
         if file_url[0] != "/":
             file_url = "/" + file_url
-        return baseUrl + file_url
+        return base_url + file_url
 
 class Dansub:
 
