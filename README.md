@@ -7,7 +7,7 @@
 * create a json file called `credentials.json` with the following schema:
   ```json
   {
-  "owner" : "you_own_id_13456" 
+  "owner" : "your_own_id_13456", 
   "client-id" : "123456789",
   "client_secret": "AJS23ASJDAS_123124AS214",
   "token": "ASDKASLDASDSdas.asdkkasjdkljsldk"
