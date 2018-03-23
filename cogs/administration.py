@@ -4,6 +4,7 @@ import os.path
 import json
 from .utils import checks
 import time
+import logging
 
 
 
@@ -19,7 +20,7 @@ class UserOrChannel(commands.Converter):
                 found_channel = channel_converter.convert()
                 return found_channel
             except commands.BadArgument:
-                raise commands.BadArgument("Didn't found Member or Channel with name {}.".format(self.argument))
+                raise commands.BadArgument("Didn't find Member or Channel with name {}.".format(self.argument))
 
 
 class Admin:
@@ -33,6 +34,15 @@ class Admin:
             self.report_channel = None
         self.invocations = []
         self.report_countdown = 60
+        self.logger = logging.getLogger('report')
+        self.logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(
+            filename='data/reports.log',
+            mode="a",
+            encoding='utf-8'
+        )
+        handler.setFormatter(logging.Formatter("%(asctime)s: %(message)s"))
+        self.logger.addHandler(handler)
 
 
     @commands.group(pass_context=True)
@@ -96,6 +106,8 @@ class Admin:
             report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
 
         await self.bot.send_message(self.report_channel, report_message)
+        self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
+        await self.bot.whisper("report successfully sent.")
 
 
     @report.command(name="setup")
