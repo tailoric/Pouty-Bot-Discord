@@ -265,7 +265,6 @@ class Music:
             percentage = int((total_votes/user_count) * 100)
             if float(total_votes) >= user_count/2:
                 await self.bot.say('Skip vote passed, skipping song...')
-                state.song_queue.pop(0)
                 state.skip()
             else:
                 await self.bot.say("Voted to skip currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
