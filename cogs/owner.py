@@ -13,6 +13,12 @@ class Owner:
                 self.global_ignores = json.load(f)
         else:
             self.global_ignores = []
+        if os.path.exists("data/disabled_commands.json"):
+            with open('data/disabled_commands.json') as f:
+                self.disabled_commands = json.load(f)
+        else:
+            self.disabled_commands = []
+        self.disabled_commands_file = 'data/disabled_commands.json'
 
 
     #
@@ -103,5 +109,27 @@ class Owner:
             await self.bot.say("User {} has been removed from blacklist".format(user.name))
         else:
             await self.bot.say("User {} is not blacklisted".format(user.name))
+
+    @commands.group(name="command", pass_context=True)
+    @checks.is_owner()
+    async def _commands(self, ctx):
+        if ctx.invoked_subcommand is None:
+            await self.bot.say("use `command help`")
+
+    @_commands.command(name='disable', pass_context=True)
+    async def _commands_disable(self, ctx, command:str ):
+        server = ctx.message.server
+        self.disabled_commands.append({"server": server.id, "command": command})
+        with open(self.disabled_commands_file, 'w') as f:
+            json.dump(self.disabled_commands, f)
+        await self.bot.say("command {} disabled".format(command))
+
+    @_commands.command(name='enable', pass_context=True)
+    async def _commands_enable(self, ctx, command:str ):
+        server = ctx.message.server
+        self.disabled_commands.remove({"server": server.id, "command": command})
+        with open(self.disabled_commands_file, 'w') as f:
+            json.dump(self.disabled_commands, f)
+        await self.bot.say("command {} enabled".format(command))
 def setup(bot):
     bot.add_cog(Owner(bot))

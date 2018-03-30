@@ -6,6 +6,7 @@ from cogs.utils.formatter import CustomHelpFormatter
 import sys
 from cogs.utils import checks
 
+
 description = 'Pouty Bot MKII by Saikimo'
 
 bot = commands.Bot(command_prefix=['!','.'], description=description, formatter=CustomHelpFormatter())
@@ -41,12 +42,23 @@ async def on_command_error(error, ctx):
 
 @bot.event
 async def on_message(message):
-    if bot.get_cog("Owner"):
-        global_ignores = bot.get_cog("Owner").global_ignores
-        if not message.author.id in global_ignores or checks.is_owner_check(message):
-            await bot.process_commands(message)
+    server = message.server
+    owner_cog = bot.get_cog("Owner")
+    if owner_cog:
+        global_ignores = owner_cog.global_ignores
+        message_split = message.content[1:].split(" ")
+        invoked_command = bot.get_command(message_split[0])
+        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == server.id]
+        if str(invoked_command) in disabled_commands:
+            await bot.send_message(message.channel, "command disabled")
+            return
+        if message.author.id in global_ignores and not checks.is_owner_check(message):
+            return
+        await bot.process_commands(message)
     else:
         await bot.process_commands(message)
+
+
 async def shutdown(bot, *,restart=False):
     """Gracefully quits bot with exit code 0"""
     await bot.logout()
