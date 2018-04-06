@@ -1,5 +1,8 @@
 from discord.ext import commands
+from discord.utils import find
+from discord import User
 import json
+from os import path
 
 
 def is_owner_check(message):
@@ -19,7 +22,7 @@ def is_owner_or_moderator_check(message):
     if is_owner_or_admin_check(message):
         return True
     for role in message.author.roles:
-        if role.name == "Discord-Senpai":
+        if role.name == "Discord-Senpai" or role.name == "Moderators":
             return True
 
 
@@ -29,3 +32,19 @@ def is_owner_or_admin():
 
 def is_owner_or_moderator():
     return commands.check(lambda ctx: is_owner_or_moderator_check(ctx.message))
+
+
+def user_is_in_whitelist_server(bot:commands.Bot ,user:User):
+    if not path.exists('data/server_whitelist.json'):
+        f = open('data/server_whitelist.json', 'w')
+        json.dump([],f)
+        f.close()
+    with open('data/server_whitelist.json') as f:
+        server_whitelist = json.load(f)
+        for server_id in server_whitelist:
+            server = bot.get_server(server_id)
+            if server:
+                member = find(lambda m: m.id == user.id, server.members)
+                if member:
+                    return True
+        return False

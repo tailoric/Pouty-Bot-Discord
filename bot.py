@@ -1,4 +1,5 @@
 import discord
+import os
 from discord.ext import commands
 import json
 import logging
@@ -48,6 +49,16 @@ async def on_message(message):
         global_ignores = owner_cog.global_ignores
         message_split = message.content[1:].split(" ")
         invoked_command = bot.get_command(message_split[0])
+        if server is None:
+            if checks.user_is_in_whitelist_server(bot, message.author):
+                await bot.process_commands(message)
+                return
+            else:
+                if str(invoked_command) in [dc['command'] for dc in owner_cog.disabled_commands]:
+                    await bot.send_message(message.channel, "command disabled")
+                    return
+                else:
+                    await bot.process_commands(message)
         disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == server.id]
         if str(invoked_command) in disabled_commands:
             await bot.send_message(message.channel, "command disabled")
@@ -64,6 +75,7 @@ async def shutdown(bot, *,restart=False):
     await bot.logout()
     exit(0)
 
+
 if __name__ == '__main__':
     credentials = load_credentials()
     bot.client_id = credentials['client-id']
@@ -73,6 +85,7 @@ if __name__ == '__main__':
     handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
     logger.addHandler(handler)
     token = credentials['token']
+
     try:
         bot.run(token)
     except KeyboardInterrupt:
