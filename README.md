@@ -13,7 +13,7 @@
   "token": "ASDKASLDASDSdas.asdkkasjdkljsldk"
   }
   ```
-  and put in the information
+  inside the `data` folder and put in the necessary information
 * then create a file called `initial_cogs.json` and put in the cogs you want to use for example
   ```json
   [
