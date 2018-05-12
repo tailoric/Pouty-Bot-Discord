@@ -1,5 +1,6 @@
 from discord.ext import commands
 from discord.utils import find
+import discord.ext.commands
 import random
 import json
 
@@ -23,13 +24,13 @@ class Social:
         usage: .pout 
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'pouts'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -39,13 +40,13 @@ class Social:
             usage: .hug (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'hug'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -55,13 +56,13 @@ class Social:
             usage: .smug (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'smug'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -71,13 +72,13 @@ class Social:
             usage: .cuddle (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'cuddle'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -87,13 +88,13 @@ class Social:
             usage: .lewd (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'lewd'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -103,13 +104,13 @@ class Social:
             usage: .pat (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'pat'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -119,13 +120,13 @@ class Social:
             usage: .bully (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'bully'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -135,13 +136,13 @@ class Social:
             usage: .nobully
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'nobullys'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -151,13 +152,13 @@ class Social:
             usage: .slap (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'slaps'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -167,13 +168,13 @@ class Social:
             usage: .kiss (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'kiss'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
@@ -183,26 +184,26 @@ class Social:
             usage: .blush (at) user
         """
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'Blush'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=True, pass_context=True, aliases=["licc","lic","pero"])
     async def lick(self, ctx, *, user=None):
         mentioned_users = ctx.message.mentions
-        server = ctx.message.server
         file_name = 'lick'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
             await self.bot.say(random.choice(images))
         else:
-            found_user = find(lambda m: m.name == user, server.members)
+            user = user.replace("\"", "")
+            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
             fmt = '{0}\n{1}'
             await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
 
