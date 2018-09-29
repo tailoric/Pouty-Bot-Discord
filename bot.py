@@ -48,7 +48,11 @@ async def on_message(message):
     if owner_cog:
         global_ignores = owner_cog.global_ignores
         message_split = message.content[1:].split(" ")
+        if not message_split:
+            return
         invoked_command = bot.get_command(message_split[0])
+        if not invoked_command:
+            return
         if server is None:
             if checks.user_is_in_whitelist_server(bot, message.author):
                 await bot.process_commands(message)
