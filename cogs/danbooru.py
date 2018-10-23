@@ -24,7 +24,7 @@ class Helper:
             user = data['user']
             api_key = data['api_key']
         auth = aiohttp.BasicAuth(user, api_key)
-        url = 'http://danbooru.donmai.us/pools/{}.json'.format(pool_id)
+        url = 'https://danbooru.donmai.us/pools/{}.json'.format(pool_id)
         async with self.session.get(url, auth=auth) as response:
             if response.status == 200:
                 json_dump = await response.json()
