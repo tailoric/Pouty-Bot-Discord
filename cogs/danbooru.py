@@ -39,7 +39,7 @@ class Helper:
             user = data['user']
             api_key = data['api_key']
         auth = aiohttp.BasicAuth(user, api_key)
-        url = 'http://danbooru.donmai.us'
+        url = 'https://danbooru.donmai.us'
         async with self.session.get('{}/posts.json'.format(url), params=params, auth=auth) as response:
             if response.status == 200:
                 json_dump = await response.json()
@@ -277,14 +277,10 @@ class Scheduler:
         return retrieved_sub
 
     async def send_new_posts(self, sub, new_posts):
-        if sub.is_private:
-            message_list = self._reduce_message_spam(sub,new_posts)
-            for partial_message in message_list:
-                await self.bot.send_message(sub.users[0], partial_message)
-        else:
-            message_list = self._split_message_in_groups_of_four(sub, new_posts)
-            for partial_message in message_list:
-                await self.bot.send_message(sub.channel, partial_message)
+        message_list = self._split_message_in_groups_of_four(sub, new_posts)
+        for partial_message in message_list:
+            await self.bot.send_message(sub.channel, partial_message)
+            await asyncio.sleep(10)
 
     def find_matching_subs(self, tags, subs, image):
         matched_subs = list()
