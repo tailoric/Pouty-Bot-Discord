@@ -279,7 +279,10 @@ class Scheduler:
     async def send_new_posts(self, sub, new_posts):
         message_list = self._split_message_in_groups_of_four(sub, new_posts)
         for partial_message in message_list:
-            await self.bot.send_message(sub.channel, partial_message)
+            if sub.is_private:
+                await self.bot.send_message(sub.users[0], partial_message)
+            else:
+                await self.bot.send_message(sub.channel, partial_message)
             await asyncio.sleep(10)
 
     def find_matching_subs(self, tags, subs, image):
