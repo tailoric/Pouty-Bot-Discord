@@ -7,6 +7,7 @@ import asyncio
 class Christmas:
     def __init__(self, bot):
         self.bot = bot
+        self.next_role = None
 
     @commands.command(name="christmas", pass_context=True, hidden=True)
     @checks.is_owner_or_moderator()
@@ -44,6 +45,41 @@ class Christmas:
             role_red = await self.bot.create_role(server=server, name="ChristmasSoviets",color=discord.Color(int("c62f2f",16)))
             role_green = await self.bot.create_role(server=server, name="PadoruPatrol",color=discord.Color(int("157718",16)))
         return role_red, role_green
+
+    @commands.command(pass_context=True, name="next_role")
+    @checks.is_owner_or_moderator()
+    async def _next_role(self, ctx, role: str):
+        """
+        set the which role needs to be assigned next
+        role: [green|red] set the next role to either green or red
+        """
+        server = ctx.message.server
+        role_red = discord.utils.get(server.roles, name="ChristmasSoviets")
+        role_green = discord.utils.get(server.roles, name="PadoruPatrol")
+        if role.lower() == "green":
+            self.next_role = role_green
+        else:
+            self.next_role = role_red
+
+        await self.bot.say("set next role to %s" % self.next_role.name)
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        server = before.server
+        memester = discord.utils.get(server.roles, name="Memester")
+        if before.roles.__contains__(memester) or not after.roles.__contains__(memester):
+            return
+
+        role_green = discord.utils.get(server.roles, name="PadoruPatrol")
+        role_red = discord.utils.get(server.roles, name="ChristmasSoviets")
+        if not self.next_role or self.next_role == role_green:
+            await self.bot.add_roles(after, role_green)
+            self.next_role = role_red
+        else:
+            await self.bot.add_roles(after, role_red)
+            self.next_role = role_green
+
+
+
 
 
 def setup(bot):
