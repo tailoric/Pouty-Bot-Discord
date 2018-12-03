@@ -1,4 +1,5 @@
 from discord.ext import commands
+from .utils import checks
 import discord
 import asyncio
 
@@ -7,7 +8,8 @@ class Christmas:
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="christmas", pass_context=True)
+    @commands.command(name="christmas", pass_context=True, hidden=True)
+    @checks.is_owner_or_moderator()
     async def _christmas(self, ctx):
         """
         starts christmas time
@@ -15,8 +17,9 @@ class Christmas:
         server = ctx.message.server
         red_role, green_role = await self.get_christmas_roles(server)
         role = discord.utils.get(server.roles, name="Memester")
-        await self.bot.move_role(server=server,role=red_role, position=role.position+1)
-        await self.bot.move_role(server=server,role=green_role, position=role.position+2)
+        if(red_role.position < role.position or green_role.position < role.position):
+            await self.bot.move_role(server=server,role=red_role, position=role.position+1)
+            await self.bot.move_role(server=server,role=green_role, position=role.position+2)
         padoru = discord.utils.get(self.bot.get_all_emojis(), name="PADORUPADORU")
         padoru_string = "<a:" + padoru.name + ":" + padoru.id + ">"
         christmas_message = await self.bot.say("Christmas time in 3")
@@ -38,8 +41,8 @@ class Christmas:
         role_red = discord.utils.get(server.roles, name="ChristmasSoviets")
         role_green = discord.utils.get(server.roles, name="PadoruPatrol")
         if not role_red and not role_green:
-            role_red = await self.bot.create_role(server=server, name="Christmas Red",color=discord.Color(int("c62f2f",16)))
-            role_green = await self.bot.create_role(server=server, name="Christmas Green",color=discord.Color(int("157718",16)))
+            role_red = await self.bot.create_role(server=server, name="ChristmasSoviets",color=discord.Color(int("c62f2f",16)))
+            role_green = await self.bot.create_role(server=server, name="PadoruPatrol",color=discord.Color(int("157718",16)))
         return role_red, role_green
 
 
