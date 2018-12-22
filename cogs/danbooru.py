@@ -61,7 +61,7 @@ class Helper:
 
 class Dansub:
 
-    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel, is_private: bool):
+    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel, is_private: bool, paused_users=None):
         self.users = list()
         if type(users) == list:
             self.users += users
@@ -77,11 +77,15 @@ class Dansub:
         self.already_posted = list()
         self.is_private = is_private
         self.feed_file = 'data/danbooru/subs/{}.json'.format(self.tags_to_filename())
+        if paused_users:
+            self.paused_users = paused_users
+        else:
+            self.paused_users = []
 
     # use this one to create private subs
 
     def users_to_mention(self):
-        mention_string = ','.join(user.mention for user in self.users)
+        mention_string = ','.join(user.mention for user in self.users if user.id not in self.paused_users)
         return mention_string
 
     def tags_to_string(self):
@@ -132,6 +136,9 @@ class Dansub:
         ret_val['new_timestamp'] = str(self.new_timestamp)
         ret_val['already_posted'] = self.already_posted
         ret_val['pools'] = self.pools
+        ret_val['paused_users'] = []
+        for paused_user in self.paused_users:
+            ret_val['paused_users'].append(paused_user)
         return json.dumps(ret_val, indent=2)
 
     def write_sub_to_file(self):
@@ -160,6 +167,8 @@ class Scheduler:
             for sub in subs_copy:
                 # skip the subscription if the sub was already removed
                 if sub not in self.subscriptions:
+                    continue
+                if sub.is_private and len(sub.paused_users) > 0 or len(sub.paused_users) == len(sub.users):
                     continue
                 try:
                     tags = sub.tags_to_string()
@@ -264,14 +273,18 @@ class Scheduler:
 
         tags = data['tags']
         timestamp = data['old_timestamp']
+        if 'paused_users' in data:
+            paused_users = data['paused_users']
+        else:
+            paused_users = []
         if 'pools' in data:
             pools = data['pools']
         else:
             pools = []
         if is_private:
-            retrieved_sub = Dansub(user_list, tags, pools, None, None, is_private)
+            retrieved_sub = Dansub(user_list, tags, pools, None, None, is_private, paused_users)
         else:
-            retrieved_sub = Dansub(user_list, tags, pools, server, channel, is_private)
+            retrieved_sub = Dansub(user_list, tags, pools, server, channel, is_private, paused_users)
         if timestamp != 'None':
             retrieved_sub.old_timestamp = parser.parse(timestamp)
         return retrieved_sub
@@ -491,7 +504,29 @@ class Danbooru:
                     except Exception as e:
                         await self.bot.say('Error while removing feed file. `{}`'.format(repr(e)))
 
+    @dans.command(pass_context=True)
+    async def pause(self, ctx):
+        """
+        pauses all subscriptions that are currently running
+        """
+        subscriber = ctx.message.author
+        subscriptions_of_user = [sub for sub in self.scheduler.subscriptions if subscriber in sub.users]
+        for subscription in subscriptions_of_user:
+            subscription.paused_users.append(subscriber.id)
+            subscription.write_sub_to_file()
+        await self.bot.say("paused all of your subscriptions")
 
+    @dans.command(pass_context=True)
+    async def unpause(self, ctx):
+        """
+        un-pauses all paused subscription
+        """
+        subscriber = ctx.message.author
+        subscriptions_of_user = [sub for sub in self.scheduler.subscriptions if subscriber in sub.users]
+        for subscription in subscriptions_of_user:
+            subscription.paused_users.remove(subscriber.id)
+            subscription.write_sub_to_file()
+        await self.bot.say("unpaused all of your subscriptions")
 
     @dans.command(pass_context=True)
     async def list(self, ctx):
