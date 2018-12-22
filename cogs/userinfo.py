@@ -1,4 +1,5 @@
 from discord.ext import commands
+from .utils import checks
 from discord import Member, Embed, Role, utils
 import discord
 import time
@@ -74,6 +75,25 @@ class Userinfo:
 
         await self.bot.say(embed=embed)
 
+    @checks.is_owner_or_moderator()
+    @commands.command(pass_context=True)
+    async def roleinfo(self,ctx, role=None):
+        role_converter = commands.RoleConverter(ctx=ctx, argument=role)
+        server = ctx.message.server
+        roles = server.roles
+        embed = Embed()
+        embed.set_thumbnail(url=server.icon_url)
+        if not role:
+            for role in roles:
+                if role.name == "@everyone":
+                    continue
+                member_with_role = [member for member in server.members if role in member.roles]
+                embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
+        else:
+            role = role_converter.convert()
+            member_with_role = [member for member in server.members if role in member.roles]
+            embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
+        await self.bot.say(embed=embed)
 
 def setup(bot):
     bot.add_cog(Userinfo(bot=bot))
