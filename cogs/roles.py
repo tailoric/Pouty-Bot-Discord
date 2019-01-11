@@ -1,9 +1,10 @@
 from discord.ext import commands
-import discord.ext.commands
 from discord.utils import find
+import discord
 import json
 import os
 import cogs.utils.checks as checks
+from .utils.converters import RoleConverter
 class Roles:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -21,7 +22,7 @@ class Roles:
 
 
     @commands.command(name="iam", pass_context=True)
-    async def assign_role(self, ctx, role: discord.Role):
+    async def assign_role(self, ctx, role: RoleConverter):
         try:
             member = ctx.message.author
             await self.bot.add_roles(member, role)
@@ -30,7 +31,7 @@ class Roles:
             await self.bot.say("Sorry I don't have the permission to give you that role")
 
     @commands.command(name="amnot", pass_context=True)
-    async def remove_role(self, ctx, role: discord.Role):
+    async def remove_role(self, ctx, role: RoleConverter):
         try:
             member = ctx.message.author
             await self.bot.remove_roles(member, role)
@@ -41,10 +42,31 @@ class Roles:
     @checks.is_owner_or_moderator()
     @commands.group(name="roles", pass_context=True)
     async def roles(self, ctx):
+        """
+        administrative commands for the roles
+        """
         pass
+
+    @checks.is_owner_or_moderator()
+    @commands.command(name="ping", pass_context=True)
+    async def roles_ping(self, ctx, role: RoleConverter):
+        """
+        ping the role by making it mentionable for the ping and remove
+        mentionable again
+        """
+        server = ctx.message.server
+        try:
+            await self.bot.edit_role(server, role, mentionable=True)
+            await self.bot.say(role.mention)
+            await self.bot.edit_role(server, role, mentionable=False)
+        except discord.Forbidden as fb:
+            await self.bot.say("I am not allowed to edit this role")
 
     @roles.command(name="add", pass_context=True)
     async def _add_role(self, ctx, role_name: str, mentionable=True, colour=None):
+        """
+        add a role the bot can edit
+        """
         try:
             server = ctx.message.server
 
@@ -59,6 +81,9 @@ class Roles:
 
     @roles.command(name="remove", pass_context=True)
     async def _remove_role(self, ctx, role_name: str):
+        """
+        remove a role the bot can edit
+        """
         try:
             server = ctx.message.server
             role = find(lambda r: r.name == role_name, server.roles)
