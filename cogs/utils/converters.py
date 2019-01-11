@@ -7,7 +7,7 @@ class RoleConverter(commands.Converter):
 
     async def convert(self):
         server = self.ctx.message.server
-        role = find(lambda r: r.name.lower() == self.argument, server.roles)
+        role = find(lambda r: r.name.lower() == self.argument.lower(), server.roles)
         if role is None:
             raise BadArgument('Role {} not found'.format(self.argument))
         return role
