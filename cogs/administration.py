@@ -121,6 +121,18 @@ class Admin:
             json.dump({"channel" : self.report_channel.id}, f)
         await self.bot.say('This channel is now the report channel')
 
+    @commands.command(name="ban", pass_context=True)
+    async def ban(self, ctx, member: discord.Member, *, reason:str):
+        try:
+            await self.bot.send_message(member, content=reason)
+        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+            await self.bot.say("couldn't DM reason to user")
+        try:
+            await self.bot.ban(member)
+        except discord.Forbidden:
+            await self.bot.say("I don't have the permission to ban this user.")
+        except discord.HTTPException:
+            await self.bot.say("There was a HTTP or connection issue ban failed")
 
 
 def setup(bot):
