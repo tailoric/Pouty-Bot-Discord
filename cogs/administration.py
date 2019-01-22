@@ -129,7 +129,7 @@ class Admin:
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await self.bot.say("couldn't DM reason to user")
         try:
-            await self.bot.ban(member)
+            await self.bot.ban(member, delete_message_days=0)
             await self.bot.say("https://i.imgur.com/BdUCfLb.png")
         except discord.Forbidden:
             await self.bot.say("I don't have the permission to ban this user.")
