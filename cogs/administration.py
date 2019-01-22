@@ -121,6 +121,7 @@ class Admin:
             json.dump({"channel" : self.report_channel.id}, f)
         await self.bot.say('This channel is now the report channel')
 
+    @checks.is_owner_owner_or_moderator()
     @commands.command(name="ban", pass_context=True)
     async def ban(self, ctx, member: discord.Member, *, reason:str):
         try:
