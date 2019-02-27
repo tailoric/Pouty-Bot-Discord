@@ -35,10 +35,10 @@ class Reddit:
                 is_stickied = post_data['stickied'] == "true"
                 if not subreddit == "Animemes":
                     return
-                if int(upvotes) < 100 and difference.total_seconds() < 12 * 3600 and not is_stickied:
+                if difference.total_seconds() < 12 * 3600 and not is_stickied:
                     await self.bot.delete_message(message)
                     await self.bot.send_message(message.channel, message.author.mention + " reddit thread automatically removed because "+
-                                                                 "it is too recent")
+                                                                 "it is too recent **(Discord server rule 3)**")
 
 
 
