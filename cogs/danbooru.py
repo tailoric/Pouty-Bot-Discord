@@ -539,13 +539,13 @@ class Danbooru:
         one_sub_found = False
         for sub in self.scheduler.subscriptions:
             if message.author in sub.users and (not sub.is_private or message.channel.is_private):
+                if sub.is_private:
+                    found_subs += ' [private]'
                 if len(found_subs) + len(sub.tags_to_message()) >= 2000:
                     found_subs_messages.append(found_subs)
                     found_subs = ''
                 found_subs += '\n`{}`'.format(sub.tags_to_message())
                 one_sub_found = True
-                if sub.is_private:
-                    found_subs += ' [private]'
         found_subs_messages.append(found_subs)
 
         if one_sub_found:
