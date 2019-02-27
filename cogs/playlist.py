@@ -132,8 +132,8 @@ class Music:
                 if not voice_channel.is_playing() and time.time() - voice_channel.wait_timer > timeout:
                     try:
                         await self.leave_voice_channel(voice_channel, voice_id)
-                    except:
-                        pass
+                    except Exception as e:
+                        print(e)
             await asyncio.sleep(5)
 
     @commands.command(pass_context=True, no_pm=True)
@@ -183,9 +183,9 @@ class Music:
         opts = {
             'default_search': 'auto',
             'quiet': True,
-            'geo-bypass': True,
             'extractaudio': True,
-            'format': 'best'
+            'format': 'bestaudio',
+            'buffer-size': 16000
         }
 
         if state.voice is None:
@@ -194,7 +194,7 @@ class Music:
                 return
 
         try:
-            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15"
+            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
             song = self.format_non_embed_link(song)
             player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next,before_options=beforeArgs)
         except Exception as e:
