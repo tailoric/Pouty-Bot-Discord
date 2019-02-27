@@ -2,6 +2,8 @@ import json
 import aiohttp
 import re
 import datetime
+from discord.ext import commands
+from os import path
 
 
 class Reddit:
@@ -13,15 +15,34 @@ class Reddit:
                 self.client_id = self.credentials['client_id']
                 self.secret = self.credentials['client_secret']
                 self.auth = aiohttp.BasicAuth(self.client_id, self.secret)
-                self.headers = {'User-Agent' : 'Discord Bot by /u/Saikimo'}
+                self.headers = {'User-Agent': 'Discord Bot by /u/Saikimo',
+                                'Content-Type': 'application/json'}
             self.session = aiohttp.ClientSession()
+            self.reddit_settings_path = "data/reddit_settings.json"
+            self.checker_channel = None
+            if not path.exists(self.reddit_settings_path):
+                file = open(self.reddit_settings_path, 'w')
+                json.dump({'channel': None}, file)
+            with open(self.reddit_settings_path, 'r') as f:
+                settings = json.load(f)
+                self.checker_channel = self.bot.get_channel(settings['channel'])
+
+
 
     async def on_message(self, message):
-        contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)")
-        match = contains_reddit_link_regex.match(message.content)
+        contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)", re.MULTILINE)
+        match = contains_reddit_link_regex.search(message.content)
+        url = message.content
         if not match:
             return
-        url = "https://reddit.com/comments/"+match.group(4)+".json"
+        if match.group(1).startswith('v'):
+            print("is video link")
+            vid_url = match.string[match.span()[0]: match.span()[1]]
+            async with self.session.get(url=vid_url, auth=self.auth, headers=self.headers) as response:
+                if response.status == 200:
+                    url = response.url + '.json'
+        else:
+            url = "https://reddit.com/comments/"+match.group(4)+".json"
         print(url)
         async with self.session.get(url=url, auth=self.auth, headers=self.headers) as response:
             if response.status == 200:
@@ -39,6 +60,19 @@ class Reddit:
                     await self.bot.delete_message(message)
                     await self.bot.send_message(message.channel, message.author.mention + " reddit thread automatically removed because "+
                                                                  "it is too recent **(Discord server rule 3)**")
+                    if self.checker_channel:
+                        await self.bot.send_message(self.checker_channel, "Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
+
+
+    @commands.command(pass_context=True)
+    async def setup_checker_channel(self,ctx):
+        channel = ctx.message.channel
+        if not path.exists(self.reddit_settings_path):
+           open(self.reddit_settings_path, 'w').close()
+        with open(self.reddit_settings_path, 'w') as f:
+            self.checker_channel = channel
+            settings = {'channel': channel.id}
+            json.dump(settings, f)
 
 
 
