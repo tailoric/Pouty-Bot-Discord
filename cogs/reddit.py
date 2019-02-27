@@ -4,9 +4,12 @@ import re
 import datetime
 from discord.ext import commands
 from os import path
-
+from .utils import checks
 
 class Reddit:
+    """
+    cog for automatically removing reddit links that break rule 3
+    """
     def __init__(self, bot):
         with open("data/reddit_credentials.json", "r") as cred_file:
             self.bot = bot
@@ -64,7 +67,8 @@ class Reddit:
                         await self.bot.send_message(self.checker_channel, "Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
 
 
-    @commands.command(pass_context=True)
+    @checks.is_owner_or_moderator()
+    @commands.command(pass_context=True, hidden=True)
     async def setup_checker_channel(self,ctx):
         channel = ctx.message.channel
         if not path.exists(self.reddit_settings_path):
