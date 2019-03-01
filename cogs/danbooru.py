@@ -356,7 +356,7 @@ class Scheduler:
 
 class Danbooru:
     """
-    Danbooru requests and subscription service.
+    Danbooru related commands
     """
     def __init__(self, bot):
         self.bot = bot
@@ -365,6 +365,10 @@ class Danbooru:
         self.scheduler = Scheduler(self.bot,self.session)
         self.helper = Helper(self.session,self.bot,self.auth_file)
         self.init_directories()
+        self.blacklist_tags_file = 'data/danbooru_cog_blacklist.json'
+        with open(self.blacklist_tags_file, 'r') as f:
+            self.tags_blacklist = json.load(f)
+
 
     def __unload(self):
         self.scheduler.schedule_task.cancel()
@@ -389,6 +393,54 @@ class Danbooru:
         if not os.path.exists(self.auth_file):
             print('authentication file is missing')
 
+    def _add_blacklist_to_tags(self, tags):
+        if self.tags_blacklist:
+            blacklist = ' -'+' -'.join(self.tags_blacklist)
+            tags += blacklist
+        return tags
+
+    @checks.is_owner_or_moderator()
+    @commands.group(pass_context=True, aliases=['danbl'])
+    async def blacklist_tags(self, ctx):
+        """
+        danbooru blacklist tags (use .help danbl for more info)
+        use .danbl add for adding tags to the blacklist
+        use .danbl remove/del/rm for removing tags from the blacklist
+        """
+        if ctx.invoked_subcommand is None:
+            await self.bot.say("Following tags are blacklisted"
+                               "```\n"
+                               +'\n'.join(self.tags_blacklist)
+                               +"```")
+
+
+    @blacklist_tags.command(aliases=['add'])
+    async def blacklist_add(self, tag):
+        """adds a tag to the danbooru tag blacklist"""
+        self.tags_blacklist.append(tag)
+        with open(self.blacklist_tags_file, 'w') as f:
+            json.dump(self.tags_blacklist, f)
+        await self.bot.say("tag `{0}` added".format(tag))
+
+
+    @blacklist_tags.command(aliases=['remove', 'del', 'rm'])
+    async def blacklist_remove(self, tag):
+        """removes a tag from the danbooru tag blacklist"""
+        try:
+            self.tags_blacklist.remove(tag)
+        except ValueError:
+            await self.bot.say("tag not in blacklist")
+            return
+        with open(self.blacklist_tags_file, 'w') as f:
+            json.dump(self.tags_blacklist, f)
+        await self.bot.say("tag `{0}` removed".format(tag))
+
+    @blacklist_tags.command(aliases=['list'])
+    async def blacklist_list(self):
+        await self.bot.say("Following tags are blacklisted"
+                           "```\n"
+                           +'\n'.join(self.tags_blacklist)
+                           +"```")
 
     @commands.command()
     async def dan(self, *, tags):
@@ -396,7 +448,11 @@ class Danbooru:
         display newest image from danbooru with certain tags
         tags: tags that will be looked up.
         """
+        self._add_blacklist_to_tags(tags)
         image = await self.helper.lookup_tags(tags,limit='1')
+        if len(image) == 0:
+            await self.bot.say("no image found")
+            return
         await self.bot.say(image[0]['file_url'])
 
     @commands.command()
@@ -405,11 +461,15 @@ class Danbooru:
         display random image from danbooru with certain tags
         tags: tags that will be looked up.
         """
+        self._add_blacklist_to_tags(tags)
         image = await self.helper.lookup_tags(tags,limit='1',random='true')
+        if len(image) == 0:
+            await self.bot.say("no image found")
+            return
         await self.bot.say(image[0]['file_url'])
 
 
-    @commands.group(pass_context=True)
+    @commands.group(pass_context=True, hidden=True)
     async def dans(self, ctx):
         """
         Danbooru subscribing service
