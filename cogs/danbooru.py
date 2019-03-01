@@ -448,7 +448,7 @@ class Danbooru:
         display newest image from danbooru with certain tags
         tags: tags that will be looked up.
         """
-        self._add_blacklist_to_tags(tags)
+        tags = self._add_blacklist_to_tags(tags)
         image = await self.helper.lookup_tags(tags,limit='1')
         if len(image) == 0:
             await self.bot.say("no image found")
@@ -461,7 +461,7 @@ class Danbooru:
         display random image from danbooru with certain tags
         tags: tags that will be looked up.
         """
-        self._add_blacklist_to_tags(tags)
+        tags = self._add_blacklist_to_tags(tags)
         image = await self.helper.lookup_tags(tags,limit='1',random='true')
         if len(image) == 0:
             await self.bot.say("no image found")
