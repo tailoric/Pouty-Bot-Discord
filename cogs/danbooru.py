@@ -10,6 +10,7 @@ import re
 import traceback
 from .utils import checks
 import logging
+from os import path
 
 class Helper:
     def __init__(self, session, bot, auth_file):
@@ -366,8 +367,14 @@ class Danbooru:
         self.helper = Helper(self.session,self.bot,self.auth_file)
         self.init_directories()
         self.blacklist_tags_file = 'data/danbooru_cog_blacklist.json'
+        self.danbooru_channel_file = 'data/danbooru_channel_file.json'
         with open(self.blacklist_tags_file, 'r') as f:
             self.tags_blacklist = json.load(f)
+        if path.exists(self.danbooru_channel_file):
+            with open(self.danbooru_channel_file, 'r') as file:
+                self.danbooru_channels = json.load(file)
+        else:
+            self.danbooru_channels = []
 
 
     def __unload(self):
@@ -442,31 +449,74 @@ class Danbooru:
                            +'\n'.join(self.tags_blacklist)
                            +"```")
 
-    @commands.command()
-    async def dan(self, *, tags):
+    @commands.command(pass_context=True)
+    @checks.is_owner_or_moderator()
+    async def setup_dan(self, ctx):
+
+        if len([x['channel'] for x in self.danbooru_channels if x['channel'] == ctx.message.channel.id]) > 0:
+            await self.bot.say("channel already setup")
+            return
+
+        self.danbooru_channels.append({
+            'channel': ctx.message.channel.id,
+            'server': ctx.message.server.id
+        })
+        with open(self.danbooru_channel_file,  'w') as f:
+            json.dump(self.danbooru_channels, f)
+        await self.bot.say("channel setup for danbooru commands")
+
+
+    @commands.command(pass_context=True)
+    async def dan(self, ctx,*, tags):
         """
         display newest image from danbooru with certain tags
         tags: tags that will be looked up.
         """
+        message = ctx.message
+        channel = self._get_danbooru_channel_of_message(message)
+        if channel is None:
+            await self.bot.say("danbooru channel not setup")
+            return
         tags = self._add_blacklist_to_tags(tags)
-        image = await self.helper.lookup_tags(tags,limit='1')
+        image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
             await self.bot.say("no image found")
             return
-        await self.bot.say(image[0]['file_url'])
 
-    @commands.command()
-    async def danr(self, *, tags):
+        if not channel.id == message.channel.id:
+            await self.bot.send_message(channel,'{0}\n{1}'.format(image[0]['file_url'], message.author.mention))
+        else:
+            await self.bot.send_message(channel, image[0]['file_url'])
+
+    def _get_danbooru_channel_of_message(self,message : discord.Message):
+        server = message.server
+        danbooru_channel = [x["channel"] for x in self.danbooru_channels if x["server"]== server.id]
+        if danbooru_channel:
+            return self.bot.get_channel(danbooru_channel[0])
+        else:
+            return None
+
+    @commands.command(pass_context=True)
+    async def danr(self, ctx, *, tags):
         """
         display random image from danbooru with certain tags
         tags: tags that will be looked up.
         """
+        message = ctx.message
+        channel = self._get_danbooru_channel_of_message(message)
+        if channel is None:
+            await self.bot.say("danbooru channel not setup")
+            return
         tags = self._add_blacklist_to_tags(tags)
         image = await self.helper.lookup_tags(tags,limit='1',random='true')
         if len(image) == 0:
             await self.bot.say("no image found")
             return
-        await self.bot.say(image[0]['file_url'])
+
+        if not channel.id == message.channel.id:
+            await self.bot.send_message(channel,'{0}\n{1}'.format(image[0]['file_url'], message.author.mention))
+        else:
+            await self.bot.send_message(channel, image[0]['file_url'])
 
 
     @commands.group(pass_context=True, hidden=True)
@@ -641,6 +691,7 @@ class Danbooru:
                     self.scheduler.subscriptions.append(dansub)
                     dansub.write_sub_to_file()
                 self.scheduler.write_to_file()
+
 
     @dans.command(hidden=True, pass_context=True)
     @checks.is_owner()
