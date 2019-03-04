@@ -486,7 +486,7 @@ class Danbooru:
             image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
             await self.bot.say("no image found")
-            return
+            return None, None
         return channel, self.build_message(image, channel, message)
 
     @commands.command(pass_context=True)
@@ -496,6 +496,8 @@ class Danbooru:
         tags: tags that will be looked up.
         """
         channel, send_message = await self._find_danbooru_image(ctx, tags, random=False)
+        if channel is None or send_message is None:
+            return
         await self.bot.send_message(channel, send_message)
 
 
@@ -506,6 +508,8 @@ class Danbooru:
         tags: tags that will be looked up.
         """
         channel, send_message = await self._find_danbooru_image(ctx, tags, random=True)
+        if channel is None or send_message is None:
+            return
         await self.bot.send_message(channel, send_message)
 
 
