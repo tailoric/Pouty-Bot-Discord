@@ -465,33 +465,6 @@ class Danbooru:
             json.dump(self.danbooru_channels, f)
         await self.bot.say("channel setup for danbooru commands")
 
-
-    @commands.command(pass_context=True)
-    async def dan(self, ctx, *, tags: str = ""):
-        """
-        display newest image from danbooru with certain tags
-        tags: tags that will be looked up.
-        """
-        message = ctx.message
-        channel = self._get_danbooru_channel_of_message(message)
-        if channel is None:
-            await self.bot.say("danbooru channel not setup")
-            return
-        tags = self._add_blacklist_to_tags(tags)
-        image = await self.helper.lookup_tags(tags, limit='1')
-        if len(image) == 0:
-            await self.bot.say("no image found")
-            return
-        file_url = image[0]['file_url']
-        if 'spoilers' in image[0]['tag_string_meta']:
-            send_message = "`({0})`|| {1} ||".format(image[0]['tag_string_copyright'], file_url)
-        else:
-            send_message = file_url
-        if not channel.id == message.channel.id:
-            send_message = '{0}\n{1}'.format(send_message, message.author.mention)
-
-        await self.bot.send_message(channel, send_message)
-
     def _get_danbooru_channel_of_message(self,message : discord.Message):
         server = message.server
         danbooru_channel = [x["channel"] for x in self.danbooru_channels if x["server"]== server.id]
@@ -500,30 +473,39 @@ class Danbooru:
         else:
             return None
 
-    @commands.command(pass_context=True)
-    async def danr(self, ctx, *, tags: str = ""):
-        """
-        display random image from danbooru with certain tags
-        tags: tags that will be looked up.
-        """
+    async def _find_danbooru_image(self, ctx, tags, random):
         message = ctx.message
         channel = self._get_danbooru_channel_of_message(message)
         if channel is None:
             await self.bot.say("danbooru channel not setup")
             return
         tags = self._add_blacklist_to_tags(tags)
-        image = await self.helper.lookup_tags(tags, limit='1', random='true')
+        if random:
+            image = await self.helper.lookup_tags(tags, limit='1', random=random)
+        else:
+            image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
             await self.bot.say("no image found")
             return
-        file_url = image[0]['file_url']
-        if 'spoilers' in image[0]['tag_string_meta']:
-            send_message = "`({0})`|| {1} ||".format(image[0]['tag_string_copyright'], file_url)
-        else:
-            send_message = file_url
-        if not channel.id == message.channel.id:
-            send_message = '{0}\n{1}'.format(send_message, message.author.mention)
+        return channel, self.build_message(image, channel, message)
 
+    @commands.command(pass_context=True)
+    async def dan(self, ctx, *, tags: str = ""):
+        """
+        display newest image from danbooru with certain tags
+        tags: tags that will be looked up.
+        """
+        channel, send_message = await self._find_danbooru_image(ctx, tags, random=False)
+        await self.bot.send_message(channel, send_message)
+
+
+    @commands.command(pass_context=True)
+    async def danr(self, ctx, *, tags: str = ""):
+        """
+        display random image from danbooru with certain tags
+        tags: tags that will be looked up.
+        """
+        channel, send_message = await self._find_danbooru_image(ctx, tags, random=True)
         await self.bot.send_message(channel, send_message)
 
 
@@ -722,6 +704,19 @@ class Danbooru:
         """
         self.__unload()
         setup(self.bot)
+
+    def build_message(self, image, channel, message):
+
+        file_url = image[0]['file_url']
+        send_message = file_url
+        if 'translated' in image[0]['tag_string_meta']:
+            send_message = 'https://danbooru.donmai.us/posts/' + str(image[0]['id'])
+        if 'spoilers' in image[0]['tag_string_meta']:
+            send_message = "`({0})`|| {1} ||".format(image[0]['tag_string_copyright'], send_message)
+        if not channel.id == message.channel.id:
+            send_message = '{0}\n{1}'.format(send_message, message.author.mention)
+
+        return send_message
 
 
 def setup(bot):
