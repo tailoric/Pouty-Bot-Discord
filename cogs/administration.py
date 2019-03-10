@@ -1,10 +1,12 @@
 import discord
 from discord.ext import commands
+from discord.utils import get
 import os.path
 import json
 from .utils import checks
 import time
 import logging
+import asyncio
 
 
 
@@ -32,6 +34,25 @@ class Admin:
                 self.report_channel = self.bot.get_channel(json_data['channel'])
         else:
             self.report_channel = None
+        if os.path.exists('data/mute_list.json'):
+            with open('data/mute_list.json') as f:
+                json_data = json.load(f)
+                self.mutes = json_data['mutes']
+                for server in self.bot.servers:
+                    self.mute_role = get(server.roles, id=json_data['mute_role'])
+                    if self.mute_role is not None:
+                        break
+            self.unmute_task = self.bot.loop.create_task(self.unmute_loop())
+        else:
+            self.mutes = []
+            self.mute_role = None
+        if os.path.exists("data/reddit_settings.json"):
+            with open("data/reddit_settings.json") as f:
+                json_data = json.load(f)
+                self.check_channel = self.bot.get_channel(json_data["channel"])
+        else:
+            self.check_channel = None
+        self.units = {"seconds": 1, "minutes": 60, "hours": 3600, "days": 86400}
         self.invocations = []
         self.report_countdown = 60
         self.logger = logging.getLogger('report')
@@ -135,6 +156,67 @@ class Admin:
             await self.bot.say("I don't have the permission to ban this user.")
         except discord.HTTPException:
             await self.bot.say("There was a HTTP or connection issue ban failed")
+
+    async def unmute_loop(self):
+        while self is self.bot.get_cog("Admin"):
+            to_remove = []
+            for mute in self.mutes:
+                if mute["unmute_ts"] <= int(time.time()):
+                    try:
+                        user = get(self.mute_role.server.members, id=mute["user"])
+                        await self.bot.remove_roles(user, self.mute_role)
+                    except (discord.errors.Forbidden, discord.errors.NotFound):
+                        to_remove.append(mute)
+                    except discord.errors.HTTPException:
+                        pass
+                    else:
+                        to_remove.append(mute)
+            for mute in to_remove:
+                self.mutes.remove(mute)
+                if self.check_channel is not None:
+                    user = get(self.mute_role.server.members, id=mute["user"])
+                    await self.bot.send_message(self.check_channel, "User {0} unmuted".format(user.mention))
+            if to_remove:
+                self.save_mute_list()
+            await asyncio.sleep(5)
+
+    def save_mute_list(self):
+        data = {
+            "mute_role": self.mute_role.id,
+            "mutes": self.mutes
+        }
+        with open("data/mute_list.json", 'w') as f:
+            json.dump(data, f)
+
+    @checks.is_owner_or_moderator()
+    @commands.command(name="mute")
+    async def mute(self, user: discord.Member, amount: int, time_unit: str):
+        """
+        mutes the user for a certain amount of time
+        usable time codes are days, hours, minutes and seconds
+        example:
+            .mute @Test-Dummy 5 hours
+        """
+        if time_unit not in self.units.keys():
+            await self.bot.say("incorrect time unit please choose days, hours, minutes or seconds")
+            return
+        if amount < 1:
+            await self.bot.say("amount needs to be at least 1")
+            return
+        length = self.units[time_unit] * amount
+        unmute_ts = int(time.time() + length)
+        await self.bot.add_roles(user, self.mute_role)
+        await self.bot.say("user {0} was muted".format(user.mention))
+        self.mutes.append({"user": user.id, "unmute_ts": unmute_ts})
+        self.save_mute_list()
+
+    @checks.is_owner_or_moderator()
+    @commands.command(name="setup_mute", pass_context=True)
+    async def mute_setup(self,ctx, role):
+        mute_role = get(ctx.message.server.roles, name=role)
+        self.mute_role = mute_role
+        self.save_mute_list()
+
 
 
 def setup(bot):
