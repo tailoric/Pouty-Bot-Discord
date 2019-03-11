@@ -197,6 +197,8 @@ class Admin:
         example:
             .mute @Test-Dummy 5 hours
         """
+        if amount == 1 and not time_unit.endswith("s"):
+            time_unit = time_unit + "s"
         if time_unit not in self.units.keys():
             await self.bot.say("incorrect time unit please choose days, hours, minutes or seconds")
             return
