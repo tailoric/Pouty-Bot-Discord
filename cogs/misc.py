@@ -686,6 +686,8 @@ import asyncio
 import time
 import logging
 import json
+import random
+import re
 
 class RemindMe:
     """Never forget anything anymore."""
@@ -776,6 +778,25 @@ def check_files():
         with open(f, "w") as file_reminders:
             file_reminders.write("[]")
 
+class Choose:
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    async def choose(self, *, options:str):
+        """
+        choose from a list of options seperated by a space
+        example:
+            .choose heads tails "two words"
+        """
+
+        list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
+        choice = random.choice(list_of_options)
+        await self.bot.say(choice)
+
+
+
 def setup(bot):
     global logger
     check_folders()
@@ -790,3 +811,4 @@ def setup(bot):
     loop = asyncio.get_event_loop()
     loop.create_task(n.check_reminders())
     bot.add_cog(n)
+    bot.add_cog(Choose(bot))
