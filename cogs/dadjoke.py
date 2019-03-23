@@ -8,7 +8,7 @@ class Dadjoke:
         return message.content.lower().startswith("hi") and self.result.group(2) in message.content
 
     async def on_message(self, message):
-        result = re.match("^([Ii]\s?'?a?m)\s*(.*)", message.content)
+        result = re.match(".*([Ii]\s?'?a?m)\s*(.*)", message.content)
         if result:
             self.result = result
             msg = await self.bot.wait_for_message(check=self.check_for_dadjoke, timeout=60)
