@@ -36,9 +36,14 @@ async def on_ready():
 
 @bot.event
 async def on_command_error(error, ctx):
-    if not isinstance(error, commands.CommandNotFound):
+    error_message_sent = False
+    if isinstance(error, commands.CheckFailure):
+        await bot.send_message(ctx.message.channel, "You don't have permission to use this command")
+        error_message_sent = True
+    if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
         await bot.send_message(ctx.message.channel, error)
-        await bot.send_message(ctx.message.channel, "```\n{}\n```".format(ctx.command.help))
+        if ctx.command.help is not None:
+            await bot.send_message(ctx.message.channel, "```\n{}\n```".format(ctx.command.help))
     logger.log(logging.INFO, error)
 
 @bot.event
