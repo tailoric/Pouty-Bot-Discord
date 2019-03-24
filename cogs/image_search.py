@@ -5,6 +5,13 @@ from bs4 import BeautifulSoup
 import json
 from urllib import parse
 import youtube_dl
+import base64
+import os
+import urllib.parse
+import sys
+from PIL import Image
+import io
+
 class Search:
     """Reverse image search commands"""
 
@@ -15,6 +22,8 @@ class Search:
         self.dans_session = aiohttp.ClientSession()
         self.sauce_session = aiohttp.ClientSession()
         self.tineye_session = aiohttp.ClientSession()
+        if not os.path.exists("data/image_search"):
+            os.mkdir("data/image_search/")
 
     async def _danbooru_api(self, link):
         """
@@ -196,6 +205,63 @@ class Search:
         search = parse.quote_plus(query)
         await self.bot.say("https://google.com/search?q={}".format(search))
 
+    @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
+    async def trace_moe(self, ctx, link: str=None):
+        if link is None and len(ctx.message.attachments) == 0:
+            await self.bot.say("please add an image link or invoke with an image attached")
+        image_link = link if link is not None else ctx.message.attachments[0]["url"]
+        if image_link:
+            async with self.sauce_session.get(image_link) as response:
+                if response.status == 200:
+                    image = await response.read()
+                    image_base64 = base64.b64encode(image)
+                    if sys.getsizeof(image_base64.decode("ascii")) > 1 * 10 ** 6:
+                        image_base64 = self.scale_down_image(image)
+                    request_data = {"image": image_base64.decode("ascii")}
+                    header = {"Content-Type": "application/json"}
+                    await self.bot.type()
+                    async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
+                        if resp.status == 200:
+                            resp_json = await resp.json()
+                            first_result = resp_json["docs"][0]
+                            if first_result["similarity"] > 0.75:
+                                embed = self.build_embed_for_trace_moe(first_result)
+                                await self.bot.say(embed=embed)
+                            else:
+                                await self.bot.say("No source similar enough")
+                        elif resp.status == 429:
+                            await self.bot.say(await resp.read())
+                        elif resp.status == 413:
+                            await self.bot.say("Image to big please scale it down")
+                        if resp.status == 500 or resp.status == 503:
+                            await self.bot.say("Internal server error at trace.moe")
 
+    def scale_down_image(self, image):
+        img = Image.open(io.BytesIO(image))
+        new_width = img.size[0] // 2
+        wpercent = (new_width / float(img.size[0]))
+        new_height = int(float(img.size[1])* float(wpercent))
+        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+        img_save = io.BytesIO()
+        img.save(img_save, format('PNG'))
+        return base64.b64encode(img_save.getvalue())
+
+    def build_embed_for_trace_moe(self, first_result):
+        embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [trace.moe](https://trace.moe/)")
+        embed.set_thumbnail(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
+                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]), first_result["at"], first_result["tokenthumb"]))
+        embed.add_field(name="Name", value=first_result["title_romaji"])
+        m, s = divmod(first_result["at"], 60)
+        embed.add_field(name="Episode {0}".format(first_result["episode"]), value="at {0:02d}:{1:02d}".format( int(m), int(s)))
+        embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]))
+        embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]))
+        return embed
+
+    def build_mal_link_from_id(self, id):
+        return "https://myanimelist.net/anime/" + str(id)
+
+
+    def build_anilist_link_from_id(self, id):
+        return "https://anilist.co/anime/" + str(id)
 def setup(bot):
     bot.add_cog(Search(bot))
