@@ -207,6 +207,8 @@ class Search:
 
     @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
     async def trace_moe(self, ctx, link: str=None):
+        """search image either via link or direct upload
+            example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         if link is None and len(ctx.message.attachments) == 0:
             await self.bot.say("please add an image link or invoke with an image attached")
         image_link = link if link is not None else ctx.message.attachments[0]["url"]
