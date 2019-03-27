@@ -495,11 +495,10 @@ class Danbooru:
         display newest image from danbooru with certain tags
         tags: tags that will be looked up.
         """
-        channel, send_message = await self._find_danbooru_image(ctx, tags, random=False)
+        channel, send_message = await self._find_danbooru_image(ctx, tags, random="false")
         if channel is None or send_message is None:
             return
         await self.bot.send_message(channel, send_message)
-
 
     @commands.command(pass_context=True)
     async def danr(self, ctx, *, tags: str = ""):
@@ -507,7 +506,7 @@ class Danbooru:
         display random image from danbooru with certain tags
         tags: tags that will be looked up.
         """
-        channel, send_message = await self._find_danbooru_image(ctx, tags, random=True)
+        channel, send_message = await self._find_danbooru_image(ctx, tags, random="true")
         if channel is None or send_message is None:
             return
         await self.bot.send_message(channel, send_message)
