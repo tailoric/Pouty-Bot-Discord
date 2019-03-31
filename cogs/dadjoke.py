@@ -16,6 +16,8 @@ class Dadjoke:
             self.result = result
             self.user = message.author
             msg = await self.bot.wait_for_message(check=self.check_for_dadjoke, timeout=60)
+            if msg == None:
+                return
             new_name = msg.content[2:30]
             if len(msg.content) > 32:
                 new_name += "..."
