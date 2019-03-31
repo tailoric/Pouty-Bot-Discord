@@ -250,7 +250,8 @@ class Search:
 
     def build_embed_for_trace_moe(self, first_result):
         embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [trace.moe](https://trace.moe/)")
-        embed.set_thumbnail(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
+        if not first_result["is_adult"]:
+            embed.set_thumbnail(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
                             .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]), first_result["at"], first_result["tokenthumb"]))
         embed.add_field(name="Name", value=first_result["title_romaji"])
         m, s = divmod(first_result["at"], 60)
