@@ -53,7 +53,7 @@ async def on_message(message):
     if owner_cog:
         global_ignores = owner_cog.global_ignores
         message_split = message.content[1:].split(" ")
-        if (not message_split or message.content[0] not in bot.command_prefix) or len(message.content) == 0:
+        if len(message.content) == 0 or not message_split or message.content[0] not in bot.command_prefix:
             return
         invoked_command = bot.get_command(message_split[0])
         if not invoked_command:
