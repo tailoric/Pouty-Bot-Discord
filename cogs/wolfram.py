@@ -59,7 +59,7 @@ class Wolfram:
                     success = soup.find('queryresult')['success']
                     if success == 'true':
                         query_input = soup.find('plaintext').contents
-                        full_response = 'http://www.wolframalpha.com/input/?i={}'.format(parse.quote_plus(re_query))
+                        full_response = '<http://www.wolframalpha.com/input/?i={}>'.format(parse.quote_plus(re_query))
                         message = '**Full Response:** {} \n'.format(full_response)
                         message += '**Input:** {} \n'.format(query_input[0])
                         message += '**Result:** \n'
