@@ -158,6 +158,9 @@ class Admin:
         except discord.HTTPException:
             await self.bot.say("There was a HTTP or connection issue ban failed")
 
+    def __unload(self):
+        self.unmute_task.cancel()
+
     async def unmute_loop(self):
         while self is self.bot.get_cog("Admin"):
             to_remove = []
