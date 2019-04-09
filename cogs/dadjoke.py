@@ -7,7 +7,7 @@ class Dadjoke:
         self.user = None
 
     def check_for_dadjoke(self, message):
-        return re.match("^([Hh]i|[hH]ello)\s+.*", message.content) and self.result.group(2) in message.content and message.author.id != self.user.id
+        return re.match("^([Hh]i|[hH]ello|[Hh]ey|[Yy]o|[Hh]iya|[Ww]hat'?s up)\s+.*", message.content) and self.result.group(2) in message.content and message.author.id != self.user.id
 
     async def on_message(self, message):
         if message.content is None:
