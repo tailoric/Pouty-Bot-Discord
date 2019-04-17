@@ -16,6 +16,7 @@ class Userinfo:
         join_date = member.joined_at
         created_at = member.created_at
         user_color = member.color
+        user_roles = member.roles.copy()
         server = ctx.message.server
         if member.nick:
             nick = member.nick
@@ -39,10 +40,10 @@ class Userinfo:
                                                         joined_number_of_days_diff),
                         inline=True)
 
-        member.roles.pop(0)
 
-        if member.roles:
-            embed.add_field(name="Roles", value=", ".join([x.name for x in member.roles]), inline=True)
+        user_roles.pop(0)
+        if user_roles:
+            embed.add_field(name="Roles", value=", ".join([x.name for x in user_roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
         await self.bot.say(embed=embed)
 
