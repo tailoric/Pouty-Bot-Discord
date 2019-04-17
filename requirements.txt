@@ -4,7 +4,7 @@ beautifulsoup4
 bs4
 certifi
 chardet
-discord.py
+discord.py==0.16.12
 google-api-python-client
 httplib2
 idna
