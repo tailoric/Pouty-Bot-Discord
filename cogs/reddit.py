@@ -6,7 +6,7 @@ from discord.ext import commands
 from os import path
 from .utils import checks
 
-class Reddit:
+class Reddit(commands.Cog):
     """
     cog for automatically removing reddit links that break rule 3
     """

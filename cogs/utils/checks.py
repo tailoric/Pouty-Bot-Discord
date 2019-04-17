@@ -15,7 +15,7 @@ def is_owner():
 
 
 def is_owner_or_admin_check(message):
-   return message.author.server_permissions.administrator or is_owner_check(message)
+   return message.author.guild_permissions.administrator or is_owner_check(message)
 
 
 def is_owner_or_moderator_check(message):

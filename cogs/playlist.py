@@ -78,7 +78,7 @@ class VoiceState:
             self.start_time = time.time()
             await self.play_next_song.wait()
 
-class Music:
+class Music(commands.Cog):
     """Voice related commands.
 
     Works in multiple servers at once.
@@ -98,7 +98,7 @@ class Music:
 
     async def create_voice_client(self, channel):
         voice = await self.bot.join_voice_channel(channel)
-        state = self.get_voice_state(channel.server)
+        state = self.get_voice_state(channel.guild)
         state.voice = voice
 
     def __unload(self):
@@ -142,21 +142,21 @@ class Music:
         try:
             await self.create_voice_client(channel)
         except discord.ClientException:
-            await self.bot.say('Already in a voice channel...')
+            await ctx.send('Already in a voice channel...')
         except discord.InvalidArgument:
-            await self.bot.say('This is not a voice channel...')
+            await ctx.send('This is not a voice channel...')
         else:
-            await self.bot.say('Ready to play audio in ' + channel.name)
+            await ctx.send('Ready to play audio in ' + channel.name)
 
     @commands.command(pass_context=True, no_pm=True)
     async def summon(self, ctx):
         """Summons the bot to join your voice channel."""
         summoned_channel = ctx.message.author.voice_channel
         if summoned_channel is None:
-            await self.bot.say('You are not in a voice channel.')
+            await ctx.send('You are not in a voice channel.')
             return False
 
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         if state.voice is None:
             state.voice = await self.bot.join_voice_channel(summoned_channel)
         else:
@@ -175,10 +175,10 @@ class Music:
         The list of supported sites can be found here:
         https://rg3.github.io/youtube-dl/supportedsites.html
         """
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         user_voice_channel = ctx.message.author.voice_channel
         if user_voice_channel is None:
-            await self.bot.say('You are not in a voice channel.')
+            await ctx.send('You are not in a voice channel.')
             return
         opts = {
             'default_search': 'auto',
@@ -203,11 +203,11 @@ class Music:
         else:
             player.volume = 0.6
             if player.is_live:
-                await self.bot.say("livestream, skipped.")
+                await ctx.send("livestream, skipped.")
                 return
             entry = VoiceEntry(ctx.message, player)
             state.song_queue.append(entry)
-            await self.bot.say('Enqueued ' + str(entry))
+            await ctx.send('Enqueued ' + str(entry))
             await state.songs.put(entry)
 
     @commands.command(pass_context=True, no_pm=True)
@@ -215,13 +215,13 @@ class Music:
         """Sets the volume of the currently playing song."""
 
         if value > 80:
-            await self.bot.say("Earrape mode disabled, please don't make me shout >.<")
+            await ctx.send("Earrape mode disabled, please don't make me shout >.<")
             return
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         if state.is_playing():
             player = state.player
             player.volume = value / 100
-            await self.bot.say('Set the volume to {:.0%}'.format(player.volume))
+            await ctx.send('Set the volume to {:.0%}'.format(player.volume))
 
     @commands.command(pass_context=True, no_pm=True)
     async def stop(self, ctx):
@@ -229,7 +229,7 @@ class Music:
 
         This also clears the queue.
         """
-        server = ctx.message.server
+        server = ctx.message.guild
         state = self.get_voice_state(server)
 
         if state.is_playing():
@@ -248,55 +248,55 @@ class Music:
         50% or more of total voice chat users skip votes are needed for the song to be skipped.
         """
 
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         if not state.is_playing():
-            await self.bot.say('Not playing any music right now...')
+            await ctx.send('Not playing any music right now...')
             return
 
         voter = ctx.message.author
         # subtract the bot from the user count
         user_count = len(state.voice.channel.voice_members) - 1
         if voter == state.current.requester:
-            await self.bot.say('Requester requested skipping song...')
+            await ctx.send('Requester requested skipping song...')
             state.skip()
         elif voter.id not in state.skip_votes:
             state.skip_votes.add(voter.id)
             total_votes = len(state.skip_votes)
             percentage = int((total_votes/user_count) * 100)
             if float(total_votes) >= user_count/2:
-                await self.bot.say('Skip vote passed, skipping song...')
+                await ctx.send('Skip vote passed, skipping song...')
                 state.skip()
             else:
-                await self.bot.say("Voted to skip currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
+                await ctx.send("Voted to skip currently at[{}/{}]({}%)".format(total_votes,user_count,percentage))
 
         else:
-            await self.bot.say('You have already voted to skip this song.')
+            await ctx.send('You have already voted to skip this song.')
 
     @commands.command(pass_context=True, no_pm=True)
     async def unskip(self, ctx):
         """
         withdraw skip vote
         """
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         voter = ctx.message.author
         # subtract the bot from the user count
         user_count = len(state.voice.channel.voice_members) - 1
         if voter.id not in state.skip_votes:
-            await self.bot.say("You haven't voted skip ")
+            await ctx.send("You haven't voted skip ")
         else:
             state.skip_votes.discard(voter.id)
             total_votes = len(state.skip_votes)
             percentage = int((total_votes/user_count) * 100)
-            await self.bot.say("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,(percentage)))
+            await ctx.send("Vote withdrawn currently at[{}/{}]({}%)".format(total_votes,user_count,(percentage)))
 
     @commands.command(pass_context=True, no_pm=True)
     async def playing(self, ctx):
         """Shows info about the currently played song."""
 
-        state = self.get_voice_state(ctx.message.server)
+        state = self.get_voice_state(ctx.message.guild)
         user_count = len(state.voice.channel.voice_members) - 1
         if state.current is None:
-            await self.bot.say('Not playing anything.')
+            await ctx.send('Not playing anything.')
         else:
             player = state.current.player
             find_url_regex = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', state.current.player.url)
@@ -309,12 +309,12 @@ class Music:
                 url = state.current.player.url
             skip_count = len(state.skip_votes)
             fmt_playtime = self.get_playtime(player)
-            await self.bot.say('Now playing {} [skips: {}/{}]{}\n<{}>\n'.format(state.current, skip_count,user_count,fmt_playtime, url))
+            await ctx.send('Now playing {} [skips: {}/{}]{}\n<{}>\n'.format(state.current, skip_count,user_count,fmt_playtime, url))
             if state.song_queue:
                 message = '\nUpcoming songs:\n'
                 for index, entry in enumerate(state.song_queue):
                     message += str(index+1) + '. {}\n'.format(entry)
-                await self.bot.say(message)
+                await ctx.send(message)
 
     def get_playtime(self, player):
         playtime = time.time() - player._start

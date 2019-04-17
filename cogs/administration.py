@@ -11,21 +11,21 @@ import asyncio
 
 
 class UserOrChannel(commands.Converter):
-    async def convert(self):
-        user_converter = commands.UserConverter(ctx=self.ctx, argument=self.argument)
-        channel_converter = commands.ChannelConverter(ctx=self.ctx, argument=self.argument)
+    async def convert(self, ctx, argument):
+        user_converter = commands.UserConverter()
+        channel_converter = commands.TextChannelConverter()
         try:
-            found_member = user_converter.convert()
+            found_member = await user_converter.convert(ctx, argument)
             return found_member
         except commands.BadArgument:
             try:
-                found_channel = channel_converter.convert()
+                found_channel = await channel_converter.convert(ctx, argument)
                 return found_channel
             except commands.BadArgument:
-                raise commands.BadArgument("Didn't find Member or Channel with name {}.".format(self.argument))
+                raise commands.BadArgument("Didn't find Member or Channel with name {}.".format(argument))
 
 
-class Admin:
+class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         if os.path.exists('data/report_channel.json'):
@@ -38,7 +38,7 @@ class Admin:
             with open('data/mute_list.json') as f:
                 json_data = json.load(f)
                 self.mutes = json_data['mutes']
-                for server in self.bot.servers:
+                for server in self.bot.guilds:
                     self.mute_role = get(server.roles, id=json_data['mute_role'])
                     if self.mute_role is not None:
                         break
@@ -83,17 +83,17 @@ class Admin:
         author = ctx.message.author
         if message == 'setup':
             if checks.is_owner_or_moderator_check(ctx.message):
-                await ctx.invoke(self.setup, ctx=ctx)
+                await ctx.invoke(self.setup)
                 return
             else:
                 await self.bot.say("You don't have permission to do this")
                 return
-        if ctx.message.channel.type is not discord.ChannelType.private:
-            await self.bot.whisper("Only use the `report` command in private messages")
-            await self.bot.say("Only use the `report` command in private messages")
+        if type(ctx.message.channel) is not discord.DMChannel:
+            await ctx.author.send("Only use the `report` command in private messages")
+            await ctx.send("Only use the `report` command in private messages")
             return
         if not self.report_channel:
-            await self.bot.say("report channel not set up yet, message a moderator")
+            await ctx.send("report channel not set up yet, message a moderator")
             return
         if author.id not in [i['user'] for i in self.invocations]:
             invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
@@ -102,7 +102,7 @@ class Admin:
             last_invocation = [i['timestamp'] for i in self.invocations if author.id == i['user']]
             time_diff = int(time.time() - last_invocation[0])
             if time_diff < self.report_countdown:
-                await self.bot.whisper("Too early to report again wait for another {} seconds"
+                await ctx.author.send("Too early to report again wait for another {} seconds"
                                        .format(self.report_countdown - time_diff))
                 return
             else:
@@ -116,7 +116,7 @@ class Admin:
         for arg in args:
             if isinstance(arg, discord.User):
                 reported_user.append(arg.mention)
-            if isinstance(arg, discord.Channel):
+            if isinstance(arg, discord.TextChannel):
                 reported_channel.append(arg.mention)
 
         if len(reported_user) > 0:
@@ -126,9 +126,9 @@ class Admin:
         if ctx.message.attachments:
             report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
 
-        await self.bot.send_message(self.report_channel, report_message)
+        await self.report_channel.send(report_message)
         self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
-        await self.bot.whisper("report successfully sent.")
+        await ctx.author.send("report successfully sent.")
 
 
     @report.command(name="setup")
@@ -140,7 +140,7 @@ class Admin:
         self.report_channel = ctx.message.channel
         with open('data/report_channel.json' , 'w') as f:
             json.dump({"channel" : self.report_channel.id}, f)
-        await self.bot.say('This channel is now the report channel')
+        await ctx.send('This channel is now the report channel')
 
     @commands.command(name="ban", pass_context=True)
     @checks.is_owner_or_moderator()
@@ -160,6 +160,7 @@ class Admin:
 
     def __unload(self):
         self.unmute_task.cancel()
+        self.save_mute_list()
 
     async def unmute_loop(self):
         while self is self.bot.get_cog("Admin"):
@@ -167,7 +168,7 @@ class Admin:
             for mute in self.mutes:
                 if mute["unmute_ts"] <= int(time.time()):
                     try:
-                        user = get(self.mute_role.server.members, id=mute["user"])
+                        user = get(self.mute_role.guild.members, id=mute["user"])
                         await self.bot.remove_roles(user, self.mute_role)
                     except (discord.errors.Forbidden, discord.errors.NotFound):
                         to_remove.append(mute)
@@ -178,7 +179,7 @@ class Admin:
             for mute in to_remove:
                 self.mutes.remove(mute)
                 if self.check_channel is not None:
-                    user = get(self.mute_role.server.members, id=mute["user"])
+                    user = get(self.mute_role.guild.members, id=mute["user"])
                     await self.bot.send_message(self.check_channel, "User {0} unmuted".format(user.mention))
             if to_remove:
                 self.save_mute_list()
@@ -219,7 +220,7 @@ class Admin:
     @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
     async def mute_setup(self,ctx, role):
-        mute_role = get(ctx.message.server.roles, name=role)
+        mute_role = get(ctx.message.guild.roles, name=role)
         self.mute_role = mute_role
         self.save_mute_list()
 

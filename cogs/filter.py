@@ -1,11 +1,10 @@
-import discord
 from discord.ext import commands
 import json
 import re
 import os
 from .utils.checks import is_owner_or_moderator
 
-class Filter:
+class Filter(commands.Cog):
     """
     filters messages and removes them
     """
@@ -33,7 +32,7 @@ class Filter:
 
     @is_owner_or_moderator()
     @commands.command(name="filter_exception", pass_context=True)
-    async def setup_exception_channel(self, ctx):
+    async def setup_exception_channel(self,  ctxctx):
         """
         sets up channel as exception for filtering giphy and tenor links
         """
@@ -42,6 +41,6 @@ class Filter:
         with open(self.filter_file_path, 'w') as filter_file:
             settings = {"channel_id" : channel.id}
             json.dump(settings, filter_file)
-        await self.bot.say("channel {} setup as exception channel".format(channel.mention))
+        await ctx.send("channel {} setup as exception channel".format(channel.mention))
 def setup(bot):
     bot.add_cog(Filter(bot))

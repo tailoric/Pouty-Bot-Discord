@@ -12,7 +12,7 @@ import sys
 from PIL import Image
 import io
 
-class Search:
+class Search(commands.Cog):
     """Reverse image search commands"""
 
 
@@ -83,7 +83,7 @@ class Search:
         if link is None and not file:
             await self.bot.say('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.typing()
             if link:
                 url = link
             else:
@@ -140,7 +140,7 @@ class Search:
         if link is None and not file:
             await self.bot.say('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.typing()
             if file:
                 url = file[0]['proxy_url']
                 similarity = link
@@ -172,7 +172,7 @@ class Search:
         if link is None and not file:
             await self.bot.say('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.typing()
             if file:
                 url = file[0]['proxy_url']
             else:
@@ -193,14 +193,14 @@ class Search:
             await self.bot.reply(message)
 
     @commands.command()
-    async def youtube(self, *, query: str):
+    async def youtube(self,  ctx,*, query: str):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
         info = ytdl.extract_info("ytsearch: "+ query, download=False)
         url = info["entries"][0]["webpage_url"]
         await self.bot.say(url)
 
     @commands.command()
-    async def google(self, *, query: str):
+    async def google(self,  ctx, *, query: str):
         """give a google search link"""
         search = parse.quote_plus(query)
         await self.bot.say("https://google.com/search?q={}".format(search))
@@ -221,7 +221,7 @@ class Search:
                         image_base64 = self.scale_down_image(image)
                     request_data = {"image": image_base64.decode("ascii")}
                     header = {"Content-Type": "application/json"}
-                    await self.bot.type()
+                    await ctx.typing()
                     async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
                         if resp.status == 200:
                             resp_json = await resp.json()

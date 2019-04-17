@@ -6,7 +6,7 @@ from discord.ext.commands.errors import BadArgument
 class RoleConverter(commands.Converter):
 
     async def convert(self):
-        server = self.ctx.message.server
+        server = self.ctx.message.guild
         role = find(lambda r: r.name.lower() == self.argument.lower(), server.roles)
         if role is None:
             raise BadArgument('Role {} not found'.format(self.argument))

@@ -2,7 +2,7 @@ from discord.ext import commands
 import random
 
 
-class Roll:
+class Roll(commands.Cog):
     """
     Roll dice command
     """
@@ -12,13 +12,13 @@ class Roll:
         self.char_limit = 2000
 
     @commands.command()
-    async def roll(self, roll:str):
+    async def roll(self, ctx, roll:str):
         """
         roll one or multiple die
         example: .roll 1d6 for a 6-sided die
         """
         if 'd' not in roll:
-            await self.bot.say('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.')
+            await ctx.send('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.')
         else:
             number, sides = roll.split('d')
             modifier = 0
@@ -37,7 +37,7 @@ class Roll:
                 else:
                     number = 1
             except ValueError as ve:
-                await self.bot.say('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.\n(modifier allowed too)')
+                await ctx.send('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.\n(modifier allowed too)')
                 return
 
             results = []
@@ -57,10 +57,10 @@ class Roll:
                 answer_text += '\nSum: '+str(sum + modifier) + ' ({}{})'.format(sum, modifier)
         if len(answer_text) > self.char_limit:
             last_pos = answer_text[:2000].rfind(',')
-            await self.bot.say(answer_text[0:last_pos])
-            await self.bot.say('character limit reached, stopping dice throws to reduce spam')
+            await ctx.send(answer_text[0:last_pos])
+            await ctx.send('character limit reached, stopping dice throws to reduce spam')
         else:
-            await self.bot.say(answer_text)
+            await ctx.send(answer_text)
 
 
 def setup(bot):

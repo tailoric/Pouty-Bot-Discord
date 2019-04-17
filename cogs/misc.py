@@ -689,7 +689,7 @@ import json
 import random
 import re
 
-class RemindMe:
+class RemindMe(commands.Cog):
     """Never forget anything anymore."""
 
     def __init__(self, bot):
@@ -778,13 +778,13 @@ def check_files():
         with open(f, "w") as file_reminders:
             file_reminders.write("[]")
 
-class Choose:
+class Choose(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command()
-    async def choose(self, *, options:str):
+    async def choose(self,  ctx, *, options:str):
         """
         choose from a list of options seperated by a space
         example:

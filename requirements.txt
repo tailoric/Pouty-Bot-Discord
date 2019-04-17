@@ -21,3 +21,4 @@ urllib3
 websockets
 wikipedia
 youtube-dl
+pillow

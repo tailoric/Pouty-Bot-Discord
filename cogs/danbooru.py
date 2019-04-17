@@ -62,7 +62,7 @@ class Helper:
 
 class Dansub:
 
-    def __init__(self, users, tags, pools, server: discord.Server, channel: discord.Channel, is_private: bool, paused_users=None):
+    def __init__(self, users, tags, pools, server: discord.guild, channel: discord.TextChannel, is_private: bool, paused_users=None):
         self.users = list()
         if type(users) == list:
             self.users += users
@@ -71,7 +71,7 @@ class Dansub:
         self.tags = tags
         self.pools = pools
         if not is_private:
-            self.server = server
+            self.guild = server
             self.channel = channel
         self.old_timestamp = None
         self.new_timestamp = datetime.datetime
@@ -131,7 +131,7 @@ class Dansub:
         ret_val['tags'] = self.tags
         ret_val['is_private'] = self.is_private
         if not self.is_private:
-            ret_val['server'] = self.server.id
+            ret_val['server'] = self.guild.id
             ret_val['channel'] = self.channel.id
         ret_val['old_timestamp'] = str(self.old_timestamp)
         ret_val['new_timestamp'] = str(self.new_timestamp)
@@ -355,7 +355,7 @@ class Scheduler:
 
 
 
-class Danbooru:
+class Danbooru(commands.Cog):
     """
     Danbooru related commands
     """
@@ -415,7 +415,7 @@ class Danbooru:
         use .danbl remove/del/rm for removing tags from the blacklist
         """
         if ctx.invoked_subcommand is None:
-            await self.bot.say("Following tags are blacklisted"
+            await ctx.send("Following tags are blacklisted"
                                "```\n"
                                +'\n'.join(self.tags_blacklist)
                                +"```")
@@ -459,14 +459,14 @@ class Danbooru:
 
         self.danbooru_channels.append({
             'channel': ctx.message.channel.id,
-            'server': ctx.message.server.id
+            'server': ctx.message.guild.id
         })
         with open(self.danbooru_channel_file,  'w') as f:
             json.dump(self.danbooru_channels, f)
         await self.bot.say("channel setup for danbooru commands")
 
     def _get_danbooru_channel_of_message(self,message : discord.Message):
-        server = message.server
+        server = message.guild
         danbooru_channel = [x["channel"] for x in self.danbooru_channels if x["server"]== server.id]
         if danbooru_channel:
             return self.bot.get_channel(danbooru_channel[0])
@@ -563,7 +563,7 @@ class Danbooru:
                     channel = self.bot.get_channel(data['channel'])
                 new_sub = Dansub(message.author, tags_list, pool_list, server, channel, is_private)
             else:
-                new_sub = Dansub(message.author, tags_list, pool_list, message.server, message.channel,is_private)
+                new_sub = Dansub(message.author, tags_list, pool_list, message.guild, message.channel,is_private)
 
             new_sub.old_timestamp = timestamp
             self.scheduler.subscriptions.append(new_sub)
@@ -690,7 +690,7 @@ class Danbooru:
     @checks.is_owner()
     async def setup(self, ctx):
         message = ctx.message
-        server = message.server
+        server = message.guild
         channel = message.channel
         with open('data/danbooru/sub_channel.json', 'w') as f:
            input = {

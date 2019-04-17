@@ -5,7 +5,7 @@ import discord
 import time
 
 
-class Userinfo:
+class Userinfo(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -17,7 +17,7 @@ class Userinfo:
         created_at = member.created_at
         user_color = member.color
         user_roles = member.roles.copy()
-        server = ctx.message.server
+        server = ctx.message.guild
         if member.nick:
             nick = member.nick
         else:
@@ -45,11 +45,11 @@ class Userinfo:
         if user_roles:
             embed.add_field(name="Roles", value=", ".join([x.name for x in user_roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
-        await self.bot.say(embed=embed)
+        await ctx.send(embed=embed)
 
     @commands.command(pass_context=True)
     async def serverinfo(self, ctx):
-        server = ctx.message.server
+        server = ctx.message.guild
         time_fmt = "%d %b %Y %H:%M"
         creation_time_diff = int(time.time() - time.mktime(server.created_at.timetuple())) // (3600 * 24)
         users_total = len(server.members)
@@ -74,13 +74,13 @@ class Userinfo:
         embed.add_field(name="Owner", value=str(server.owner))
         embed.set_footer(text="Server ID: {}".format(server.id))
 
-        await self.bot.say(embed=embed)
+        await ctx.send(embed=embed)
 
     @checks.is_owner_or_moderator()
     @commands.command(pass_context=True)
     async def roleinfo(self,ctx, role=None):
         role_converter = commands.RoleConverter(ctx=ctx, argument=role)
-        server = ctx.message.server
+        server = ctx.message.guild
         roles = server.roles
         embed = Embed()
         embed.set_thumbnail(url=server.icon_url)
@@ -94,7 +94,7 @@ class Userinfo:
             role = role_converter.convert()
             member_with_role = [member for member in server.members if role in member.roles]
             embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
-        await self.bot.say(embed=embed)
+        await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Userinfo(bot=bot))

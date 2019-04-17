@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 
 
-class RSS:
+class RSS(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.update_feed = bot.loop.create_task(self._get_update())

@@ -1,6 +1,7 @@
 import re
 import time
-class Dadjoke:
+from discord.ext import commands
+class Dadjoke(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.result = None
