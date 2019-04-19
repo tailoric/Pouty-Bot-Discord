@@ -32,18 +32,20 @@ async def on_ready():
         print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
 
 
-async def on_command_error(error, ctx):
+@bot.event
+async def on_command_error(ctx, error):
     error_message_sent = False
     if isinstance(error, commands.CheckFailure):
         await ctx.message.channel.send("You don't have permission to use this command")
         error_message_sent = True
     if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
-        await ctx.message.channel(error)
+        await ctx.message.channel.send(error)
         if ctx.command.help is not None:
-            await ctx.message.channel( "```\n{}\n```".format(ctx.command.help))
+            await ctx.message.channel.send( "```\n{}\n```".format(ctx.command.help))
     logger.log(logging.INFO, error)
 
 
+@bot.event
 async def on_message(message):
     server = message.guild
     owner_cog = bot.get_cog("Owner")
@@ -97,9 +99,6 @@ if __name__ == '__main__':
 
     try:
         bot.run(token)
-        bot.add_listener(on_ready, "on_ready")
-        bot.add_listener(on_message, "on_message")
-        bot.add_listener(on_command_error, "on_command_error")
     except KeyboardInterrupt:
         print("Keyboard interrupt exiting with error code 0")
         sys.exit(0)

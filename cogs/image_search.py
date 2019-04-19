@@ -81,7 +81,7 @@ class Search(commands.Cog):
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
             await ctx.typing()
             if link:
@@ -125,7 +125,7 @@ class Search(commands.Cog):
                                 embed.add_field(name="Copyright", value=franchise)
                             embed.add_field(name="Danbooru", value=danbooru)
 
-                            await self.bot.say(embed=embed)
+                            await ctx.send(embed=embed)
                     if not danbooru_found:
                         await  self.bot.reply('<{}>'.format(best_match))
 
@@ -138,7 +138,7 @@ class Search(commands.Cog):
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
             await ctx.typing()
             if file:
@@ -170,7 +170,7 @@ class Search(commands.Cog):
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
             await ctx.typing()
             if file:
@@ -197,20 +197,20 @@ class Search(commands.Cog):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
         info = ytdl.extract_info("ytsearch: "+ query, download=False)
         url = info["entries"][0]["webpage_url"]
-        await self.bot.say(url)
+        await ctx.send(url)
 
     @commands.command()
     async def google(self,  ctx, *, query: str):
         """give a google search link"""
         search = parse.quote_plus(query)
-        await self.bot.say("https://google.com/search?q={}".format(search))
+        await ctx.send("https://google.com/search?q={}".format(search))
 
     @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
     async def trace_moe(self, ctx, link: str=None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         if link is None and len(ctx.message.attachments) == 0:
-            await self.bot.say("please add an image link or invoke with an image attached")
+            await ctx.send("please add an image link or invoke with an image attached")
         image_link = link if link is not None else ctx.message.attachments[0]["url"]
         if image_link:
             async with self.sauce_session.get(image_link) as response:
@@ -221,22 +221,21 @@ class Search(commands.Cog):
                         image_base64 = self.scale_down_image(image)
                     request_data = {"image": image_base64.decode("ascii")}
                     header = {"Content-Type": "application/json"}
-                    await ctx.typing()
                     async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
                         if resp.status == 200:
                             resp_json = await resp.json()
                             first_result = resp_json["docs"][0]
                             if first_result["similarity"] > 0.75:
                                 embed = self.build_embed_for_trace_moe(first_result)
-                                await self.bot.say(embed=embed)
+                                await ctx.send(embed=embed)
                             else:
-                                await self.bot.say("No source similar enough")
+                                await ctx.send("No source similar enough")
                         elif resp.status == 429:
-                            await self.bot.say(await resp.read())
+                            await ctx.send(await resp.read())
                         elif resp.status == 413:
-                            await self.bot.say("Image to big please scale it down")
+                            await ctx.send("Image to big please scale it down")
                         if resp.status == 500 or resp.status == 503:
-                            await self.bot.say("Internal server error at trace.moe")
+                            await ctx.send("Internal server error at trace.moe")
 
     def scale_down_image(self, image):
         img = Image.open(io.BytesIO(image))

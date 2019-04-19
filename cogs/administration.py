@@ -26,7 +26,7 @@ class UserOrChannel(commands.Converter):
 
 
 class Admin(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot:commands.Bot):
         self.bot = bot
         if os.path.exists('data/report_channel.json'):
             with open('data/report_channel.json') as f:
@@ -146,17 +146,17 @@ class Admin(commands.Cog):
     @checks.is_owner_or_moderator()
     async def ban(self, ctx, member: discord.Member, *, reason:str):
         try:
-            await self.bot.send_message(member, content=reason)
+            await member.send(reason)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
-            await self.bot.say("couldn't DM reason to user")
+            await ctx.send("couldn't DM reason to user")
             return
         try:
-            await self.bot.ban(member, delete_message_days=0)
-            await self.bot.say("https://i.imgur.com/BdUCfLb.png")
+            await member.ban(delete_message_days=0, reason=reason)
+            await ctx.send("https://i.imgur.com/BdUCfLb.png")
         except discord.Forbidden:
-            await self.bot.say("I don't have the permission to ban this user.")
+            await ctx.send("I don't have the permission to ban this user.")
         except discord.HTTPException:
-            await self.bot.say("There was a HTTP or connection issue ban failed")
+            await ctx.send("There was a HTTP or connection issue ban failed")
 
     def __unload(self):
         self.unmute_task.cancel()
