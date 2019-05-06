@@ -187,7 +187,7 @@ class Music(commands.Cog):
         if self.voice_client.is_playing():
             if ctx.message.author == self.current.requester:
                 self.voice_client.stop()
-                await self.bot.change_presence(Game=None)
+                await self.bot.change_presence(activity=None)
             else:
                 self.skip_votes.add(ctx.message.author)
                 needed_votes = (len(self.voice_client.channel.members) - 1)//2
