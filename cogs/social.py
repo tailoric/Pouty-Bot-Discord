@@ -30,7 +30,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -46,7 +46,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -62,7 +62,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -78,7 +78,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -94,7 +94,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -110,7 +110,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -126,7 +126,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -142,7 +142,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -158,7 +158,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -174,7 +174,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -190,7 +190,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
@@ -203,7 +203,7 @@ class Social(commands.Cog):
             await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
