@@ -712,19 +712,19 @@ class RemindMe(commands.Cog):
             time_unit = time_unit[:-1]
             s = "s"
         if not time_unit in self.units:
-            await self.bot.say("Invalid time unit. Choose minutes/hours/days/weeks/month")
+            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
             return
         if quantity < 1:
-            await self.bot.say("Quantity must not be 0 or negative.")
+            await ctx.send("Quantity must not be 0 or negative.")
             return
         if len(text) > 1960:
-            await self.bot.say("Text is too long.")
+            await ctx.send("Text is too long.")
             return
         seconds = self.units[time_unit] * quantity
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : author.id, "FUTURE" : future, "TEXT" : text})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await self.bot.say("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
             json.dump(self.reminders, file_reminders)
 
@@ -742,9 +742,9 @@ class RemindMe(commands.Cog):
                 self.reminders.remove(reminder)
             with open("data/remindme/reminders.json", "w") as file_reminders:
                 json.dump(self.reminders, file_reminders)
-            await self.bot.say("All your notifications have been removed.")
+            await ctx.send("All your notifications have been removed.")
         else:
-            await self.bot.say("You don't have any upcoming notification.")
+            await ctx.send("You don't have any upcoming notification.")
 
     async def check_reminders(self):
         while self is self.bot.get_cog("RemindMe"):
@@ -752,7 +752,8 @@ class RemindMe(commands.Cog):
             for reminder in self.reminders:
                 if reminder["FUTURE"] <= int(time.time()):
                     try:
-                        await self.bot.send_message(discord.User(id=reminder["ID"]), "You asked me to remind you this:\n{}".format(reminder["TEXT"]))
+                        user = self.bot.get_user(id=reminder["ID"])
+                        await user.send("You asked me to remind you this:\n{}".format(reminder["TEXT"]))
                     except (discord.errors.Forbidden, discord.errors.NotFound):
                         to_remove.append(reminder)
                     except discord.errors.HTTPException:
@@ -793,7 +794,7 @@ class Choose(commands.Cog):
 
         list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
         choice = random.choice(list_of_options)
-        await self.bot.say(choice)
+        await ctx.send(choice)
 
 
 

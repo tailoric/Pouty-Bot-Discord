@@ -67,9 +67,9 @@ class Userinfo(commands.Cog):
         embed.add_field(name="Region", value=str(server.region))
         embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
         embed.add_field(name="Text Channels", value="{}"
-                        .format(len([x for x in server.channels if x.type == discord.ChannelType.text])))
+                        .format(len([x for x in server.channels if type(x) == discord.TextChannel])))
         embed.add_field(name="Voice Channels", value="{}"
-                        .format(len([x for x in server.channels if x.type == discord.ChannelType.voice])))
+                        .format(len([x for x in server.channels if type(x) == discord.VoiceChannel])))
         embed.add_field(name="Roles", value="{}".format(len(server.roles)))
         embed.add_field(name="Owner", value=str(server.owner))
         embed.set_footer(text="Server ID: {}".format(server.id))
@@ -78,8 +78,8 @@ class Userinfo(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.command(pass_context=True)
-    async def roleinfo(self,ctx, role=None):
-        role_converter = commands.RoleConverter(ctx=ctx, argument=role)
+    async def roleinfo(self, ctx, role=None):
+        role_converter = commands.RoleConverter()
         server = ctx.message.guild
         roles = server.roles
         embed = Embed()
@@ -91,7 +91,7 @@ class Userinfo(commands.Cog):
                 member_with_role = [member for member in server.members if role in member.roles]
                 embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         else:
-            role = role_converter.convert()
+            role = role_converter.convert(ctx=ctx, argument=role)
             member_with_role = [member for member in server.members if role in member.roles]
             embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         await ctx.send(embed=embed)

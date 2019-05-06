@@ -133,6 +133,6 @@ class Owner(commands.Cog):
         self.disabled_commands.remove({"server": server.id, "command": command})
         with open(self.disabled_commands_file, 'w') as f:
             json.dump(self.disabled_commands, f)
-        await self.bot.say("command {} enabled".format(command))
+        await ctx.send("command {} enabled".format(command))
 def setup(bot):
     bot.add_cog(Owner(bot))

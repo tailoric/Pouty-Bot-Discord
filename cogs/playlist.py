@@ -5,6 +5,7 @@ from .utils import checks
 import time
 import re
 import youtube_dl as ytdl
+import os
 
 """
 Credits to https://github.com/Rapptz/ for the cog
@@ -18,18 +19,20 @@ if not discord.opus.is_loaded():
     discord.opus.load_opus('/usr/local/lib/libopus.so')
 
 class VoiceEntry:
-    def __init__(self, message, player):
+    def __init__(self, message, audio_source, info, filename):
         self.requester = message.author
         self.channel = message.channel
-        self.player = player
+        self.audio_source = audio_source
+        self.filename = filename
+        self.info = info
 
     def __str__(self):
         fmt = '**{0.title}** requested by **{1.display_name}**'
-        duration = self.player.duration
+        duration = self.info.get("duration", None)
         if duration:
             fmt = fmt + ' [length: {0[0]}m {0[1]}s]'.format(divmod(duration, 60))
 
-        return fmt.format(self.player, self.requester)
+        return fmt.format(self.audio_source, self.requester)
 
 class VoiceState:
     def __init__(self, bot):
@@ -67,14 +70,14 @@ class VoiceState:
     async def audio_player_task(self):
         while True:
             self.play_next_song.clear()
-            await self.bot.change_presence(game=None)
+            # await self.bot.change_presence(game=None)
             self.wait_timer = time.time()
             self.current = await self.songs.get()
             self.song_queue.pop(0)
             self.skip_votes.clear()
-            await self.bot.send_message(self.current.channel, 'Now playing ' + str(self.current))
-            await self.bot.change_presence(game=discord.Game(name=self.current.player.title))
-            self.current.player.start()
+            # await self.current.channel.send('Now playing ' + str(self.current))
+            # await self.bot.change_presence(game=discord.Game(name=self.current.audio_source.title))
+            self.voice.state.play(self.current.audio_source, after=self.toggle_next)
             self.start_time = time.time()
             await self.play_next_song.wait()
 
@@ -85,8 +88,36 @@ class Music(commands.Cog):
     """
     def __init__(self, bot):
         self.bot = bot
+        opts = {
+            'default_search': 'auto',
+            'quiet': True,
+            'extractaudio': True,
+            'format': 'bestaudio',
+            'buffer-size': 16000,
+            'progress_hooks' : [self.download_hook],
+            'outtmpl': "data/ytdl/%(title)s.%(ext)s"
+        }
+        self.ytdownloader = ytdl.YoutubeDL(opts)
         self.voice_states = {}
+        self.downloads = asyncio.Queue()
+        self.finished_downloads = list()
         self.timeout_timer_task = self.bot.loop.create_task(self.timeout_timer(300))
+        self.downloader = self.bot.loop.create_task(self.downloader_task())
+
+    def download_hook(self, download):
+        if download['status'] == 'finished':
+            download['filename'] = download['filename'].replace('\\', '/')
+            self.finished_downloads.append(download["filename"])
+
+    async def downloader_task(self):
+        while True:
+            queried_song = await self.downloads.get()
+            info = self.ytdownloader.extract_info(queried_song["item"])
+            filename = self.finished_downloads.pop()
+            entry = VoiceEntry(queried_song["ctx"].message, discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(source=filename)), info, filename)
+            queried_song["state"].song_queue.append(entry)
+            await queried_song["state"].songs.put(entry)
 
     def get_voice_state(self, server):
         state = self.voice_states.get(server.id)
@@ -137,7 +168,7 @@ class Music(commands.Cog):
             await asyncio.sleep(5)
 
     @commands.command(pass_context=True, no_pm=True)
-    async def join(self, ctx, *, channel: discord.Channel):
+    async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel."""
         try:
             await self.create_voice_client(channel)
@@ -151,14 +182,14 @@ class Music(commands.Cog):
     @commands.command(pass_context=True, no_pm=True)
     async def summon(self, ctx):
         """Summons the bot to join your voice channel."""
-        summoned_channel = ctx.message.author.voice_channel
+        summoned_channel = ctx.message.author.voice.channel
         if summoned_channel is None:
             await ctx.send('You are not in a voice channel.')
             return False
 
         state = self.get_voice_state(ctx.message.guild)
         if state.voice is None:
-            state.voice = await self.bot.join_voice_channel(summoned_channel)
+            state.voice = await summoned_channel.connect()
         else:
             await state.voice.move_to(summoned_channel)
 
@@ -176,39 +207,24 @@ class Music(commands.Cog):
         https://rg3.github.io/youtube-dl/supportedsites.html
         """
         state = self.get_voice_state(ctx.message.guild)
-        user_voice_channel = ctx.message.author.voice_channel
+        user_voice_channel = ctx.message.author.voice.channel
         if user_voice_channel is None:
             await ctx.send('You are not in a voice channel.')
             return
-        opts = {
-            'default_search': 'auto',
-            'quiet': True,
-            'extractaudio': True,
-            'format': 'bestaudio',
-            'buffer-size': 16000
-        }
-
         if state.voice is None:
             success = await ctx.invoke(self.summon)
             if not success:
                 return
-
         try:
-            beforeArgs = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-            song = self.format_non_embed_link(song)
-            player = await state.voice.create_ytdl_player(song, ytdl_options=opts, after=state.toggle_next,before_options=beforeArgs)
+            download_item = {
+                "item": song,
+                "ctx": ctx,
+                "state": state
+            }
+            await self.downloads.put(download_item)
         except Exception as e:
             fmt = 'An error occurred while processing this request: ```py\n{}: {}\n```'
-            await self.bot.send_message(ctx.message.channel, fmt.format(type(e).__name__, e))
-        else:
-            player.volume = 0.6
-            if player.is_live:
-                await ctx.send("livestream, skipped.")
-                return
-            entry = VoiceEntry(ctx.message, player)
-            state.song_queue.append(entry)
-            await ctx.send('Enqueued ' + str(entry))
-            await state.songs.put(entry)
+            await ctx.message.channel.send(fmt.format(type(e).__name__, e))
 
     @commands.command(pass_context=True, no_pm=True)
     async def volume(self, ctx, value : int):
@@ -232,12 +248,11 @@ class Music(commands.Cog):
         server = ctx.message.guild
         state = self.get_voice_state(server)
 
-        if state.is_playing():
-            player = state.player
-            player.stop()
+        if state.voice.is_playing():
+            state.voice.channel.stop()
 
         try:
-            await self.leave_voice_channel(voice_channel=state, voice_id=server.id)
+            await state.voice.disconnect()
         except Exception as e:
             pass
 

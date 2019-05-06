@@ -39,7 +39,7 @@ class Admin(commands.Cog):
                 json_data = json.load(f)
                 self.mutes = json_data['mutes']
                 for server in self.bot.guilds:
-                    self.mute_role = get(server.roles, id=json_data['mute_role'])
+                    self.mute_role = get(server.roles, id=int(json_data['mute_role']))
                     if self.mute_role is not None:
                         break
             self.unmute_task = self.bot.loop.create_task(self.unmute_loop())
@@ -49,7 +49,7 @@ class Admin(commands.Cog):
         if os.path.exists("data/reddit_settings.json"):
             with open("data/reddit_settings.json") as f:
                 json_data = json.load(f)
-                self.check_channel = self.bot.get_channel(json_data["channel"])
+                self.check_channel = self.bot.get_channel(int(json_data["channel"]))
         else:
             self.check_channel = None
         self.units = {"seconds": 1, "minutes": 60, "hours": 3600, "days": 86400}
@@ -86,7 +86,7 @@ class Admin(commands.Cog):
                 await ctx.invoke(self.setup)
                 return
             else:
-                await self.bot.say("You don't have permission to do this")
+                await ctx.send("You don't have permission to do this")
                 return
         if type(ctx.message.channel) is not discord.DMChannel:
             await ctx.author.send("Only use the `report` command in private messages")
@@ -146,12 +146,14 @@ class Admin(commands.Cog):
     @checks.is_owner_or_moderator()
     async def ban(self, ctx, member: discord.Member, *, reason:str):
         try:
-            await member.send(reason)
+            dm_message = "you have been banned for the following reasons:\n{}".format(reason)
+            await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await ctx.send("couldn't DM reason to user")
-            return
         try:
             await member.ban(delete_message_days=0, reason=reason)
+            message = "banned {} for the following reason:\n{}".format(member.mention, reason)
+            await self.check_channel.send(message)
             await ctx.send("https://i.imgur.com/BdUCfLb.png")
         except discord.Forbidden:
             await ctx.send("I don't have the permission to ban this user.")
@@ -169,7 +171,7 @@ class Admin(commands.Cog):
                 if mute["unmute_ts"] <= int(time.time()):
                     try:
                         user = get(self.mute_role.guild.members, id=mute["user"])
-                        await self.bot.remove_roles(user, self.mute_role)
+                        await user.remove_roles(self.mute_role)
                     except (discord.errors.Forbidden, discord.errors.NotFound):
                         to_remove.append(mute)
                     except discord.errors.HTTPException:
@@ -180,7 +182,7 @@ class Admin(commands.Cog):
                 self.mutes.remove(mute)
                 if self.check_channel is not None:
                     user = get(self.mute_role.guild.members, id=mute["user"])
-                    await self.bot.send_message(self.check_channel, "User {0} unmuted".format(user.mention))
+                    await self.check_channel.send("User {0} unmuted".format(user.mention))
             if to_remove:
                 self.save_mute_list()
             await asyncio.sleep(5)
@@ -195,7 +197,7 @@ class Admin(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.command(name="mute")
-    async def mute(self, user: discord.Member, amount: int, time_unit: str):
+    async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str):
         """
         mutes the user for a certain amount of time
         usable time codes are days, hours, minutes and seconds
@@ -205,15 +207,15 @@ class Admin(commands.Cog):
         if amount == 1 and not time_unit.endswith("s"):
             time_unit = time_unit + "s"
         if time_unit not in self.units.keys():
-            await self.bot.say("incorrect time unit please choose days, hours, minutes or seconds")
+            await ctx.send("incorrect time unit please choose days, hours, minutes or seconds")
             return
         if amount < 1:
-            await self.bot.say("amount needs to be at least 1")
+            await ctx.send("amount needs to be at least 1")
             return
         length = self.units[time_unit] * amount
         unmute_ts = int(time.time() + length)
-        await self.bot.add_roles(user, self.mute_role)
-        await self.bot.say("user {0} was muted".format(user.mention))
+        await user.add_roles(self.mute_role)
+        await ctx.send("user {0} was muted".format(user.mention))
         self.mutes.append({"user": user.id, "unmute_ts": unmute_ts})
         self.save_mute_list()
 

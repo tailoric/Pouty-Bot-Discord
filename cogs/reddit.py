@@ -32,6 +32,7 @@ class Reddit(commands.Cog):
 
 
 
+    @commands.Cog.listener()
     async def on_message(self, message):
         contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)", re.MULTILINE)
         match = contains_reddit_link_regex.search(message.content)
@@ -60,11 +61,11 @@ class Reddit(commands.Cog):
                 if not subreddit == "Animemes":
                     return
                 if difference.total_seconds() < 12 * 3600 and not is_stickied:
-                    await self.bot.delete_message(message)
-                    await self.bot.send_message(message.channel, message.author.mention + " reddit thread automatically removed because "+
+                    await message.delete()
+                    await message.channel.send(message.author.mention + " reddit thread automatically removed because "+
                                                                  "it is too recent **(Discord server rule 3)**")
                     if self.checker_channel:
-                        await self.bot.send_message(self.checker_channel, "Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
+                        await self.checker_channel.send("Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
 
 
     @checks.is_owner_or_moderator()

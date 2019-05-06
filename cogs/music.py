@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import datetime
 import discord
 import time
 from discord.ext import commands
@@ -77,9 +78,12 @@ class Music(commands.Cog):
             return
         if not self.bot.voice_clients:
             self.voice_client = await ctx.message.author.voice.channel.connect()
+            return self.voice_client
         elif summoned_voice.channel not in [x.channel for x in self.bot.voice_clients]:
             await ctx.send("join a voice channel, or go into the voice channel I am currently in")
             return
+        else:
+            return self.voice_client
 
     @commands.command()
     async def play(self, ctx, *, song):
@@ -88,8 +92,8 @@ class Music(commands.Cog):
         currently in.
         works either with a direct link to the song or search phrases
         """
-        await self.connect_to_voice(ctx)
-        if not self.voice_client:
+        summoned_voice = await self.connect_to_voice(ctx)
+        if not self.voice_client or summoned_voice is None:
             return
         try:
             downloading_message = await ctx.send("Downloading...")
@@ -109,7 +113,7 @@ class Music(commands.Cog):
             self.current = entry
             await downloading_message.edit(content="Now Playing: " + str(entry))
             self.voice_client.play(entry.audio_source, after=self.toggle_next)
-            await self.bot.change_presence(activity=discord.Game(self.current.title))
+            await self.update_presence()
             self.current.start_time = int(time.time())
         else:
             await downloading_message.edit(content="Enqueued: " + str(entry))
@@ -133,6 +137,13 @@ class Music(commands.Cog):
         else:
             self.bot.loop.create_task(self.disconnect_when_not_playing())
 
+    async def update_presence(self):
+        """updates the status message of the bot to the current song"""
+        activity = discord.Game(
+            name=self.current.title
+        )
+        await self.bot.change_presence(activity=activity)
+
     async def next_song_listener(self):
         """
         event listener that activates whenever toggle_next fires the even to play the next song
@@ -142,7 +153,7 @@ class Music(commands.Cog):
             self.current = self.enqueued_songs.pop()
             await self.current.channel.send("Now playing: " + str(self.current))
             self.voice_client.play(self.current.audio_source, after=self.toggle_next)
-            await self.bot.change_presence(activity=discord.Game(self.current.title))
+            await self.update_presence()
             self.play_next_event.clear()
 
     @commands.command()
@@ -158,11 +169,12 @@ class Music(commands.Cog):
             file_list = [x.filename for x in self.enqueued_songs]
             self.enqueued_songs.clear()
             try:
-                for entry in file_list:
-                    os.remove(entry.filename)
+                for file in file_list:
+                    os.remove(file)
             except PermissionError as e:
                 self.logger.error(e)
             self.voice_client.stop()
+            await self.bot.change_presence(activity=None)
             await self.voice_client.disconnect()
 
     @commands.command()

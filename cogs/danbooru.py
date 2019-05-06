@@ -422,29 +422,29 @@ class Danbooru(commands.Cog):
 
 
     @blacklist_tags.command(aliases=['add'])
-    async def blacklist_add(self, tag):
+    async def blacklist_add(self, ctx, tag):
         """adds a tag to the danbooru tag blacklist"""
         self.tags_blacklist.append(tag)
         with open(self.blacklist_tags_file, 'w') as f:
             json.dump(self.tags_blacklist, f)
-        await self.bot.say("tag `{0}` added".format(tag))
+        await ctx.send("tag `{0}` added".format(tag))
 
 
     @blacklist_tags.command(aliases=['remove', 'del', 'rm'])
-    async def blacklist_remove(self, tag):
+    async def blacklist_remove(self, ctx, tag):
         """removes a tag from the danbooru tag blacklist"""
         try:
             self.tags_blacklist.remove(tag)
         except ValueError:
-            await self.bot.say("tag not in blacklist")
+            await ctx.send("tag not in blacklist")
             return
         with open(self.blacklist_tags_file, 'w') as f:
             json.dump(self.tags_blacklist, f)
-        await self.bot.say("tag `{0}` removed".format(tag))
+        await ctx.send("tag `{0}` removed".format(tag))
 
     @blacklist_tags.command(aliases=['list'])
-    async def blacklist_list(self):
-        await self.bot.say("Following tags are blacklisted"
+    async def blacklist_list(self, ctx):
+        await ctx.send("Following tags are blacklisted"
                            "```\n"
                            +'\n'.join(self.tags_blacklist)
                            +"```")
@@ -454,7 +454,7 @@ class Danbooru(commands.Cog):
     async def setup_dan(self, ctx):
 
         if len([x['channel'] for x in self.danbooru_channels if x['channel'] == ctx.message.channel.id]) > 0:
-            await self.bot.say("channel already setup")
+            await ctx.send("channel already setup")
             return
 
         self.danbooru_channels.append({
@@ -463,7 +463,7 @@ class Danbooru(commands.Cog):
         })
         with open(self.danbooru_channel_file,  'w') as f:
             json.dump(self.danbooru_channels, f)
-        await self.bot.say("channel setup for danbooru commands")
+        await ctx.send("channel setup for danbooru commands")
 
     def _get_danbooru_channel_of_message(self,message : discord.Message):
         server = message.guild
@@ -477,7 +477,7 @@ class Danbooru(commands.Cog):
         message = ctx.message
         channel = self._get_danbooru_channel_of_message(message)
         if channel is None:
-            await self.bot.say("danbooru channel not setup")
+            await ctx.send("danbooru channel not setup")
             return
         tags = self._add_blacklist_to_tags(tags)
         if random:
@@ -485,7 +485,7 @@ class Danbooru(commands.Cog):
         else:
             image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
-            await self.bot.say("no image found")
+            await ctx.send("no image found")
             return None, None
         return channel, self.build_message(image, channel, message)
 
@@ -498,7 +498,7 @@ class Danbooru(commands.Cog):
         channel, send_message = await self._find_danbooru_image(ctx, tags, random="false")
         if channel is None or send_message is None:
             return
-        await self.bot.send_message(channel, send_message)
+        await channel.send(send_message)
 
     @commands.command(pass_context=True)
     async def danr(self, ctx, *, tags: str = ""):
@@ -509,7 +509,7 @@ class Danbooru(commands.Cog):
         channel, send_message = await self._find_danbooru_image(ctx, tags, random="true")
         if channel is None or send_message is None:
             return
-        await self.bot.send_message(channel, send_message)
+        await channel.send(send_message)
 
 
     @commands.group(pass_context=True, hidden=True)
@@ -518,7 +518,7 @@ class Danbooru(commands.Cog):
         Danbooru subscribing service
         """
         if ctx.invoked_subcommand is None:
-            await self.bot.say("invalid command use `.help dans`")
+            await ctx.send("invalid command use `.help dans`")
 
     @dans.command(pass_context=True)
     async def sub(self, ctx, *, tags):
@@ -529,7 +529,7 @@ class Danbooru(commands.Cog):
         resp = await self.helper.lookup_tags(tags, limit='1')
 
         if not resp:
-            await self.bot.say("Error while looking up tag. Try again or correct your tags.")
+            await ctx.send("Error while looking up tag. Try again or correct your tags.")
             return
         timestamp = parser.parse(resp[0]['created_at'])
         tags_list = tags.split(' ')
@@ -542,25 +542,25 @@ class Danbooru(commands.Cog):
                 pool = {'tag': pool_tag, 'name': pool_name, 'id': pool_id}
                 pool_list.append(pool)
         message = ctx.message
-        is_private = ctx.message.channel.is_private
+        is_private = type(ctx.message.channel) is discord.DMChannel
         try:
             for sub in self.scheduler.subscriptions:
                 if sub.compare_tags(tags_list) and (not sub.is_private or is_private):
                     for user in sub.users:
                         if user.id == message.author.id:
-                            await self.bot.reply('You are already subscribed to those tags')
+                            await ctx.send('{}\nYou are already subscribed to those tags'.format(ctx.message.author.mention))
                             return
                     if sub.is_private or is_private:
                         break
                     sub.users.append(message.author)
                     sub.write_sub_to_file()
-                    await self.bot.reply('Successfully added to existing sub `{}`'.format(sub.tags_to_message()))
+                    await ctx.send('{}\nSuccessfully added to existing sub `{}`'.format(ctx.message.author.mention,sub.tags_to_message()))
                     return
             if os.path.exists('data/danbooru/sub_channel.json'):
                 with open('data/danbooru/sub_channel.json') as f:
                     data = json.load(f)
-                    server = self.bot.get_server(data['server'])
-                    channel = self.bot.get_channel(data['channel'])
+                    server = self.bot.get_guild(int(data['server']))
+                    channel = self.bot.get_channel(int(data['channel']))
                 new_sub = Dansub(message.author, tags_list, pool_list, server, channel, is_private)
             else:
                 new_sub = Dansub(message.author, tags_list, pool_list, message.guild, message.channel,is_private)
@@ -569,10 +569,10 @@ class Danbooru(commands.Cog):
             self.scheduler.subscriptions.append(new_sub)
             new_sub.write_sub_to_file()
         except Exception as e:
-            await self.bot.say('Error while adding sub `{}`'.format(repr(e)))
+            await ctx.send('Error while adding sub `{}`'.format(repr(e)))
             raise e
-        await self.bot.say('successfully subscribed to the tags: `{}`'.format(new_sub.tags_to_message()))
-        await self.bot.say('here is the newest image: {}'.format(resp[0]['file_url']))
+        await ctx.send('successfully subscribed to the tags: `{}`'.format(new_sub.tags_to_message()))
+        await ctx.send('here is the newest image: {}'.format(resp[0]['file_url']))
 
 
     @dans.command(pass_context=True)
@@ -595,7 +595,7 @@ class Danbooru(commands.Cog):
                                 sub.write_sub_to_file()
                                 await self.bot.reply('successfully unsubscribed')
                            except Exception as e:
-                               await self.bot.say('Error while unsubscribing: `{}`'.format(repr(e)))
+                               await ctx.send('Error while unsubscribing: `{}`'.format(repr(e)))
                                raise e
                 if not user_unsubscribed:
                     await self.bot.reply('You aren\'t subscribed to that tag')
@@ -603,9 +603,9 @@ class Danbooru(commands.Cog):
                     try:
                         self.scheduler.subscriptions.remove(sub)
                         os.remove(sub.feed_file)
-                        await self.bot.say('subscription fully removed')
+                        await ctx.send('subscription fully removed')
                     except Exception as e:
-                        await self.bot.say('Error while removing feed file. `{}`'.format(repr(e)))
+                        await ctx.send('Error while removing feed file. `{}`'.format(repr(e)))
 
     @dans.command(pass_context=True)
     async def pause(self, ctx):
@@ -617,7 +617,7 @@ class Danbooru(commands.Cog):
         for subscription in subscriptions_of_user:
             subscription.paused_users.append(subscriber.id)
             subscription.write_sub_to_file()
-        await self.bot.say("paused all of your subscriptions")
+        await ctx.send("paused all of your subscriptions")
 
     @dans.command(pass_context=True)
     async def unpause(self, ctx):
@@ -629,7 +629,7 @@ class Danbooru(commands.Cog):
         for subscription in subscriptions_of_user:
             subscription.paused_users.remove(subscriber.id)
             subscription.write_sub_to_file()
-        await self.bot.say("unpaused all of your subscriptions")
+        await ctx.send("unpaused all of your subscriptions")
 
     @dans.command(pass_context=True)
     async def list(self, ctx):
@@ -653,19 +653,19 @@ class Danbooru(commands.Cog):
 
         if one_sub_found:
             for element in found_subs_messages:
-                await self.bot.say(element)
+                await ctx.send(element)
         else:
             await self.bot.reply('You aren\'t subscribed to any tags')
 
     @dans.command(hidden=True)
     @checks.is_owner()
-    async def convert(self):
+    async def convert(self, ctx):
         with open('data/danbooru/subs_old.db') as file:
             lines = file.readlines()
             if lines:
                 for line in lines:
                     sub = line.split('|')
-                    await self.bot.say('converting the following sub:`{}`'.format(sub[0]))
+                    await ctx.send('converting the following sub:`{}`'.format(sub[0]))
                     server = self.bot.get_server(sub[3])
                     channel = self.bot.get_channel(sub[2])
                     users = sub[1].split(';')
@@ -698,7 +698,7 @@ class Danbooru(commands.Cog):
                'channel': channel.id
                }
            json.dump(input,f)
-        await self.bot.say('channel setup for subscription')
+        await ctx.send('channel setup for subscription')
 
     @dans.command()
     async def restart(self):

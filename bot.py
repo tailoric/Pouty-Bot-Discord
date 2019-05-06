@@ -4,6 +4,7 @@ from cogs.utils.dataIO import DataIO
 import logging
 import sys
 from cogs.utils import checks
+import pdb
 
 
 description = 'Pouty Bot MKII by Saikimo'
@@ -67,7 +68,8 @@ async def on_message(message):
                     return
                 else:
                     await bot.process_commands(message)
-        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == server.id]
+                    return
+        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == int(server.id)]
         if str(invoked_command) in disabled_commands:
             await message.channel.send("command disabled")
             return

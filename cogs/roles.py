@@ -23,18 +23,22 @@ class Roles(commands.Cog):
 
     @commands.command(name="iam", pass_context=True)
     async def assign_role(self, ctx, role: RoleConverter):
+        """
+        assigns you a role
+        """
         try:
             member = ctx.message.author
-            await self.bot.add_roles(member, role)
+            await member.add_roles(role)
             await ctx.send("your role is now: %s " % role.name)
         except discord.Forbidden as fb:
             await ctx.send("Sorry I don't have the permission to give you that role")
 
     @commands.command(name="amnot", pass_context=True)
     async def remove_role(self, ctx, role: RoleConverter):
+        """removes a role from you"""
         try:
             member = ctx.message.author
-            await self.bot.remove_roles(member, role)
+            await member.remove_roles(role)
             await ctx.send("removed your role: %s " % role.name)
         except discord.Forbidden as fb:
             await ctx.send("You either don't have that role or I am not allowed to remove it")
@@ -54,11 +58,10 @@ class Roles(commands.Cog):
         ping the role by making it mentionable for the ping and remove
         mentionable again
         """
-        server = ctx.message.guild
         try:
-            await self.bot.edit_role(server, role, mentionable=True)
+            await role.edit(mentionable=True)
             await ctx.send(role.mention)
-            await self.bot.edit_role(server, role, mentionable=False)
+            await role.edit(mentionable=False)
         except discord.Forbidden as fb:
             await ctx.send("I am not allowed to edit this role")
 
@@ -74,7 +77,7 @@ class Roles(commands.Cog):
             if find(lambda r: r.name == role_name, server.roles):
                 await ctx.send('role already exists.')
                 return
-            new_role = await self.bot.create_role(server=server, name=role_name, mentionable=mentionable, colour=set_colour)
+            new_role = await server.create_role(name=role_name, mentionable=mentionable, colour=set_colour)
             await ctx.send("role `{}` created".format(new_role.name))
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission add a role")
@@ -90,7 +93,7 @@ class Roles(commands.Cog):
             if not role:
                 await ctx.send('role `{}` not found'.format(role_name))
                 return
-            await self.bot.delete_role(server, role)
+            await server.delete_role(role)
             await ctx.send('role `{}` removed'.format(role_name))
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission to remove that role")
