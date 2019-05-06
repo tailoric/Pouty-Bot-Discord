@@ -780,7 +780,7 @@ def check_files():
             file_reminders.write("[]")
 
 class Choose(commands.Cog):
-
+    """chooses one option from a list of several"""
     def __init__(self, bot):
         self.bot = bot
 

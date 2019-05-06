@@ -26,6 +26,7 @@ class UserOrChannel(commands.Converter):
 
 
 class Admin(commands.Cog):
+    """Administration commands and anonymous reporting to the moderators"""
     def __init__(self, bot:commands.Bot):
         self.bot = bot
         if os.path.exists('data/report_channel.json'):
@@ -69,6 +70,7 @@ class Admin(commands.Cog):
     @commands.group(pass_context=True)
     async def report(self, ctx, message: str, *args: UserOrChannel):
         """
+        anonymously report a user to the moderators
         usage:
         ONLY WORKS IN PRIVATE MESSAGES TO THE BOT!
         !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)

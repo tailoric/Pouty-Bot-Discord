@@ -6,11 +6,13 @@ import time
 
 
 class Userinfo(commands.Cog):
+    """show infos about the current or other users"""
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command(pass_context=True)
     async def userinfo(self,ctx, member: Member=None):
+        """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
         join_date = member.joined_at
@@ -49,6 +51,7 @@ class Userinfo(commands.Cog):
 
     @commands.command(pass_context=True)
     async def serverinfo(self, ctx):
+        """shows info about the current server"""
         server = ctx.message.guild
         time_fmt = "%d %b %Y %H:%M"
         creation_time_diff = int(time.time() - time.mktime(server.created_at.timetuple())) // (3600 * 24)
@@ -79,6 +82,7 @@ class Userinfo(commands.Cog):
     @checks.is_owner_or_moderator()
     @commands.command(pass_context=True)
     async def roleinfo(self, ctx, role=None):
+        """shows information about the server roles"""
         role_converter = commands.RoleConverter()
         server = ctx.message.guild
         roles = server.roles

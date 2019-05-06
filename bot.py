@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from cogs.utils.formatter import CustomHelpCommand
 from cogs.utils.dataIO import DataIO
 import logging
 import sys
@@ -10,7 +11,7 @@ import pdb
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
-bot = commands.Bot(command_prefix=['!', '.'], description=description)
+bot = commands.Bot(command_prefix=['!', '.'], description=description, help_command=CustomHelpCommand())
 
 
 def load_credentials():

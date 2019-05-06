@@ -40,7 +40,7 @@ class SongEntry:
 
 
 class Music(commands.Cog):
-
+    """Commands to summon the bot into voice and let it play music"""
     def __init__(self, bot):
         self.bot = bot
         opts = {
@@ -123,6 +123,7 @@ class Music(commands.Cog):
         """
         disconnects the bot when not playing music for 2 minutes
         """
+        await self.bot.change_presence(activity=None)
         await asyncio.sleep(120)
         if len(self.enqueued_songs) == 0 and not self.voice_client.is_playing():
             await self.voice_client.disconnect()

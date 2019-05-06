@@ -6,6 +6,7 @@ import os
 import cogs.utils.checks as checks
 from .utils.converters import RoleConverter
 class Roles(commands.Cog):
+    """role managing commands"""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.file_path = 'data/roles.json'
