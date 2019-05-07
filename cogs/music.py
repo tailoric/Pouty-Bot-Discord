@@ -109,7 +109,7 @@ class Music(commands.Cog):
             logger.error(de)
             await ctx.send("Download error, could not download the song")
             return
-        entry = SongEntry(ctx.message, self.downloads.pop(), info)
+        entry = SongEntry(ctx.message, self.downloads.pop(0), info)
         if not self.voice_client.is_playing():
             self.current = entry
             await downloading_message.edit(content="Now Playing: " + str(entry))
@@ -152,7 +152,7 @@ class Music(commands.Cog):
         """
         while True:
             await self.play_next_event.wait()
-            self.current = self.enqueued_songs.pop()
+            self.current = self.enqueued_songs.pop(0)
             await self.current.channel.send("Now playing: " + str(self.current))
             self.voice_client.play(self.current.audio_source, after=self.toggle_next)
             await self.update_presence()
