@@ -50,7 +50,8 @@ class Music(commands.Cog):
             'format': 'bestaudio',
             'progress_hooks': [self.download_hook],
             'buffer-size': 16000,
-            'outtmpl': "data/ytdl/%(id)s.%(ext)s"
+            'outtmpl': "data/ytdl/%(id)s.%(ext)s",
+            'cachedir': False
         }
         self.ytdl = youtube_dl.YoutubeDL(opts)
         self.downloads = list()
