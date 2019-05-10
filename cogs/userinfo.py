@@ -95,7 +95,7 @@ class Userinfo(commands.Cog):
                 member_with_role = [member for member in server.members if role in member.roles]
                 embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         else:
-            role = role_converter.convert(ctx=ctx, argument=role)
+            role = await role_converter.convert(ctx=ctx, argument=role)
             member_with_role = [member for member in server.members if role in member.roles]
             embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         await ctx.send(embed=embed)
