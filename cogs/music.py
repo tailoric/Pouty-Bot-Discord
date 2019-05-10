@@ -43,7 +43,7 @@ class Music(commands.Cog):
     """Commands to summon the bot into voice and let it play music"""
     def __init__(self, bot):
         self.bot = bot
-        opts = {
+        self.opts = {
             'default_search': 'auto',
             'quiet': True,
             'extractaudio': True,
@@ -53,7 +53,7 @@ class Music(commands.Cog):
             'outtmpl': "data/ytdl/%(id)s.%(ext)s",
             'cachedir': False
         }
-        self.ytdl = youtube_dl.YoutubeDL(opts)
+        self.ytdl = youtube_dl.YoutubeDL(self.opts)
         self.downloads = list()
         self.voice_client = None
         self.enqueued_songs = list()
@@ -79,6 +79,7 @@ class Music(commands.Cog):
             return
         if not self.bot.voice_clients:
             self.voice_client = await ctx.message.author.voice.channel.connect()
+            self.ytdl = youtube_dl.YoutubeDL(self.opts)
             return self.voice_client
         elif summoned_voice.channel not in [x.channel for x in self.bot.voice_clients]:
             await ctx.send("join a voice channel, or go into the voice channel I am currently in")
@@ -153,6 +154,7 @@ class Music(commands.Cog):
         while True:
             await self.play_next_event.wait()
             self.current = self.enqueued_songs.pop(0)
+            self.current.start_time = int(time.time())
             await self.current.channel.send("Now playing: " + str(self.current))
             self.voice_client.play(self.current.audio_source, after=self.toggle_next)
             await self.update_presence()
