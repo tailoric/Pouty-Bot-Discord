@@ -1,5 +1,6 @@
 from discord.ext import commands
 from .utils import checks
+from .utils.dataIO import DataIO
 from discord import Member, Embed, Role, utils
 import discord
 import time
@@ -99,6 +100,65 @@ class Userinfo(commands.Cog):
             member_with_role = [member for member in server.members if role in member.roles]
             embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         await ctx.send(embed=embed)
+
+    @commands.command()
+    async def names(self, ctx, member: Member=None):
+        dataIO = DataIO()
+        if member:
+            member_id = member.id
+        else:
+            member = ctx.message.author
+            member_id = member.id
+        data = dataIO.load_json("names")
+        member_name_data = data.get(str(member_id), {})
+        nickname_list = member_name_data.get("nicknames", [])
+        names_list = member_name_data.get("names", [])
+        if member.name not in names_list:
+            names_list.append(member.name)
+        if member.display_name not in nickname_list:
+            nickname_list.append(member.display_name)
+        message_fmt = "**Past 20 names:**\n{}\n" \
+                      "**Past 20 nicknames:**\n{}"
+        await ctx.send(message_fmt.format(", ".join(names_list), ", ".join(nickname_list)))
+
+    @commands.Cog.listener("on_member_update")
+    async def save_nickname_change(self, before, after):
+        if before.display_name != after.display_name:
+            dataIO = DataIO()
+            data = dataIO.load_json("names")
+            member_name_info = data.get(str(before.id), {})
+            nickname_list = member_name_info.get("nicknames", [])
+            if before.display_name not in nickname_list:
+                nickname_list.append(before.display_name)
+            nickname_list.append(after.display_name)
+            if len(nickname_list) > 20:
+                nickname_list.pop(0)
+            member_name_info["nicknames"] = nickname_list
+            data[str(before.id)] = member_name_info
+            dataIO.save_json("names", data)
+
+    @commands.Cog.listener("on_user_update")
+    async def save_username_change(self, before, after):
+        if before.name != after.name:
+            dataIO = DataIO()
+            data = dataIO.load_json("names")
+            member_name_info = data.get(str(before.id), {})
+            name_list = member_name_info.get("names", [])
+            if before.display_name not in name_list:
+                name_list.append(before.name)
+            name_list.append(after.name)
+            if len(name_list) > 20:
+                name_list.pop(0)
+            member_name_info["names"] = name_list
+            data[str(before.id)] = member_name_info
+            dataIO.save_json("names", data)
+
+
+
+
+
+
+
 
 def setup(bot):
     bot.add_cog(Userinfo(bot=bot))
