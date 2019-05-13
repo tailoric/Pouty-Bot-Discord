@@ -103,6 +103,9 @@ class Userinfo(commands.Cog):
 
     @commands.command()
     async def names(self, ctx, member: Member=None):
+        """
+        lists the past 20 names and nicknames of a user
+        """
         dataIO = DataIO()
         if member:
             member_id = member.id
