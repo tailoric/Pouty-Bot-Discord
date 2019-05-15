@@ -21,8 +21,8 @@ class Penis(commands.Cog):
             length_list = []
             message_string = ""
             for user in user_list:
-                converter = commands.UserConverter(ctx, user)
-                current_user = converter.convert()
+                converter = commands.UserConverter()
+                current_user = await converter.convert(ctx=ctx, argument=user)
                 random.seed(current_user.id)
                 length = random.randint(0, 20)
                 length_list.append({"username": current_user.name, "length": length})
