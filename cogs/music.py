@@ -14,7 +14,10 @@ class SongEntry:
         self.requester = message.author
         self.channel = message.channel
         self.filename = filename
+        self.info = info
+        self.link = info.get("webpage_url", None)
         self.duration = info.get("duration", None)
+        self.rewinds = []
         if self.duration:
             self.duration = int(self.duration)
         self.audio_source = discord.FFmpegPCMAudio(source=filename)
@@ -69,8 +72,13 @@ class Music(commands.Cog):
             download['filename'] = download['filename'].replace('\\', '/')
             self.downloads.append(download['filename'])
 
-    def __unload(self):
+    def cog_unload(self):
         self.play_next_event_listener.cancel()
+        self.voice_client.stop()
+        self.bot.loop.create_task(self.voice_client.disconnect())
+        for song in self.enqueued_songs:
+            song.audio_source.cleanup()
+            os.remove(song.filename)
 
     async def connect_to_voice(self, ctx):
         summoned_voice = ctx.message.author.voice
@@ -134,7 +142,11 @@ class Music(commands.Cog):
         """
         function that always triggers after playback of current song stopped
         """
-        os.remove(self.current.filename)
+        try:
+            self.current.audio_source.cleanup()
+            os.remove(self.current.filename)
+        except Exception:
+            self.logger.error("could not remove file: " + self.current.filename)
         if len(self.enqueued_songs) > 0:
             self.bot.loop.call_soon_threadsafe(self.play_next_event.set)
         else:
@@ -170,11 +182,11 @@ class Music(commands.Cog):
             await ctx.send("only allowed when no or only one member remaining in voice")
             return
         if self.voice_client:
-            file_list = [x.filename for x in self.enqueued_songs]
             self.enqueued_songs.clear()
             try:
-                for file in file_list:
-                    os.remove(file)
+                for song in self.enqueued_songs:
+                    song.audio_source.cleanup()
+                    os.remove(song.filename)
             except PermissionError as e:
                 self.logger.error(e)
             self.voice_client.stop()
@@ -189,33 +201,82 @@ class Music(commands.Cog):
         """
         if self.voice_client.is_playing():
             if ctx.message.author == self.current.requester:
+                await ctx.send("requester skipped")
                 self.voice_client.stop()
                 await self.bot.change_presence(activity=None)
             else:
                 self.skip_votes.add(ctx.message.author)
                 needed_votes = (len(self.voice_client.channel.members) - 1)//2
                 if len(self.skip_votes) > needed_votes:
-                    await ctx.send("requester skipped")
+                    await ctx.send("skip vote passed ")
                     self.voice_client.stop()
-                    await self.bot.change_presence(Game=None)
+                    await self.bot.change_presence(activity=None)
                 else:
                     await ctx.send("voted to skip [{0}/{1}]".format(len(self.skip_votes), len(self.voice_client.channel.members) -1))
+
+    @commands.command(aliases=["ff"])
+    async def fast_forward(self, ctx, seconds=0):
+        """
+        fast forwards the current song by x seconds only allowed by the requester
+        example: .ff 50 (to fast forward the song by 50 seconds)
+        """
+        if self.current.requester != ctx.message.author or not is_owner_or_moderator_check(message=ctx.message):
+            await ctx.send("only requester or moderator is allowed to fast forward")
+            return
+        filename = self.current.filename
+        playtime = int(time.time() - self.current.start_time)
+        if playtime+seconds >= self.current.duration:
+            self.voice_client.stop()
+            return
+        before_options = "-ss "+ str(playtime+seconds)
+        old_source = self.voice_client.source
+        new_source = discord.FFmpegPCMAudio(source=filename, before_options=before_options)
+        self.voice_client.source = new_source
+        self.current.start_time -= seconds
+        old_source.cleanup()
+
+    @commands.command(aliases=["rw"])
+    async def rewind(self, ctx, seconds=0):
+        """
+        rewinds the current song by x seconds only allowed by the requester
+        example: .rw 50 (to rewind the song by 50 seconds)
+        """
+        if self.current.requester != ctx.message.author or not is_owner_or_moderator_check(message=ctx.message):
+            await ctx.send("only requester or moderator is allowed to rewind")
+            return
+        if len(self.current.rewinds) + 1 > 3 or sum(self.current.rewinds) + seconds > 600:
+            await ctx.send("too many rewinds")
+            return
+        filename = self.current.filename
+        playtime = int(time.time() - self.current.start_time)
+        if seconds < playtime:
+            before_options = "-ss "+ str(playtime - seconds)
+            self.current.start_time += seconds
+            self.current.rewinds.append(seconds)
+        else:
+            before_options = "-ss 0"
+            self.current.start_time = int(time.time())
+            self.current.rewinds.append(playtime)
+        old_source = self.voice_client.source
+        new_source = discord.FFmpegPCMAudio(source=filename, before_options=before_options)
+        self.voice_client.source = new_source
+        old_source.cleanup()
+
 
     @commands.command()
     async def playing(self, ctx):
         """
         lists the currently playing and enqueued songs
-        :param ctx:
-        :return:
         """
-        playlist_message = "Currently Playing: {0} {1}\n".format(self.current, self.current.playtime)
+        playlist_message = "Currently Playing: {0} {1}\n<{2}>\n".format(self.current, self.current.playtime, self.current.link)
 
         for index, song in enumerate(self.enqueued_songs):
+            if index == 0:
+                playlist_message += "Upcoming songs:\n"
             if len(playlist_message) + len(str(song)) > 2000:
                 playlist_message += "and {0} more".format(len(self.enqueued_songs) - (index+1))
                 break
             playlist_message += str(song) + "\n"
-
         await ctx.send(playlist_message)
 
 
