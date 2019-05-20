@@ -66,6 +66,34 @@ class Admin(commands.Cog):
         handler.setFormatter(logging.Formatter("%(asctime)s: %(message)s"))
         self.logger.addHandler(handler)
 
+    @checks.is_owner_or_moderator()
+    @commands.group(name="cleanup")
+    async def _cleanup(self, ctx):
+        """
+        group of cleanup commands for deleting multiple messages in a channel or from a user
+        """
+
+    @_cleanup.command()
+    async def user(self, ctx, user: discord.Member, limit=10):
+        """
+        removes the last x messages of the user in this channel (defaults to 10)
+        """
+        counter = 0
+        async for message in ctx.channel.history(limit=500, before=ctx.message):
+            if message.author == user:
+                await message.delete()
+                counter += 1
+            if counter == limit:
+                break
+        await ctx.send(f"deleted the last {limit} messages of user {user.display_name}")
+    @_cleanup.command()
+    async def channel(self, ctx, limit=10):
+        """
+        removes the last x messages from the channel it was called in (defaults to 10)
+        """
+        async for message in ctx.channel.history(limit=limit, before=ctx.message):
+            await message.delete()
+        await ctx.send(f"deleted the last {limit} messages from this channel")
 
     @commands.group(pass_context=True)
     async def report(self, ctx, message: str, *args: UserOrChannel):
