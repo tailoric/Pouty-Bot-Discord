@@ -7,6 +7,7 @@ from .utils import checks
 import time
 import logging
 import asyncio
+import typing
 
 
 
@@ -68,10 +69,13 @@ class Admin(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.group(name="cleanup")
-    async def _cleanup(self, ctx):
+    async def _cleanup(self, ctx, limit: typing.Optional[int] = 10):
         """
         group of cleanup commands for deleting multiple messages in a channel or from a user
+        if called without a subcommand then will delete the messages in the channel
         """
+        if ctx.invoked_subcommand is None:
+            await ctx.invoke(self.channel, limit=limit)
 
     @_cleanup.command()
     async def user(self, ctx, user: discord.Member, limit=10):
