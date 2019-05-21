@@ -95,11 +95,11 @@ class Admin(commands.Cog):
         if not users:
             await ctx.send("provide at least one user who's messages will be deleted")
         try:
-            for user in users:
-                messages = await channel.history(limit=500, before=ctx.message).flatten()
-                user_messages = [mes for mes in messages if mes.author == user]
-                await channel.delete_messages(user_messages[0:number])
-                await ctx.send(f"deleted the last {len(user_messages[0:number])} messages of user {user.display_name}")
+            messages = await channel.history(limit=500, before=ctx.message).flatten()
+            user_messages = [mes for mes in messages if mes.author in users]
+            await channel.delete_messages(user_messages[0:number])
+            user_names = [user.display_name for user in users]
+            await ctx.send(f"deleted the last {len(user_messages[0:number])} messages by {', '.join(user_names)}")
         except (discord.ClientException, discord.HTTPException, discord.Forbidden) as e:
             await ctx.send(str(e))
 
