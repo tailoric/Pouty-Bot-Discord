@@ -69,35 +69,43 @@ class Admin(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.group(name="cleanup")
-    async def _cleanup(self, ctx, limit: typing.Optional[int] = 10):
+    async def _cleanup(self, ctx, users: commands.Greedy[discord.Member], number: typing.Optional[int] = 10):
         """
-        group of cleanup commands for deleting multiple messages in a channel or from a user
-        if called without a subcommand then will delete the messages in the channel
+        cleanup command that deletes either the last x messages in a channel or the last x messages of one
+        or multiple user
+        if invoked with username(s), user id(s) or mention(s) then it will delete the user(s) messages:
+            .cleanup test-user1 test-user2 10
+        if invoked with only a number then it will delete the last x messages of a channel:
+            .cleanup 10
         """
+        if users:
+            await ctx.invoke(self.user_, number=number, users=users)
         if ctx.invoked_subcommand is None:
-            await ctx.invoke(self.channel, limit=limit)
+            await ctx.invoke(self.channel_, number=number)
+            return
 
-    @_cleanup.command()
-    async def user(self, ctx, user: discord.Member, limit=10):
+    @_cleanup.command(name="user")
+    async def user_(self, ctx, users: commands.Greedy[discord.Member], number=10):
         """
-        removes the last x messages of the user in this channel (defaults to 10)
+        removes the last x messages of one or multiple users in this channel (defaults to 10)
         """
-        counter = 0
-        async for message in ctx.channel.history(limit=500, before=ctx.message):
-            if message.author == user:
-                await message.delete()
-                counter += 1
-            if counter == limit:
-                break
-        await ctx.send(f"deleted the last {limit} messages of user {user.display_name}")
-    @_cleanup.command()
-    async def channel(self, ctx, limit=10):
+        number = number if number <= 100 else 100
+        channel = ctx.channel
+        for user in users:
+            messages = await channel.history(limit=500, before=ctx.message).flatten()
+            user_messages = [mes for mes in messages if mes.author == user]
+            await channel.delete_messages(user_messages[0:number])
+            await ctx.send(f"deleted the last {len(user_messages[0:number])} messages of user {user.display_name}")
+
+    @_cleanup.command(name="channel")
+    async def channel_(self, ctx, number=10):
         """
         removes the last x messages from the channel it was called in (defaults to 10)
         """
-        async for message in ctx.channel.history(limit=limit, before=ctx.message):
-            await message.delete()
-        await ctx.send(f"deleted the last {limit} messages from this channel")
+        number = number if number <= 100 else 100
+        messages = await ctx.channel.history(limit=number, before=ctx.message).flatten()
+        await ctx.channel.delete_messages(messages)
+        await ctx.send(f"deleted the last {len(messages)} messages from this channel")
 
     @commands.group(pass_context=True)
     async def report(self, ctx, message: str, *args: UserOrChannel):
