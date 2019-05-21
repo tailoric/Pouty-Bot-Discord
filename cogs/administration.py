@@ -78,8 +78,9 @@ class Admin(commands.Cog):
         if invoked with only a number then it will delete the last x messages of a channel:
             .cleanup 10
         """
-        if users:
+        if users and ctx.invoked_subcommand is None:
             await ctx.invoke(self.user_, number=number, users=users)
+            return
         if ctx.invoked_subcommand is None:
             await ctx.invoke(self.channel_, number=number)
             return
@@ -91,11 +92,16 @@ class Admin(commands.Cog):
         """
         number = number if number <= 100 else 100
         channel = ctx.channel
-        for user in users:
-            messages = await channel.history(limit=500, before=ctx.message).flatten()
-            user_messages = [mes for mes in messages if mes.author == user]
-            await channel.delete_messages(user_messages[0:number])
-            await ctx.send(f"deleted the last {len(user_messages[0:number])} messages of user {user.display_name}")
+        if not users:
+            await ctx.send("provide at least one user who's messages will be deleted")
+        try:
+            for user in users:
+                messages = await channel.history(limit=500, before=ctx.message).flatten()
+                user_messages = [mes for mes in messages if mes.author == user]
+                await channel.delete_messages(user_messages[0:number])
+                await ctx.send(f"deleted the last {len(user_messages[0:number])} messages of user {user.display_name}")
+        except (discord.ClientException, discord.HTTPException, discord.Forbidden) as e:
+            await ctx.send(str(e))
 
     @_cleanup.command(name="channel")
     async def channel_(self, ctx, number=10):
@@ -104,8 +110,11 @@ class Admin(commands.Cog):
         """
         number = number if number <= 100 else 100
         messages = await ctx.channel.history(limit=number, before=ctx.message).flatten()
-        await ctx.channel.delete_messages(messages)
-        await ctx.send(f"deleted the last {len(messages)} messages from this channel")
+        try:
+            await ctx.channel.delete_messages(messages)
+            await ctx.send(f"deleted the last {len(messages)} messages from this channel")
+        except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
+            await ctx.send(str(e))
 
     @commands.group(pass_context=True)
     async def report(self, ctx, message: str, *args: UserOrChannel):
