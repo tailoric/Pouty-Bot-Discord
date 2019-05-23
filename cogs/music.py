@@ -69,8 +69,9 @@ class Music(commands.Cog):
 
     def cog_unload(self):
         self.next_song_listener.cancel()
-        self.voice_client.stop()
-        self.bot.loop.create_task(self.voice_client.disconnect())
+        if self.voice_client:
+            self.voice_client.stop()
+            self.bot.loop.create_task(self.voice_client.disconnect())
         for song in self.enqueued_songs:
             song.audio_source.cleanup()
             os.remove(song.filename)
