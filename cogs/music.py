@@ -3,7 +3,7 @@ import logging
 import datetime
 import discord
 import time
-from discord.ext import commands
+from discord.ext import commands, tasks
 from .utils.checks import is_owner_or_moderator_check
 import youtube_dl
 import os
@@ -63,12 +63,12 @@ class Music(commands.Cog):
         self.current = None
         self.skip_votes = set()
         self.play_next_event = asyncio.Event()
-        self.play_next_event_listener = self.bot.loop.create_task(self.next_song_listener())
+        self.next_song_listener.start()
         self.start_time = time.time()
         self.logger = logging.getLogger("PoutyBot")
 
     def cog_unload(self):
-        self.play_next_event_listener.cancel()
+        self.next_song_listener.cancel()
         self.voice_client.stop()
         self.bot.loop.create_task(self.voice_client.disconnect())
         for song in self.enqueued_songs:
@@ -89,9 +89,6 @@ class Music(commands.Cog):
             return
         else:
             return self.voice_client
-
-    async def _download_song(self, song):
-        self.ytdl.download([song])
 
     @commands.command()
     async def play(self, ctx, *, song):
@@ -163,18 +160,18 @@ class Music(commands.Cog):
         )
         await self.bot.change_presence(activity=activity)
 
+    @tasks.loop(seconds=0.0)
     async def next_song_listener(self):
         """
         event listener that activates whenever toggle_next fires the even to play the next song
         """
-        while True:
-            await self.play_next_event.wait()
-            self.current = self.enqueued_songs.pop(0)
-            self.current.start_time = int(time.time())
-            await self.current.channel.send("Now playing: " + str(self.current))
-            self.voice_client.play(self.current.audio_source, after=self.toggle_next)
-            await self.update_presence()
-            self.play_next_event.clear()
+        await self.play_next_event.wait()
+        self.current = self.enqueued_songs.pop(0)
+        self.current.start_time = int(time.time())
+        await self.current.channel.send("Now playing: " + str(self.current))
+        self.voice_client.play(self.current.audio_source, after=self.toggle_next)
+        await self.update_presence()
+        self.play_next_event.clear()
 
     @commands.command()
     async def stop(self, ctx):
