@@ -7,6 +7,7 @@ from discord.ext import commands
 from .utils.checks import is_owner_or_moderator_check
 import youtube_dl
 import os
+from functools import partial
 
 
 class SongEntry:
@@ -51,9 +52,8 @@ class Music(commands.Cog):
             'quiet': True,
             'extractaudio': True,
             'format': 'bestaudio',
-            'progress_hooks': [self.download_hook],
             'buffer-size': 16000,
-            'outtmpl': "data/ytdl/%(id)s.%(ext)s",
+            'outtmpl': "data/ytdl/%(title)s-%(id)s.%(ext)s",
             'cachedir': False
         }
         self.ytdl = youtube_dl.YoutubeDL(self.opts)
@@ -66,11 +66,6 @@ class Music(commands.Cog):
         self.play_next_event_listener = self.bot.loop.create_task(self.next_song_listener())
         self.start_time = time.time()
         self.logger = logging.getLogger("PoutyBot")
-
-    def download_hook(self, download):
-        if download['status'] == 'finished':
-            download['filename'] = download['filename'].replace('\\', '/')
-            self.downloads.append(download['filename'])
 
     def cog_unload(self):
         self.play_next_event_listener.cancel()
@@ -95,6 +90,9 @@ class Music(commands.Cog):
         else:
             return self.voice_client
 
+    async def _download_song(self, song):
+        self.ytdl.download([song])
+
     @commands.command()
     async def play(self, ctx, *, song):
         """
@@ -107,18 +105,24 @@ class Music(commands.Cog):
             return
         try:
             downloading_message = await ctx.send("Downloading...")
-            info = self.ytdl.extract_info(song, download=False)
+            to_run = partial(self.ytdl.extract_info, url=song, download=False)
+            info = await self.bot.loop.run_in_executor(None, to_run)
             info = info.get("entries")[0] if "entries" in info.keys() else info
+            if info.get("duration", 0) > 7200:
+                await ctx.send("song too long")
+                return
             if info.get("is_live", False):
                 await ctx.send("live streams can't be queued")
                 return
-            self.ytdl.download([song])
+            filename = self.ytdl.prepare_filename(info)
+            run_download = partial(self.ytdl.download, [info.get("webpage_url")])
+            await self.bot.loop.run_in_executor(None, run_download)
         except youtube_dl.DownloadError as de:
             logger = logging.getLogger("PoutyBot")
             logger.error(de)
             await ctx.send("Download error, could not download the song")
             return
-        entry = SongEntry(ctx.message, self.downloads.pop(0), info)
+        entry = SongEntry(ctx.message, filename, info)
         if not self.voice_client.is_playing():
             self.current = entry
             await downloading_message.edit(content="Now Playing: " + str(entry))
