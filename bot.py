@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from cogs.utils.formatter import CustomHelpCommand
 from cogs.utils.dataIO import DataIO
-from cogs.utils.exceptions import DisabledCommandException
+from cogs.utils.exceptions import DisabledCommandException, BlackListedException
 import logging
 import sys
 from cogs.utils import checks
@@ -38,6 +38,9 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     error_message_sent = False
+    logger.log(logging.INFO, f"{type(error)}; {error}")
+    if isinstance(error, BlackListedException):
+        return
     if isinstance(error, DisabledCommandException):
         await ctx.message.channel.send("Command is disabled")
         error_message_sent = True
@@ -48,14 +51,16 @@ async def on_command_error(ctx, error):
         await ctx.message.channel.send(error)
         if ctx.command.help is not None:
             await ctx.message.channel.send("```\n{}\n```".format(ctx.command.help))
-    logger.log(logging.INFO, error)
 
 
 @bot.check
 async def check_for_black_list_user(ctx):
     owner_cog = bot.get_cog("Owner")
     if owner_cog:
-        return ctx.author.id not in owner_cog.global_ignores
+        if ctx.author.id in owner_cog.global_ignores:
+            bl_user = ctx.author
+            raise BlackListedException(f"blacklisted user: {bl_user.name}#{bl_user.discriminator} ({bl_user.id}) "
+                                       f"tried to use command")
     return True
 
 
@@ -66,7 +71,7 @@ async def check_disabled_command(ctx):
         current_guild = ctx.guild
         disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == current_guild.id]
         if ctx.command.name in disabled_commands and not checks.user_is_in_whitelist_server(bot, ctx.author):
-            raise DisabledCommandException()
+            raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
     return True
 
 
