@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from cogs.utils.formatter import CustomHelpCommand
 from cogs.utils.dataIO import DataIO
+from cogs.utils.exceptions import DisabledCommandException
 import logging
 import sys
 from cogs.utils import checks
@@ -37,48 +38,38 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     error_message_sent = False
-    if isinstance(error, commands.CheckFailure):
+    if isinstance(error, DisabledCommandException):
+        await ctx.message.channel.send("Command is disabled")
+        error_message_sent = True
+    if isinstance(error, commands.CheckFailure) and not error_message_sent:
         await ctx.message.channel.send("You don't have permission to use this command")
         error_message_sent = True
     if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
         await ctx.message.channel.send(error)
         if ctx.command.help is not None:
-            await ctx.message.channel.send( "```\n{}\n```".format(ctx.command.help))
+            await ctx.message.channel.send("```\n{}\n```".format(ctx.command.help))
     logger.log(logging.INFO, error)
 
 
-@bot.event
-async def on_message(message):
-    server = message.guild
+@bot.check
+async def check_for_black_list_user(ctx):
     owner_cog = bot.get_cog("Owner")
     if owner_cog:
-        global_ignores = owner_cog.global_ignores
-        message_split = message.content[1:].split(" ")
-        if len(message.content) == 0 or not message_split or message.content[0] not in bot.command_prefix:
-            return
-        invoked_command = bot.get_command(message_split[0])
-        if not invoked_command:
-            return
-        if server is None:
-            if checks.user_is_in_whitelist_server(bot, message.author):
-                await bot.process_commands(message)
-                return
-            else:
-                if str(invoked_command) in [dc['command'] for dc in owner_cog.disabled_commands]:
-                    await message.channel.send("command disabled")
-                    return
-                else:
-                    await bot.process_commands(message)
-                    return
-        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == int(server.id)]
-        if str(invoked_command) in disabled_commands:
-            await message.channel.send("command disabled")
-            return
-        if message.author.id in global_ignores and not checks.is_owner_check(message):
-            return
-        await bot.process_commands(message)
-    else:
-        await bot.process_commands(message)
+        return ctx.author.id not in owner_cog.global_ignores
+    return True
+
+
+@bot.check
+async def check_disabled_command(ctx):
+    owner_cog = bot.get_cog("Owner")
+    if owner_cog:
+        current_guild = ctx.guild
+        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == current_guild.id]
+        if ctx.command.name in disabled_commands and not checks.user_is_in_whitelist_server(bot, ctx.author):
+            raise DisabledCommandException()
+    return True
+
+
 
 
 async def shutdown(bot, *, restart=False):

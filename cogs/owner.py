@@ -42,6 +42,9 @@ class Owner(commands.Cog):
     @checks.is_owner_or_moderator()
     async def unload(self, ctx, *, module:str):
         """Unloads a module"""
+        if module == "owner":
+            await ctx.send("This cog cannot be unloaded")
+            return
         try:
             self.bot.unload_extension('cogs.'+module)
         except Exception as e:
