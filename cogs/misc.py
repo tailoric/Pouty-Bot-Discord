@@ -740,7 +740,9 @@ class RemindMe(commands.Cog):
         time_unit = time_unit.lower()
         author = ctx.message.author
         s = ""
-        if ctx.message.mentions or "@everyone" or "@here" in text:
+        contains_mentions = len(ctx.message.mentions) > 0 or len(ctx.message.role_mentions) > 0
+        mentions_everyone = "@everyone" in text or "@here" in text
+        if contains_mentions or mentions_everyone:
             await ctx.send("Don't mention users in open reminders")
             return
         if time_unit not in self.units:
