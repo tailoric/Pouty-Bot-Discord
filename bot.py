@@ -1,80 +1,17 @@
-import discord
 from discord.ext import commands
-from cogs.utils.formatter import CustomHelpCommand
 from cogs.utils.dataIO import DataIO
-from cogs.utils.exceptions import DisabledCommandException, BlackListedException
 import logging
 import sys
-from cogs.utils import checks
-import pdb
 
 
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
-bot = commands.Bot(command_prefix=['!', '.'], description=description, help_command=CustomHelpCommand())
+bot = commands.Bot(command_prefix=['!', '.'], description=description)
 
 
 def load_credentials():
     return data_io.load_json("credentials")
-
-
-
-@bot.event
-async def on_ready():
-    print('Logged in as')
-    print(bot.user.name)
-    print(bot.user.id)
-    print('-'*8)
-    try:
-        init_extensions = data_io.load_json("initial_cogs")
-        for extension in init_extensions:
-            bot.load_extension(extension)
-        print(discord.utils.oauth_url(credentials['client-id']))
-    except Exception as e:
-        print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
-
-
-@bot.event
-async def on_command_error(ctx, error):
-    error_message_sent = False
-    logger.log(logging.INFO, f"{type(error)}; {error}")
-    if isinstance(error, BlackListedException):
-        return
-    if isinstance(error, DisabledCommandException):
-        await ctx.message.channel.send("Command is disabled")
-        error_message_sent = True
-    if isinstance(error, commands.CheckFailure) and not error_message_sent:
-        await ctx.message.channel.send("You don't have permission to use this command")
-        error_message_sent = True
-    if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
-        await ctx.message.channel.send(error)
-        if ctx.command.help is not None:
-            await ctx.message.channel.send("```\n{}\n```".format(ctx.command.help))
-
-
-@bot.check
-async def check_for_black_list_user(ctx):
-    owner_cog = bot.get_cog("Owner")
-    if owner_cog:
-        if ctx.author.id in owner_cog.global_ignores:
-            bl_user = ctx.author
-            raise BlackListedException(f"blacklisted user: {bl_user.name}#{bl_user.discriminator} ({bl_user.id}) "
-                                       f"tried to use command")
-    return True
-
-
-@bot.check
-async def check_disabled_command(ctx):
-    owner_cog = bot.get_cog("Owner")
-    if owner_cog:
-        current_guild = ctx.guild
-        disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands if dc["server"] == current_guild.id]
-        if ctx.command.name in disabled_commands and not checks.user_is_in_whitelist_server(bot, ctx.author):
-            raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
-    return True
-
-
 
 
 async def shutdown(bot, *, restart=False):
@@ -97,6 +34,7 @@ if __name__ == '__main__':
     token = credentials['token']
 
     try:
+        bot.load_extension("cogs.default")
         bot.run(token)
     except KeyboardInterrupt:
         print("Keyboard interrupt exiting with error code 0")
