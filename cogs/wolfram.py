@@ -70,7 +70,7 @@ class Wolfram(commands.Cog):
                         else:
                             await ctx.send('Query was unsuccessful please try something else')
 
-    def __unload(self):
+    def cog_unload(self):
         self.session.close()
 
 

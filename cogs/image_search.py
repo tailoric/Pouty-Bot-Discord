@@ -62,7 +62,7 @@ class Search(commands.Cog):
             else:
                 await ctx.send("\n HTTP Error occured with following Status Code:{}".format(response.status))
 
-    def __unload(self):
+    def cog_unload(self):
         self.iqdb_session.close()
         self.dans_session.close()
         self.sauce_session.close()
