@@ -42,7 +42,7 @@ class Owner(commands.Cog):
     @checks.is_owner_or_moderator()
     async def unload(self, ctx, *, module:str):
         """Unloads a module"""
-        if module == "owner":
+        if module == "owner" or "default":
             await ctx.send("This cog cannot be unloaded")
             return
         try:
@@ -137,5 +137,6 @@ class Owner(commands.Cog):
         with open(self.disabled_commands_file, 'w') as f:
             json.dump(self.disabled_commands, f)
         await ctx.send("command {} enabled".format(command))
+
 def setup(bot):
     bot.add_cog(Owner(bot))
