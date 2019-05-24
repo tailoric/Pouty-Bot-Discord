@@ -680,9 +680,8 @@ Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html
 """
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
-import asyncio
 import time
 import logging
 import json
@@ -692,11 +691,15 @@ import re
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
 
-    def __init__(self, bot):
+    def __init__(self, bot : commands.Bot):
         self.bot = bot
         with open("data/remindme/reminders.json", "r") as f:
             self.reminders = json.load(f)
-        self.units = {"minute" : 60, "hour" : 3600, "day" : 86400, "week": 604800, "month": 2592000}
+        self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
+        self.check_reminders.start()
+
+    def cog_unload(self):
+        self.check_reminders.cancel()
 
     @commands.command(pass_context=True)
     async def remindme(self, ctx,  quantity : int, time_unit : str, *, text : str):
@@ -711,7 +714,7 @@ class RemindMe(commands.Cog):
         if time_unit.endswith("s"):
             time_unit = time_unit[:-1]
             s = "s"
-        if not time_unit in self.units:
+        if time_unit not in self.units:
             await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
             return
         if quantity < 1:
@@ -728,6 +731,35 @@ class RemindMe(commands.Cog):
         with open("data/remindme/reminders.json", "w") as file_reminders:
             json.dump(self.reminders, file_reminders)
 
+    @commands.command()
+    async def reminder(self, ctx, quantity: int, time_unit: str, *, text: str):
+        """
+        posts an open reminder later into the channel
+        example: .reminder 1 minute turn off the stove
+        """
+        time_unit = time_unit.lower()
+        author = ctx.message.author
+        s = ""
+        if ctx.message.mentions or "@everyone" or "@here" in text:
+            await ctx.send("Don't mention users in open reminders")
+            return
+        if time_unit not in self.units:
+            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
+            return
+        if quantity < 1:
+            await ctx.send("Quantity must not be 0 or negative.")
+            return
+        if len(text) > 1960:
+            await ctx.send("Text is too long.")
+            return
+        seconds = self.units[time_unit] * quantity
+        future = int(time.time()+seconds)
+        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
+        logger.info("{} ({}) set a reminder.".format(author.name, author.id))
+        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        with open("data/remindme/reminders.json", "w") as file_reminders:
+            json.dump(self.reminders, file_reminders)
+
     @commands.command(pass_context=True)
     async def forgetme(self, ctx):
         """Removes all your upcoming notifications"""
@@ -736,7 +768,6 @@ class RemindMe(commands.Cog):
         for reminder in self.reminders:
             if reminder["ID"] == author.id:
                 to_remove.append(reminder)
-
         if not to_remove == []:
             for reminder in to_remove:
                 self.reminders.remove(reminder)
@@ -746,26 +777,30 @@ class RemindMe(commands.Cog):
         else:
             await ctx.send("You don't have any upcoming notification.")
 
+    @tasks.loop(seconds=5)
     async def check_reminders(self):
-        while self is self.bot.get_cog("RemindMe"):
-            to_remove = []
-            for reminder in self.reminders:
-                if reminder["FUTURE"] <= int(time.time()):
-                    try:
-                        user = self.bot.get_user(id=reminder["ID"])
-                        await user.send("You asked me to remind you this:\n{}".format(reminder["TEXT"]))
-                    except (discord.errors.Forbidden, discord.errors.NotFound):
-                        to_remove.append(reminder)
-                    except discord.errors.HTTPException:
-                        pass
+        to_remove = []
+        for reminder in self.reminders:
+            if reminder["FUTURE"] <= int(time.time()):
+                try:
+                    user = self.bot.get_user(id=reminder["ID"])
+                    if "CHANNEL" in reminder:
+                        channel = self.bot.get_channel(reminder["CHANNEL"])
+                        the_reminder = reminder["TEXT"]
+                        await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
                     else:
-                        to_remove.append(reminder)
-            for reminder in to_remove:
-                self.reminders.remove(reminder)
-            if to_remove:
-                with open("data/remindme/reminders.json", "w") as file_reminders:
-                    json.dump(self.reminders, file_reminders)
-            await asyncio.sleep(5)
+                        await user.send("You asked me to remind you this:\n{}".format(reminder["TEXT"]))
+                except (discord.errors.Forbidden, discord.errors.NotFound):
+                    to_remove.append(reminder)
+                except discord.errors.HTTPException as e:
+                    logger.error(f"{e}: for reminder {reminder['ID']}, {reminder['TEXT']}")
+                else:
+                    to_remove.append(reminder)
+        for reminder in to_remove:
+            self.reminders.remove(reminder)
+        if to_remove:
+            with open("data/remindme/reminders.json", "w") as file_reminders:
+                json.dump(self.reminders, file_reminders)
 
 def check_folders():
     if not os.path.exists("data/remindme"):
@@ -809,7 +844,5 @@ def setup(bot):
         handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt="[%d/%m/%Y %H:%M]"))
         logger.addHandler(handler)
     n = RemindMe(bot)
-    loop = asyncio.get_event_loop()
-    loop.create_task(n.check_reminders())
     bot.add_cog(n)
     bot.add_cog(Choose(bot))
