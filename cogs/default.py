@@ -74,7 +74,7 @@ class Default(commands.Cog):
         if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
             await ctx.message.channel.send(error)
             if ctx.command.help is not None:
-                await ctx.message.channel.send("```\n{}\n```".format(ctx.command.help))
+                await ctx.send_help(ctx.command)
 
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
