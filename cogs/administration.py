@@ -1,14 +1,12 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.utils import get
 import os.path
 import json
 from .utils import checks
 import time
 import logging
-import asyncio
 import typing
-
 
 
 class UserOrChannel(commands.Converter):
@@ -28,7 +26,8 @@ class UserOrChannel(commands.Converter):
 
 class Admin(commands.Cog):
     """Administration commands and anonymous reporting to the moderators"""
-    def __init__(self, bot:commands.Bot):
+
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         if os.path.exists('data/report_channel.json'):
             with open('data/report_channel.json') as f:
@@ -44,7 +43,7 @@ class Admin(commands.Cog):
                     self.mute_role = get(server.roles, id=int(json_data['mute_role']))
                     if self.mute_role is not None:
                         break
-            self.unmute_task = self.bot.loop.create_task(self.unmute_loop())
+            self.unmute_loop.start()
         else:
             self.mutes = []
             self.mute_role = None
@@ -67,7 +66,19 @@ class Admin(commands.Cog):
         handler.setFormatter(logging.Formatter("%(asctime)s: %(message)s"))
         self.logger.addHandler(handler)
 
-    @checks.is_owner_or_moderator()
+    def cog_unload(self):
+        self.unmute_loop.cancel()
+        self.save_mute_list()
+
+    def save_mute_list(self):
+        data = {
+            "mute_role": self.mute_role.id,
+            "mutes": self.mutes
+        }
+        with open("data/mute_list.json", 'w') as f:
+            json.dump(data, f)
+
+    @commands.has_permissions(manage_messages=True)
     @commands.group(name="cleanup")
     async def _cleanup(self, ctx, users: commands.Greedy[discord.Member], number: typing.Optional[int] = 10):
         """
@@ -154,7 +165,7 @@ class Admin(commands.Cog):
             time_diff = int(time.time() - last_invocation[0])
             if time_diff < self.report_countdown:
                 await ctx.author.send("Too early to report again wait for another {} seconds"
-                                       .format(self.report_countdown - time_diff))
+                                      .format(self.report_countdown - time_diff))
                 return
             else:
                 invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
@@ -181,21 +192,20 @@ class Admin(commands.Cog):
         self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
         await ctx.author.send("report successfully sent.")
 
-
     @report.command(name="setup")
-    @checks.is_owner_or_moderator()
+    @commands.has_any_role("Discord-Senpai", "Admin")
     async def setup(self, ctx):
         """
         use '[.,!]report setup' in the channel that should become the report channel
         """
         self.report_channel = ctx.message.channel
-        with open('data/report_channel.json' , 'w') as f:
-            json.dump({"channel" : self.report_channel.id}, f)
+        with open('data/report_channel.json', 'w') as f:
+            json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
     @commands.command(name="ban", pass_context=True)
-    @checks.is_owner_or_moderator()
-    async def ban(self, ctx, member: discord.Member, *, reason:str):
+    @commands.has_permissions(ban_members=True)
+    async def ban(self, ctx, member: discord.Member, *, reason: str):
         try:
             dm_message = "you have been banned for the following reasons:\n{}".format(reason)
             await member.send(dm_message)
@@ -211,43 +221,30 @@ class Admin(commands.Cog):
         except discord.HTTPException:
             await ctx.send("There was a HTTP or connection issue ban failed")
 
-    def __unload(self):
-        self.unmute_task.cancel()
-        self.save_mute_list()
-
+    @tasks.loop(seconds=5.0)
     async def unmute_loop(self):
-        while self is self.bot.get_cog("Admin"):
-            to_remove = []
-            for mute in self.mutes:
-                if mute["unmute_ts"] <= int(time.time()):
-                    try:
-                        user = get(self.mute_role.guild.members, id=mute["user"])
-                        await user.remove_roles(self.mute_role)
-                    except (discord.errors.Forbidden, discord.errors.NotFound):
-                        to_remove.append(mute)
-                    except discord.errors.HTTPException:
-                        pass
-                    else:
-                        to_remove.append(mute)
-            for mute in to_remove:
-                self.mutes.remove(mute)
-                if self.check_channel is not None:
+        to_remove = []
+        for mute in self.mutes:
+            if mute["unmute_ts"] <= int(time.time()):
+                try:
                     user = get(self.mute_role.guild.members, id=mute["user"])
-                    await self.check_channel.send("User {0} unmuted".format(user.mention))
-            if to_remove:
-                self.save_mute_list()
-            await asyncio.sleep(5)
+                    await user.remove_roles(self.mute_role)
+                except (discord.errors.Forbidden, discord.errors.NotFound):
+                    to_remove.append(mute)
+                except discord.errors.HTTPException:
+                    pass
+                else:
+                    to_remove.append(mute)
+        for mute in to_remove:
+            self.mutes.remove(mute)
+            if self.check_channel is not None:
+                user = get(self.mute_role.guild.members, id=mute["user"])
+                await self.check_channel.send("User {0} unmuted".format(user.mention))
+        if to_remove:
+            self.save_mute_list()
 
-    def save_mute_list(self):
-        data = {
-            "mute_role": self.mute_role.id,
-            "mutes": self.mutes
-        }
-        with open("data/mute_list.json", 'w') as f:
-            json.dump(data, f)
-
-    @checks.is_owner_or_moderator()
-    @commands.command(name="mute")
+    @commands.command()
+    @commands.has_permissions(manage_roles=True)
     async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str):
         """
         mutes the user for a certain amount of time
@@ -272,11 +269,10 @@ class Admin(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
-    async def mute_setup(self,ctx, role):
+    async def mute_setup(self, ctx, role):
         mute_role = get(ctx.message.guild.roles, name=role)
         self.mute_role = mute_role
         self.save_mute_list()
-
 
 
 def setup(bot):
