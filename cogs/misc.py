@@ -740,11 +740,6 @@ class RemindMe(commands.Cog):
         time_unit = time_unit.lower()
         author = ctx.message.author
         s = ""
-        contains_mentions = len(ctx.message.mentions) > 0 or len(ctx.message.role_mentions) > 0
-        mentions_everyone = "@everyone" in text or "@here" in text
-        if contains_mentions or mentions_everyone:
-            await ctx.send("Don't mention users in open reminders")
-            return
         if time_unit not in self.units:
             await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
             return
@@ -756,7 +751,8 @@ class RemindMe(commands.Cog):
             return
         seconds = self.units[time_unit] * quantity
         future = int(time.time()+seconds)
-        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
+        text_clean = ctx.message.clean_content
+        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text_clean, "CHANNEL" : ctx.channel.id})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
         await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
