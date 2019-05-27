@@ -11,6 +11,7 @@ import urllib.parse
 import sys
 from PIL import Image
 import io
+import asyncio
 
 class Search(commands.Cog):
     """Reverse image search commands"""
@@ -63,10 +64,11 @@ class Search(commands.Cog):
                 await ctx.send("\n HTTP Error occured with following Status Code:{}".format(response.status))
 
     def cog_unload(self):
-        self.iqdb_session.close()
-        self.dans_session.close()
-        self.sauce_session.close()
-        self.tineye_session.close()
+        loop = self.bot.loop or asyncio.get_event_loop()
+        loop.create_task(self.iqdb_session.close())
+        loop.create_task(self.dans_session.close())
+        loop.create_task(self.sauce_session.close())
+        loop.create_task(self.tineye_session.close())
 
 
     def _tag_to_title(self, tag):

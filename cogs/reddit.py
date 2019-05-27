@@ -6,10 +6,12 @@ from discord.ext import commands
 from os import path
 from .utils import checks
 
+
 class Reddit(commands.Cog):
     """
     cog for automatically removing reddit links that break rule 3
     """
+
     def __init__(self, bot):
         with open("data/reddit_credentials.json", "r") as cred_file:
             self.bot = bot
@@ -30,6 +32,8 @@ class Reddit(commands.Cog):
                 settings = json.load(f)
                 self.checker_channel = self.bot.get_channel(settings['channel'])
 
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
 
 
     @commands.Cog.listener()
@@ -39,8 +43,7 @@ class Reddit(commands.Cog):
         url = message.content
         if not match:
             return
-        if match.group(1).startswith('v'):
-            print("is video link")
+        if match.group(1) and match.group(1).startswith('v'):
             vid_url = match.string[match.span()[0]: match.span()[1]]
             async with self.session.get(url=vid_url, auth=self.auth, headers=self.headers) as response:
                 if response.status == 200:
@@ -56,8 +59,7 @@ class Reddit(commands.Cog):
                 now = datetime.datetime.utcnow()
                 difference = now - creation_time
                 subreddit = post_data['subreddit']
-                upvotes = post_data['ups']
-                is_stickied = post_data['stickied'] == "true"
+                is_stickied = post_data['stickied']
                 if not subreddit == "Animemes":
                     return
                 if difference.total_seconds() < 12 * 3600 and not is_stickied:
@@ -70,7 +72,7 @@ class Reddit(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.command(pass_context=True, hidden=True)
-    async def setup_checker_channel(self,ctx):
+    async def setup_checker_channel(self, ctx):
         channel = ctx.message.channel
         if not path.exists(self.reddit_settings_path):
            open(self.reddit_settings_path, 'w').close()
@@ -78,8 +80,6 @@ class Reddit(commands.Cog):
             self.checker_channel = channel
             settings = {'channel': channel.id}
             json.dump(settings, f)
-
-
 
 
 def setup(bot):

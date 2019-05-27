@@ -377,7 +377,7 @@ class Danbooru(commands.Cog):
             self.danbooru_channels = []
 
 
-    def __unload(self):
+    def cog_unload(self):
         self.scheduler.schedule_task.cancel()
         try:
             if not self.scheduler.subscriptions:
@@ -386,7 +386,7 @@ class Danbooru(commands.Cog):
             for sub in self.scheduler.subscriptions:
                 sub.write_sub_to_file()
                 del sub
-            self.session.close()
+            self.bot.loop.create_task(self.session.close())
             del self.scheduler
         except Exception as e:
             print(e)
@@ -705,7 +705,7 @@ class Danbooru(commands.Cog):
         """
         ONLY USE WHEN STUCK!
         """
-        self.__unload()
+        self.cog_unload()
         setup(self.bot)
 
     def build_message(self, image, channel, message):

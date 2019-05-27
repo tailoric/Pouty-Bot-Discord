@@ -3,8 +3,6 @@ from discord.ext import commands
 import json
 from bs4 import BeautifulSoup
 from urllib import parse
-from urllib import request
-from discord import File
 
 
 class Wolfram(commands.Cog):
@@ -71,7 +69,7 @@ class Wolfram(commands.Cog):
                             await ctx.send('Query was unsuccessful please try something else')
 
     def cog_unload(self):
-        self.session.close()
+        self.bot.loop.create_task(self.session.close())
 
 
 def setup(bot):
