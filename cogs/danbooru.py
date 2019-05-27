@@ -163,7 +163,7 @@ class Scheduler:
 
     async def schedule_task(self):
         #iterate through all subscriptions and update information
-        while not self.bot.is_closed:
+        while not self.bot.is_closed():
             subs_copy = self.subscriptions.copy()
             for sub in subs_copy:
                 # skip the subscription if the sub was already removed
@@ -196,7 +196,7 @@ class Scheduler:
                     await asyncio.sleep(10)
                     continue
                 except Exception as e:
-                    owner = discord.User(id='134310073014026242')
+                    owner = discord.User(id=134310073014026242)
                     self._write_subs_information_to_file()
                     message = ('Error during update Task: `{}`\n'
                                'during Sub: `{}`\n'

@@ -740,6 +740,9 @@ class RemindMe(commands.Cog):
         time_unit = time_unit.lower()
         author = ctx.message.author
         s = ""
+        if time_unit.endswith("s"):
+            time_unit = time_unit[:-1]
+            s = "s"
         if time_unit not in self.units:
             await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
             return
