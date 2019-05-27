@@ -495,7 +495,7 @@ class Danbooru(commands.Cog):
         display newest image from danbooru with certain tags
         tags: tags that will be looked up.
         """
-        channel, send_message = await self._find_danbooru_image(ctx, tags, random="false")
+        channel, send_message = await self._find_danbooru_image(ctx, tags, random=None)
         if channel is None or send_message is None:
             return
         await channel.send(send_message)
