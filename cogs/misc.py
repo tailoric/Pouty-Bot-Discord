@@ -732,7 +732,7 @@ class RemindMe(commands.Cog):
             json.dump(self.reminders, file_reminders)
 
     @commands.command()
-    async def reminder(self, ctx, quantity: int, time_unit: str, *, text: str):
+    async def reminder(self, ctx, quantity: int, time_unit: str, *, text: commands.clean_content()):
         """
         posts an open reminder later into the channel
         example: .reminder 1 minute turn off the stove
@@ -754,8 +754,7 @@ class RemindMe(commands.Cog):
             return
         seconds = self.units[time_unit] * quantity
         future = int(time.time()+seconds)
-        text_clean = ctx.message.clean_content
-        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text_clean, "CHANNEL" : ctx.channel.id})
+        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
         await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
