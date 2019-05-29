@@ -28,6 +28,10 @@ class Roles(commands.Cog):
         assigns you a role
         """
         try:
+            admin_cog = self.bot.get_cog("Admin")
+            if admin_cog:
+                if admin_cog.mute_role == role:
+                    return
             member = ctx.message.author
             await member.add_roles(role)
             await ctx.send("your role is now: %s " % role.name)
