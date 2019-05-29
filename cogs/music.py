@@ -145,6 +145,7 @@ class Music(commands.Cog):
         function that always triggers after playback of current song stopped
         """
         try:
+            self.skip_votes.clear()
             self.current.audio_source.cleanup()
             os.remove(self.current.filename)
         except Exception:
@@ -204,7 +205,6 @@ class Music(commands.Cog):
         if self.voice_client.is_playing():
             if ctx.message.author == self.current.requester:
                 await ctx.send("requester skipped")
-                self.skip_votes.clear()
                 self.voice_client.stop()
                 await self.bot.change_presence(activity=None)
             else:
@@ -212,7 +212,6 @@ class Music(commands.Cog):
                 needed_votes = (len(self.voice_client.channel.members) - 1)//2
                 if len(self.skip_votes) > needed_votes:
                     await ctx.send("skip vote passed ")
-                    self.skip_votes.clear()
                     self.voice_client.stop()
                     await self.bot.change_presence(activity=None)
                 else:
