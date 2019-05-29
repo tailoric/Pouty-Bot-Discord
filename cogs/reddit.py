@@ -31,6 +31,7 @@ class Reddit(commands.Cog):
             with open(self.reddit_settings_path, 'r') as f:
                 settings = json.load(f)
                 self.checker_channel = self.bot.get_channel(settings['channel'])
+            self.webhook_user_id = 583344751936274454
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -74,6 +75,8 @@ class Reddit(commands.Cog):
                                                 re.MULTILINE)
         match = contains_reddit_link_regex.search(message.content)
         url = message.content
+        if message.author.id == self.webhook_user_id:
+            return
         if not match:
             return
         if match.group(1) and match.group(1).startswith('v'):
