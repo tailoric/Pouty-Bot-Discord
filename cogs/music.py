@@ -175,34 +175,41 @@ class Music(commands.Cog):
         await self.update_presence()
         self.play_next_event.clear()
 
+    async def is_allowed_to_use_command_stop(self, ctx):
+        my_voice = ctx.guild.me.voice.channel
+        if len(my_voice.members) == 1:
+            return True
+        if not ctx.message.author.voice:
+            await ctx.send("Not in my voice channel")
+            return False
+        user_voice = ctx.message.author.voice.channel
+        if user_voice != my_voice:
+            await ctx.send("You are not in my voice channel, not allowed")
+            return False
+        if len(my_voice.members) > 2:
+            await ctx.send("only allowed when no or only one member remaining in voice")
+            return False
+        return True
+
     @commands.command()
     async def stop(self, ctx):
         """
         disconnects the bot from voice channel and deletes the current playlist
         only allowed when only one or no members remaining
         """
-        if not ctx.message.author.voice:
-            await ctx.send("Not in my voice channel")
-            return
-        user_voice = ctx.message.author.voice.channel
-        my_voice = ctx.guild.me.voice.channel
-        if not is_owner_or_moderator_check(ctx.message) and not len(self.voice_client.channel.members) <= 2:
-            if user_voice != my_voice and not is_owner_or_moderator_check(ctx.message):
-                await ctx.send("You are not in my voice channel, not allowed")
-                return
-            await ctx.send("only allowed when no or only one member remaining in voice")
-            return
         if self.voice_client:
-            self.enqueued_songs.clear()
-            try:
-                for song in self.enqueued_songs:
-                    song.audio_source.cleanup()
-                    os.remove(song.filename)
-            except PermissionError as e:
-                self.logger.error(e)
-            self.voice_client.stop()
-            await self.bot.change_presence(activity=None)
-            await self.voice_client.disconnect()
+            if is_owner_or_moderator_check(ctx.message) or await self.is_allowed_to_use_command_stop(ctx):
+                try:
+                    for song in self.enqueued_songs:
+                        song.audio_source.cleanup()
+                        os.remove(song.filename)
+                    self.enqueued_songs.clear()
+                except PermissionError as e:
+                    self.logger.error(e)
+                self.voice_client.stop()
+                await self.bot.change_presence(activity=None)
+                await self.voice_client.disconnect()
+                self.voice_client = None
 
     @commands.command()
     async def skip(self, ctx):
@@ -213,9 +220,9 @@ class Music(commands.Cog):
         if not ctx.message.author.voice:
             await ctx.send("Not in my voice channel")
             return
-        user_voice = ctx.message.author.voice.channel
-        my_voice = ctx.guild.me.voice.channel
-        if self.voice_client.is_playing():
+        if self.voice_client and self.voice_client.is_playing():
+            user_voice = ctx.message.author.voice.channel
+            my_voice = ctx.guild.me.voice.channel
             if user_voice != my_voice:
                 await ctx.send("You are not in my voice channel, not allowed")
                 return
