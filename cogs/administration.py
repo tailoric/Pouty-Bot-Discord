@@ -228,7 +228,8 @@ class Admin(commands.Cog):
             if mute["unmute_ts"] <= int(time.time()):
                 try:
                     user = get(self.mute_role.guild.members, id=mute["user"])
-                    await user.remove_roles(self.mute_role)
+                    if user:
+                        await user.remove_roles(self.mute_role)
                 except (discord.errors.Forbidden, discord.errors.NotFound):
                     to_remove.append(mute)
                 except discord.errors.HTTPException:
@@ -239,7 +240,8 @@ class Admin(commands.Cog):
             self.mutes.remove(mute)
             if self.check_channel is not None:
                 user = get(self.mute_role.guild.members, id=mute["user"])
-                await self.check_channel.send("User {0} unmuted".format(user.mention))
+                if user:
+                    await self.check_channel.send("User {0} unmuted".format(user.mention))
         if to_remove:
             self.save_mute_list()
 
