@@ -181,7 +181,15 @@ class Music(commands.Cog):
         disconnects the bot from voice channel and deletes the current playlist
         only allowed when only one or no members remaining
         """
+        if not ctx.message.author.voice:
+            await ctx.send("Not in my voice channel")
+            return
+        user_voice = ctx.message.author.voice.channel
+        my_voice = ctx.guild.me.voice.channel
         if not is_owner_or_moderator_check(ctx.message) and not len(self.voice_client.channel.members) <= 2:
+            if user_voice != my_voice and not is_owner_or_moderator_check(ctx.message):
+                await ctx.send("You are not in my voice channel, not allowed")
+                return
             await ctx.send("only allowed when no or only one member remaining in voice")
             return
         if self.voice_client:
@@ -202,7 +210,15 @@ class Music(commands.Cog):
         skips the current song after enough people voted to skip on it (more than 50%)
         or if the person requesting the song wants to skip it.
         """
+        if not ctx.message.author.voice:
+            await ctx.send("Not in my voice channel")
+            return
+        user_voice = ctx.message.author.voice.channel
+        my_voice = ctx.guild.me.voice.channel
         if self.voice_client.is_playing():
+            if user_voice != my_voice:
+                await ctx.send("You are not in my voice channel, not allowed")
+                return
             if ctx.message.author == self.current.requester:
                 await ctx.send("requester skipped")
                 self.voice_client.stop()
