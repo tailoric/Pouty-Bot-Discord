@@ -48,6 +48,7 @@ class Roles(commands.Cog):
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
         if role.position > settable_role.position:
             await ctx.send("can't remove that role")
+            return
         try:
             member = ctx.message.author
             await member.remove_roles(role)
