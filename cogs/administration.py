@@ -4,7 +4,9 @@ from discord.utils import get
 import os.path
 import json
 from .utils import checks
+from .utils.dataIO import DataIO
 import time
+from random import choice
 import logging
 import typing
 
@@ -215,11 +217,16 @@ class Admin(commands.Cog):
             await member.ban(delete_message_days=0, reason=reason)
             message = "banned {} for the following reason:\n{}".format(member.mention, reason)
             await self.check_channel.send(message)
-            await ctx.send("https://i.imgur.com/BdUCfLb.png")
+            await ctx.send(self.get_ban_image())
         except discord.Forbidden:
             await ctx.send("I don't have the permission to ban this user.")
         except discord.HTTPException:
             await ctx.send("There was a HTTP or connection issue ban failed")
+
+    def get_ban_image(self):
+        data_io = DataIO()
+        ban_images = data_io.load_json("ban_images")
+        return choice(ban_images)
 
     @tasks.loop(seconds=5.0)
     async def unmute_loop(self):
