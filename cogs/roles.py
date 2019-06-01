@@ -45,6 +45,9 @@ class Roles(commands.Cog):
     @commands.command(name="amnot", pass_context=True)
     async def remove_role(self, ctx, role: RoleConverter):
         """removes a role from you"""
+        settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
+        if role.position > settable_role.position:
+            await ctx.send("can't remove that role")
         try:
             member = ctx.message.author
             await member.remove_roles(role)
