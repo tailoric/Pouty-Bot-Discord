@@ -1,10 +1,11 @@
 from discord.ext import commands
-from discord.utils import find
+from discord.utils import find, get
 import discord
 import json
 import os
 import cogs.utils.checks as checks
 from .utils.converters import RoleConverter
+
 class Roles(commands.Cog):
     """role managing commands"""
     def __init__(self, bot: commands.Bot):
@@ -14,19 +15,22 @@ class Roles(commands.Cog):
             with open(self.file_path) as f:
                 self.settable_roles = json.load(fp=f)
         else:
-            self.settable_roles = {'roles' : []}
-
+            self.settable_roles = []
+            self.save_roles_to_file()
 
     def save_roles_to_file(self):
         with open('data/roles.json', 'w') as file:
             json.dump(self.settable_roles, file)
-
 
     @commands.command(name="iam", pass_context=True)
     async def assign_role(self, ctx, role: RoleConverter):
         """
         assigns you a role
         """
+        settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
+        if role.position > settable_role.position:
+            await ctx.send("can't give you that role")
+            return
         try:
             admin_cog = self.bot.get_cog("Admin")
             if admin_cog:
