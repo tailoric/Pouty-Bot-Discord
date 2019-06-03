@@ -17,7 +17,7 @@ class Penis(commands.Cog):
     @commands.command(pass_context=True)
     async def penis(self, ctx, *, users: str = None):
         """accurately measure a user's penis size or compare the penis size of multiple users"""
-        if ctx.message.channel is not self.allowed_channel:
+        if ctx.message.channel != self.allowed_channel:
             await ctx.send(f"Please use the following channel: <#{self.allowed_channel.id}>")
             return
         if users is None:

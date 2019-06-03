@@ -18,7 +18,7 @@ class Sword(commands.Cog):
 
     @commands.command()
     async def sword(self, ctx, member: discord.Member):
-        if ctx.message.channel is not self.allowed_channel:
+        if ctx.message.channel != self.allowed_channel:
             await ctx.send(f"Not in the right channel, please use <#{self.allowed_channel.id}>")
             return
         challenger = ctx.message.author.mention
