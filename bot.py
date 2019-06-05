@@ -2,7 +2,10 @@ from discord.ext import commands
 from cogs.utils.dataIO import DataIO
 import logging
 import sys
+import asyncio
 
+if 'win32' in sys.platform:
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 description = 'Pouty Bot MKII by Saikimo'
 
