@@ -32,11 +32,14 @@ class Distort(commands.Cog):
                     with open("data/temp"+filetype, "wb") as f:
                         buffer = io.BytesIO(await r.read())
                         f.write(buffer.read())
-        proc = await asyncio.create_subprocess_exec(
-            "convert",'data\\temp'+filetype, '-liquid-rescale', '50%x50%', 'data\\temp_distort'+filetype
-        )
-        await proc.communicate()
-        await ctx.send(file=File('data\\temp_distort'+filetype))
+        async with ctx.typing():
+            proc = await asyncio.create_subprocess_exec(
+                "convert",'data/temp'+filetype, '-layers', 'coalesce','-liquid-rescale', '50%x50%', 'data/temp_distort'+filetype
+            )
+            await proc.communicate()
+            await ctx.send(file=File('data/temp_distort'+filetype))
+
+
 
 
 
