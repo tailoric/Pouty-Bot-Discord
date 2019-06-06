@@ -33,12 +33,14 @@ class Distort(commands.Cog):
             filetype = message.attachments[0].url[-4:]
             if filetype not in self.allowed_file_extensions:
                 await ctx.send("not allowed filetype only images or gifs allowed")
+                return
             await message.attachments[0].save("data/temp"+filetype)
         else:
             async with self.session.get(url=link) as r:
                 filetype = link[-4:]
                 if filetype not in self.allowed_file_extensions:
                     await ctx.send("not allowed filetype only images or gifs allowed")
+                    return
                 if r.status == 200:
                     with open("data/temp"+filetype, "wb") as f:
                         buffer = io.BytesIO(await r.read())
