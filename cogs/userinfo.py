@@ -27,8 +27,8 @@ class Userinfo(commands.Cog):
         else:
             nick = member.name
         time_fmt = "%d %b %Y %H:%M"
-        joined_number_of_days_diff = (datetime.now() - join_date).days
-        created_number_of_days_diff = (datetime.now() - created_at).days
+        joined_number_of_days_diff = (datetime.utcnow() - join_date).days
+        created_number_of_days_diff = (datetime.utcnow() - created_at).days
         member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
         embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar_url), color=user_color)
         if member.avatar_url:
