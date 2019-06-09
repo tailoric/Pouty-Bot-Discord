@@ -13,9 +13,9 @@ from PIL import Image
 import io
 import asyncio
 
-
 class Search(commands.Cog):
     """Reverse image search commands"""
+
 
     def __init__(self, bot):
         self.bot = bot
@@ -56,8 +56,7 @@ class Search(commands.Cog):
                 if json_dump['tag_count_copyright'] > 0:
                     franchise = self._tag_to_title(json_dump['tag_string_copyright'])
                 if json_dump['pixiv_id']:
-                    source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + str(
-                        json_dump['pixiv_id'])
+                    source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + str(json_dump['pixiv_id'])
                 elif json_dump['source']:
                     source = json_dump['source']
                 return characters, artist, franchise, source
@@ -70,6 +69,7 @@ class Search(commands.Cog):
         loop.create_task(self.dans_session.close())
         loop.create_task(self.sauce_session.close())
         loop.create_task(self.tineye_session.close())
+
 
     def _tag_to_title(self, tag):
         return tag.replace(' ', '\n').replace('_', ' ').title()
@@ -107,10 +107,9 @@ class Search(commands.Cog):
                         source = match.attrs['href']
                         if source.startswith('//danbooru.donmai.us') and not danbooru_found:
                             danbooru_found = True
-                            danbooru = 'http:' + source
+                            danbooru = 'http:'+source
                             characters, artist, franchise, source_url = await self._danbooru_api(ctx, danbooru)
-                            embed = discord.Embed(colour=discord.Colour(0xa4815f),
-                                                  description="Source found via [iqdb](https://iqdb.org/)")
+                            embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [iqdb](https://iqdb.org/)")
 
                             embed.set_thumbnail(url=url)
 
@@ -196,20 +195,20 @@ class Search(commands.Cog):
             await ctx.send(message)
 
     @commands.command()
-    async def youtube(self, ctx, *, query: str):
+    async def youtube(self,  ctx,*, query: str):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
-        info = ytdl.extract_info("ytsearch: " + query, download=False)
+        info = ytdl.extract_info("ytsearch: "+ query, download=False)
         url = info["entries"][0]["webpage_url"]
         await ctx.send(url)
 
     @commands.command()
-    async def google(self, ctx, *, query: str):
+    async def google(self,  ctx, *, query: str):
         """give a google search link"""
         search = parse.quote_plus(query)
         await ctx.send("https://google.com/search?q={}".format(search))
 
-    @commands.command(name="trace", aliases=["whatanime", "find_anime"], pass_context=True)
-    async def trace_moe(self, ctx, link: str = None):
+    @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
+    async def trace_moe(self, ctx, link: str=None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         if link is None and len(ctx.message.attachments) == 0:
@@ -224,8 +223,7 @@ class Search(commands.Cog):
                         image_base64 = self.scale_down_image(image)
                     request_data = {"image": image_base64.decode("ascii")}
                     header = {"Content-Type": "application/json"}
-                    async with self.sauce_session.post(json=request_data, headers=header,
-                                                       url="https://trace.moe/api/search") as resp:
+                    async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
                         if resp.status == 200:
                             resp_json = await resp.json()
                             first_result = resp_json["docs"][0]
@@ -245,23 +243,20 @@ class Search(commands.Cog):
         img = Image.open(io.BytesIO(image))
         new_width = img.size[0] // 2
         wpercent = (new_width / float(img.size[0]))
-        new_height = int(float(img.size[1]) * float(wpercent))
+        new_height = int(float(img.size[1])* float(wpercent))
         img = img.resize((new_width, new_height), Image.ANTIALIAS)
         img_save = io.BytesIO()
         img.save(img_save, format('PNG'))
         return base64.b64encode(img_save.getvalue())
 
     def build_embed_for_trace_moe(self, first_result):
-        embed = discord.Embed(colour=discord.Colour(0xa4815f),
-                              description="Source found via [trace.moe](https://trace.moe/)")
+        embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [trace.moe](https://trace.moe/)")
         if not first_result["is_adult"]:
-            embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
-                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
-                                    first_result["at"], first_result["tokenthumb"]))
+            embed.set_thumbnail(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
+                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]), first_result["at"], first_result["tokenthumb"]))
         embed.add_field(name="Name", value=first_result["title_romaji"])
         m, s = divmod(first_result["at"], 60)
-        embed.add_field(name="Episode {0}".format(first_result["episode"]),
-                        value="at {0:02d}:{1:02d}".format(int(m), int(s)))
+        embed.add_field(name="Episode {0}".format(first_result["episode"]), value="at {0:02d}:{1:02d}".format( int(m), int(s)))
         embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]))
         embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]))
         return embed
@@ -269,9 +264,8 @@ class Search(commands.Cog):
     def build_mal_link_from_id(self, id):
         return "https://myanimelist.net/anime/" + str(id)
 
+
     def build_anilist_link_from_id(self, id):
         return "https://anilist.co/anime/" + str(id)
-
-
 def setup(bot):
     bot.add_cog(Search(bot))
