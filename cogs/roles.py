@@ -1,11 +1,13 @@
 from discord.ext import commands
-from discord.utils import find
+from discord.utils import find, get
 import discord
 import json
 import os
 import cogs.utils.checks as checks
 from .utils.converters import RoleConverter
-class Roles:
+
+class Roles(commands.Cog):
+    """role managing commands"""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.file_path = 'data/roles.json'
@@ -13,31 +15,46 @@ class Roles:
             with open(self.file_path) as f:
                 self.settable_roles = json.load(fp=f)
         else:
-            self.settable_roles = {'roles' : []}
-
+            self.settable_roles = []
+            self.save_roles_to_file()
 
     def save_roles_to_file(self):
         with open('data/roles.json', 'w') as file:
             json.dump(self.settable_roles, file)
 
-
     @commands.command(name="iam", pass_context=True)
     async def assign_role(self, ctx, role: RoleConverter):
+        """
+        assigns you a role
+        """
+        settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
+        if role.position > settable_role.position:
+            await ctx.send("can't give you that role")
+            return
         try:
+            admin_cog = self.bot.get_cog("Admin")
+            if admin_cog:
+                if admin_cog.mute_role == role:
+                    return
             member = ctx.message.author
-            await self.bot.add_roles(member, role)
-            await self.bot.say("your role is now: %s " % role.name)
+            await member.add_roles(role)
+            await ctx.send("your role is now: %s " % role.name)
         except discord.Forbidden as fb:
-            await self.bot.say("Sorry I don't have the permission to give you that role")
+            await ctx.send("Sorry I don't have the permission to give you that role")
 
     @commands.command(name="amnot", pass_context=True)
     async def remove_role(self, ctx, role: RoleConverter):
+        """removes a role from you"""
+        settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
+        if role.position > settable_role.position:
+            await ctx.send("can't remove that role")
+            return
         try:
             member = ctx.message.author
-            await self.bot.remove_roles(member, role)
-            await self.bot.say("removed your role: %s " % role.name)
+            await member.remove_roles(role)
+            await ctx.send("removed your role: %s " % role.name)
         except discord.Forbidden as fb:
-            await self.bot.say("You either don't have that role or I am not allowed to remove it")
+            await ctx.send("You either don't have that role or I am not allowed to remove it")
 
     @checks.is_owner_or_moderator()
     @commands.group(name="roles", pass_context=True)
@@ -54,13 +71,12 @@ class Roles:
         ping the role by making it mentionable for the ping and remove
         mentionable again
         """
-        server = ctx.message.server
         try:
-            await self.bot.edit_role(server, role, mentionable=True)
-            await self.bot.say(role.mention)
-            await self.bot.edit_role(server, role, mentionable=False)
+            await role.edit(mentionable=True)
+            await ctx.send(role.mention)
+            await role.edit(mentionable=False)
         except discord.Forbidden as fb:
-            await self.bot.say("I am not allowed to edit this role")
+            await ctx.send("I am not allowed to edit this role")
 
     @roles.command(name="add", pass_context=True)
     async def _add_role(self, ctx, role_name: str, mentionable=True, colour=None):
@@ -68,16 +84,16 @@ class Roles:
         add a role the bot can edit
         """
         try:
-            server = ctx.message.server
+            server = ctx.message.guild
 
             set_colour = discord.Colour(value=int(colour, 16)) if colour else discord.Colour(value=None)
             if find(lambda r: r.name == role_name, server.roles):
-                await self.bot.say('role already exists.')
+                await ctx.send('role already exists.')
                 return
-            new_role = await self.bot.create_role(server=server, name=role_name, mentionable=mentionable, colour=set_colour)
-            await self.bot.say("role `{}` created".format(new_role.name))
+            new_role = await server.create_role(name=role_name, mentionable=mentionable, colour=set_colour)
+            await ctx.send("role `{}` created".format(new_role.name))
         except discord.Forbidden:
-            await self.bot.say("Sorry I don't have the permission add a role")
+            await ctx.send("Sorry I don't have the permission add a role")
 
     @roles.command(name="remove", pass_context=True)
     async def _remove_role(self, ctx, role_name: str):
@@ -85,15 +101,15 @@ class Roles:
         remove a role the bot can edit
         """
         try:
-            server = ctx.message.server
+            server = ctx.message.guild
             role = find(lambda r: r.name == role_name, server.roles)
             if not role:
-                await self.bot.say('role `{}` not found'.format(role_name))
+                await ctx.send('role `{}` not found'.format(role_name))
                 return
-            await self.bot.delete_role(server, role)
-            await self.bot.say('role `{}` removed'.format(role_name))
+            await server.delete_role(role)
+            await ctx.send('role `{}` removed'.format(role_name))
         except discord.Forbidden:
-            await self.bot.say("Sorry I don't have the permission to remove that role")
+            await ctx.send("Sorry I don't have the permission to remove that role")
 
 def setup(bot: commands.Bot):
     bot.add_cog(Roles(bot))

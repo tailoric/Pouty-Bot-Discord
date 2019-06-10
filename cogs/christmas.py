@@ -4,7 +4,7 @@ import discord
 import asyncio
 
 
-class Christmas:
+class Christmas(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.next_role = None
@@ -15,7 +15,7 @@ class Christmas:
         """
         starts christmas time
         """
-        server = ctx.message.server
+        server = ctx.message.guild
         red_role, green_role = await self.get_christmas_roles(server)
         role = discord.utils.get(server.roles, name="Memester")
         if(red_role.position < role.position or green_role.position < role.position):
@@ -23,7 +23,7 @@ class Christmas:
             await self.bot.move_role(server=server,role=green_role, position=role.position+2)
         padoru = discord.utils.get(self.bot.get_all_emojis(), name="PADORUPADORU")
         padoru_string = "<a:" + padoru.name + ":" + padoru.id + ">"
-        christmas_message = await self.bot.say("Christmas time in 3")
+        christmas_message = await ctx.send("Christmas time in 3")
         await asyncio.sleep(1)
         await self.bot.edit_message(message=christmas_message, new_content="Christmas time in 2")
         await asyncio.sleep(1)
@@ -53,7 +53,7 @@ class Christmas:
         set the which role needs to be assigned next
         role: [green|red] set the next role to either green or red
         """
-        server = ctx.message.server
+        server = ctx.message.guild
         role_red = discord.utils.get(server.roles, name="ChristmasSoviets")
         role_green = discord.utils.get(server.roles, name="PadoruPatrol")
         if role.lower() == "green":
@@ -61,10 +61,10 @@ class Christmas:
         else:
             self.next_role = role_red
 
-        await self.bot.say("set next role to %s" % self.next_role.name)
+        await ctx.send("set next role to %s" % self.next_role.name)
 
     async def on_member_update(self, before: discord.Member, after: discord.Member):
-        server = before.server
+        server = before.guild
         memester = discord.utils.get(server.roles, name="Memester")
         if before.roles.__contains__(memester) or not after.roles.__contains__(memester):
             return

@@ -8,14 +8,15 @@ from os import path
 def is_owner_check(message):
     with open('data/credentials.json', 'r') as f:
         credentials = json.load(f)
-        return message.author.id == credentials['owner']
+        return message.author.id == int(credentials['owner'])
+
 
 def is_owner():
     return commands.check(lambda ctx: is_owner_check(ctx.message))
 
 
 def is_owner_or_admin_check(message):
-   return message.author.server_permissions.administrator or is_owner_check(message)
+    return message.author.guild_permissions.administrator or is_owner_check(message)
 
 
 def is_owner_or_moderator_check(message):
@@ -34,15 +35,15 @@ def is_owner_or_moderator():
     return commands.check(lambda ctx: is_owner_or_moderator_check(ctx.message))
 
 
-def user_is_in_whitelist_server(bot:commands.Bot ,user:User):
+def user_is_in_whitelist_server(bot: commands.Bot, user: User):
     if not path.exists('data/server_whitelist.json'):
         f = open('data/server_whitelist.json', 'w')
-        json.dump([],f)
+        json.dump([], f)
         f.close()
     with open('data/server_whitelist.json') as f:
         server_whitelist = json.load(f)
         for server_id in server_whitelist:
-            server = bot.get_server(server_id)
+            server = bot.get_guild(server_id)
             if server:
                 member = find(lambda m: m.id == user.id, server.members)
                 if member:

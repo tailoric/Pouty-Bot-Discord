@@ -11,8 +11,9 @@ import urllib.parse
 import sys
 from PIL import Image
 import io
+import asyncio
 
-class Search:
+class Search(commands.Cog):
     """Reverse image search commands"""
 
 
@@ -25,7 +26,7 @@ class Search:
         if not os.path.exists("data/image_search"):
             os.mkdir("data/image_search/")
 
-    async def _danbooru_api(self, link):
+    async def _danbooru_api(self, ctx, link):
         """
         looks up information about the image on danbooru
         :param link: must be a valid danbooru link
@@ -60,13 +61,14 @@ class Search:
                     source = json_dump['source']
                 return characters, artist, franchise, source
             else:
-                await self.bot.reply("\n HTTP Error occured with following Status Code:{}".format(response.status))
+                await ctx.send("\n HTTP Error occured with following Status Code:{}".format(response.status))
 
-    def __unload(self):
-        self.iqdb_session.close()
-        self.dans_session.close()
-        self.sauce_session.close()
-        self.tineye_session.close()
+    def cog_unload(self):
+        loop = self.bot.loop or asyncio.get_event_loop()
+        loop.create_task(self.iqdb_session.close())
+        loop.create_task(self.dans_session.close())
+        loop.create_task(self.sauce_session.close())
+        loop.create_task(self.tineye_session.close())
 
 
     def _tag_to_title(self, tag):
@@ -81,9 +83,9 @@ class Search:
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.trigger_typing()
             if link:
                 url = link
             else:
@@ -95,7 +97,7 @@ class Search:
                     pages_div = soup.find(id='pages').find_all('div')[1]
                     # stop searching if no relevant match was found
                     if str(pages_div.find('th')) == '<th>No relevant matches</th>':
-                        await self.bot.reply('No relevant Match was found')
+                        await ctx.send('No relevant Match was found')
                         return
 
                     matches = soup.find(id='pages')
@@ -106,7 +108,7 @@ class Search:
                         if source.startswith('//danbooru.donmai.us') and not danbooru_found:
                             danbooru_found = True
                             danbooru = 'http:'+source
-                            characters, artist, franchise, source_url = await self._danbooru_api(danbooru)
+                            characters, artist, franchise, source_url = await self._danbooru_api(ctx, danbooru)
                             embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [iqdb](https://iqdb.org/)")
 
                             embed.set_thumbnail(url=url)
@@ -125,9 +127,9 @@ class Search:
                                 embed.add_field(name="Copyright", value=franchise)
                             embed.add_field(name="Danbooru", value=danbooru)
 
-                            await self.bot.say(embed=embed)
+                            await ctx.send(embed=embed)
                     if not danbooru_found:
-                        await  self.bot.reply('<{}>'.format(best_match))
+                        await ctx.send('<{}>'.format(best_match))
 
     @commands.command(pass_context=True)
     async def sauce(self, ctx, link=None, similarity=80):
@@ -138,12 +140,12 @@ class Search:
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.trigger_typing()
             if file:
-                url = file[0]['proxy_url']
-                similarity = link
+                url = file[0].url
+                similarity = link if link is not None else similarity
             else:
                 url = link
             async with self.sauce_session.get('http://saucenao.com/search.php?url={}'.format(url)) as response:
@@ -156,10 +158,10 @@ class Search:
                         else:
                             if result.select('a'):
                                 source = result.select('a')[0]['href']
-                                await self.bot.reply('<{}>'.format(source))
+                                await ctx.send('<{}>'.format(source))
                                 return
                     if source is None:
-                        await self.bot.reply('No source over the similarity threshold')
+                        await ctx.send('No source over the similarity threshold')
 
     @commands.command(pass_context=True)
     async def tineye(self, ctx, link=None):
@@ -170,11 +172,11 @@ class Search:
         """
         file = ctx.message.attachments
         if link is None and not file:
-            await self.bot.say('Message didn\'t contain Image')
+            await ctx.send('Message didn\'t contain Image')
         else:
-            await self.bot.type()
+            await ctx.trigger_typing()
             if file:
-                url = file[0]['proxy_url']
+                url = file[0].url
             else:
                 url = link
             async with self.tineye_session.get('https://tineye.com/search/?url={}'.format(url)) as response:
@@ -190,28 +192,28 @@ class Search:
             message += '\n**Pages:** '.join(pages)
             if image_link is not None:
                 message += '\n**direct image:** <{}>'.format(image_link)
-            await self.bot.reply(message)
+            await ctx.send(message)
 
     @commands.command()
-    async def youtube(self, *, query: str):
+    async def youtube(self,  ctx,*, query: str):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
         info = ytdl.extract_info("ytsearch: "+ query, download=False)
         url = info["entries"][0]["webpage_url"]
-        await self.bot.say(url)
+        await ctx.send(url)
 
     @commands.command()
-    async def google(self, *, query: str):
+    async def google(self,  ctx, *, query: str):
         """give a google search link"""
         search = parse.quote_plus(query)
-        await self.bot.say("https://google.com/search?q={}".format(search))
+        await ctx.send("https://google.com/search?q={}".format(search))
 
     @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
     async def trace_moe(self, ctx, link: str=None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         if link is None and len(ctx.message.attachments) == 0:
-            await self.bot.say("please add an image link or invoke with an image attached")
-        image_link = link if link is not None else ctx.message.attachments[0]["url"]
+            await ctx.send("please add an image link or invoke with an image attached")
+        image_link = link if link is not None else ctx.message.attachments[0].url
         if image_link:
             async with self.sauce_session.get(image_link) as response:
                 if response.status == 200:
@@ -221,22 +223,21 @@ class Search:
                         image_base64 = self.scale_down_image(image)
                     request_data = {"image": image_base64.decode("ascii")}
                     header = {"Content-Type": "application/json"}
-                    await self.bot.type()
                     async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
                         if resp.status == 200:
                             resp_json = await resp.json()
                             first_result = resp_json["docs"][0]
                             if first_result["similarity"] > 0.75:
                                 embed = self.build_embed_for_trace_moe(first_result)
-                                await self.bot.say(embed=embed)
+                                await ctx.send(embed=embed)
                             else:
-                                await self.bot.say("No source similar enough")
+                                await ctx.send("No source similar enough")
                         elif resp.status == 429:
-                            await self.bot.say(await resp.read())
+                            await ctx.send(await resp.read())
                         elif resp.status == 413:
-                            await self.bot.say("Image to big please scale it down")
+                            await ctx.send("Image to big please scale it down")
                         if resp.status == 500 or resp.status == 503:
-                            await self.bot.say("Internal server error at trace.moe")
+                            await ctx.send("Internal server error at trace.moe")
 
     def scale_down_image(self, image):
         img = Image.open(io.BytesIO(image))

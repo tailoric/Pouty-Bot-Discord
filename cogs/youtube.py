@@ -12,7 +12,7 @@ from oauth2client.file import Storage
 from oauth2client.tools import argparser, run_flow
 
 
-class Youtube:
+class Youtube(commands.Cog):
     """Youtube commands"""
     def __init__(self, bot):
         self.bot = bot
@@ -41,32 +41,32 @@ class Youtube:
         self.status = True
         await self.bot.change_presence(game=discord.Game(name="Start"))
         self.user = ctx.message.author
-        await self.bot.say("Collecting Links")
+        await ctx.send("Collecting Links")
 
     @commands.command()
-    async def stop(self):
+    async def stop(self, ctx):
         """Stops collecting your Youtube links"""
         self.status = False
         await self.bot.change_presence(game=discord.Game(name="Stop"))
         self.user = None
-        await self.bot.say("Ignoring Links")
+        await ctx.send("Ignoring Links")
 
     @commands.command(name="status")
-    async def give_status(self):
+    async def give_status(self, ctx):
         """Gives the current status and user whose links the bot listens to"""
         if self.status:
-            await self.bot.say("**Current Status:** Start\n" +
+            await ctx.send("**Current Status:** Start\n" +
                                "**Current User:** {}".format(self.user.mention))
 
         else:
-            await self.bot.say("**Current Status:** Stop")
+            await ctx.send("**Current Status:** Stop")
 
 
 
     @commands.command(name="playlist")
-    async def post_playlist(self):
+    async def post_playlist(self, ctx):
         """links the Radio Touhou Night Playlist"""
-        await self.bot.say("https://www.youtube.com/playlist?list={}".format(self.playlist))
+        await ctx.send("https://www.youtube.com/playlist?list={}".format(self.playlist))
 
     async def on_message(self, message):
         if self.status and message.author == self.user and self.check_if_link(message.content):

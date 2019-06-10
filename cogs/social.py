@@ -5,7 +5,7 @@ import random
 import json
 
 
-class Social:
+class Social(commands.Cog):
     """
     Answers with image to certain interactions
     """
@@ -27,12 +27,12 @@ class Social:
         file_name = 'pouts'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def hug(self, ctx, *, user=None):
@@ -43,12 +43,12 @@ class Social:
         file_name = 'hug'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def smug(self, ctx, *, user=None):
@@ -59,12 +59,12 @@ class Social:
         file_name = 'smug'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def cuddle(self, ctx, *, user=None):
@@ -75,12 +75,12 @@ class Social:
         file_name = 'cuddle'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def lewd(self, ctx, *, user=None):
@@ -91,12 +91,12 @@ class Social:
         file_name = 'lewd'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def pat(self, ctx, *, user=None):
@@ -107,12 +107,12 @@ class Social:
         file_name = 'pat'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def bully(self, ctx, *, user=None):
@@ -123,12 +123,12 @@ class Social:
         file_name = 'bully'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def nobully(self, ctx, *, user=None):
@@ -139,12 +139,12 @@ class Social:
         file_name = 'nobullys'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def slap(self, ctx, *, user=None):
@@ -155,12 +155,12 @@ class Social:
         file_name = 'slaps'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def kiss(self, ctx, *, user=None):
@@ -171,12 +171,12 @@ class Social:
         file_name = 'kiss'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=False, pass_context=True)
     async def blush(self, ctx, *, user=None):
@@ -187,12 +187,12 @@ class Social:
         file_name = 'Blush'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(hidden=True, pass_context=True, aliases=["licc","lic","pero"])
     async def lick(self, ctx, *, user=None):
@@ -200,12 +200,12 @@ class Social:
         file_name = 'lick'
         images = await self.find_file(file_name)
         if mentioned_users or not user:
-            await self.bot.say(random.choice(images))
+            await ctx.send(random.choice(images))
         else:
             user = user.replace("\"", "")
-            found_user = commands.MemberConverter(ctx=ctx, argument=user).convert()
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
             fmt = '{0}\n{1}'
-            await self.bot.say(fmt.format(found_user.mention, random.choice(images)))
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
 def setup(bot):
     bot.add_cog(Social(bot))

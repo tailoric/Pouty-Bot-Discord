@@ -2,19 +2,18 @@ import wikipedia
 
 from discord.ext import commands
 
-class Wikipedia:
-
+class Wikipedia(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
 
     @commands.command()
-    async def wiki(self, *, query):
+    async def wiki(self,  ctx, *, query):
         res = wikipedia.search(query)
         try:
             link = wikipedia.page(res[0]).url
         except wikipedia.exceptions.DisambiguationError as e:
             link = wikipedia.page(e.options[0]).url
-        await self.bot.say(link)
+        await ctx.send(link)
 
 
 def setup(bot):

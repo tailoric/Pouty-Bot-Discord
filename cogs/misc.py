@@ -680,23 +680,26 @@ Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html
 """
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
-import asyncio
 import time
 import logging
 import json
 import random
 import re
 
-class RemindMe:
+class RemindMe(commands.Cog):
     """Never forget anything anymore."""
 
-    def __init__(self, bot):
+    def __init__(self, bot : commands.Bot):
         self.bot = bot
         with open("data/remindme/reminders.json", "r") as f:
             self.reminders = json.load(f)
-        self.units = {"minute" : 60, "hour" : 3600, "day" : 86400, "week": 604800, "month": 2592000}
+        self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
+        self.check_reminders.start()
+
+    def cog_unload(self):
+        self.check_reminders.cancel()
 
     @commands.command(pass_context=True)
     async def remindme(self, ctx,  quantity : int, time_unit : str, *, text : str):
@@ -711,20 +714,49 @@ class RemindMe:
         if time_unit.endswith("s"):
             time_unit = time_unit[:-1]
             s = "s"
-        if not time_unit in self.units:
-            await self.bot.say("Invalid time unit. Choose minutes/hours/days/weeks/month")
+        if time_unit not in self.units:
+            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
             return
         if quantity < 1:
-            await self.bot.say("Quantity must not be 0 or negative.")
+            await ctx.send("Quantity must not be 0 or negative.")
             return
         if len(text) > 1960:
-            await self.bot.say("Text is too long.")
+            await ctx.send("Text is too long.")
             return
         seconds = self.units[time_unit] * quantity
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : author.id, "FUTURE" : future, "TEXT" : text})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await self.bot.say("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        with open("data/remindme/reminders.json", "w") as file_reminders:
+            json.dump(self.reminders, file_reminders)
+
+    @commands.command()
+    async def reminder(self, ctx, quantity: int, time_unit: str, *, text: commands.clean_content()):
+        """
+        posts an open reminder later into the channel
+        example: .reminder 1 minute turn off the stove
+        """
+        time_unit = time_unit.lower()
+        author = ctx.message.author
+        s = ""
+        if time_unit.endswith("s"):
+            time_unit = time_unit[:-1]
+            s = "s"
+        if time_unit not in self.units:
+            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
+            return
+        if quantity < 1:
+            await ctx.send("Quantity must not be 0 or negative.")
+            return
+        if len(text) > 1960:
+            await ctx.send("Text is too long.")
+            return
+        seconds = self.units[time_unit] * quantity
+        future = int(time.time()+seconds)
+        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
+        logger.info("{} ({}) set a reminder.".format(author.name, author.id))
+        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
             json.dump(self.reminders, file_reminders)
 
@@ -736,35 +768,39 @@ class RemindMe:
         for reminder in self.reminders:
             if reminder["ID"] == author.id:
                 to_remove.append(reminder)
-
         if not to_remove == []:
             for reminder in to_remove:
                 self.reminders.remove(reminder)
             with open("data/remindme/reminders.json", "w") as file_reminders:
                 json.dump(self.reminders, file_reminders)
-            await self.bot.say("All your notifications have been removed.")
+            await ctx.send("All your notifications have been removed.")
         else:
-            await self.bot.say("You don't have any upcoming notification.")
+            await ctx.send("You don't have any upcoming notification.")
 
+    @tasks.loop(seconds=5)
     async def check_reminders(self):
-        while self is self.bot.get_cog("RemindMe"):
-            to_remove = []
-            for reminder in self.reminders:
-                if reminder["FUTURE"] <= int(time.time()):
-                    try:
-                        await self.bot.send_message(discord.User(id=reminder["ID"]), "You asked me to remind you this:\n{}".format(reminder["TEXT"]))
-                    except (discord.errors.Forbidden, discord.errors.NotFound):
-                        to_remove.append(reminder)
-                    except discord.errors.HTTPException:
-                        pass
+        to_remove = []
+        for reminder in self.reminders:
+            if reminder["FUTURE"] <= int(time.time()):
+                try:
+                    user = self.bot.get_user(id=reminder["ID"])
+                    if "CHANNEL" in reminder:
+                        channel = self.bot.get_channel(reminder["CHANNEL"])
+                        the_reminder = reminder["TEXT"]
+                        await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
                     else:
-                        to_remove.append(reminder)
-            for reminder in to_remove:
-                self.reminders.remove(reminder)
-            if to_remove:
-                with open("data/remindme/reminders.json", "w") as file_reminders:
-                    json.dump(self.reminders, file_reminders)
-            await asyncio.sleep(5)
+                        await user.send("You asked me to remind you this:\n{}".format(reminder["TEXT"]))
+                except (discord.errors.Forbidden, discord.errors.NotFound):
+                    to_remove.append(reminder)
+                except discord.errors.HTTPException as e:
+                    logger.error(f"{e}: for reminder {reminder['ID']}, {reminder['TEXT']}")
+                else:
+                    to_remove.append(reminder)
+        for reminder in to_remove:
+            self.reminders.remove(reminder)
+        if to_remove:
+            with open("data/remindme/reminders.json", "w") as file_reminders:
+                json.dump(self.reminders, file_reminders)
 
 def check_folders():
     if not os.path.exists("data/remindme"):
@@ -778,13 +814,13 @@ def check_files():
         with open(f, "w") as file_reminders:
             file_reminders.write("[]")
 
-class Choose:
-
+class Choose(commands.Cog):
+    """chooses one option from a list of several"""
     def __init__(self, bot):
         self.bot = bot
 
     @commands.command()
-    async def choose(self, *, options:str):
+    async def choose(self,  ctx, *, options:str):
         """
         choose from a list of options seperated by a space
         example:
@@ -793,7 +829,7 @@ class Choose:
 
         list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
         choice = random.choice(list_of_options)
-        await self.bot.say(choice)
+        await ctx.send(choice)
 
 
 
@@ -808,7 +844,5 @@ def setup(bot):
         handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt="[%d/%m/%Y %H:%M]"))
         logger.addHandler(handler)
     n = RemindMe(bot)
-    loop = asyncio.get_event_loop()
-    loop.create_task(n.check_reminders())
     bot.add_cog(n)
     bot.add_cog(Choose(bot))

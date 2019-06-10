@@ -5,7 +5,7 @@ import re
 import os
 import asyncio
 from datetime import datetime
-class Wuxia:
+class Wuxia(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.update_feed = bot.loop.create_task(self._get_update())

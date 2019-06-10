@@ -5,7 +5,7 @@ from bot import shutdown
 import json
 import os
 
-class Owner:
+class Owner(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         if os.path.exists("data/ignores.json"):
@@ -28,47 +28,53 @@ class Owner:
     #
     @commands.command(hidden=True)
     @checks.is_owner_or_moderator()
-    async def load(self, *, module: str):
+    async def load(self, ctx, *, module: str):
         """Loads a module"""
         try:
             self.bot.load_extension('cogs.'+module)
         except Exception as e:
-            await self.bot.say('\N{THUMBS DOWN SIGN}')
-            await self.bot.say('`{}: {}`'.format(type(e).__name__, e))
+            await ctx.send('\N{THUMBS DOWN SIGN}')
+            await ctx.send('`{}: {}`'.format(type(e).__name__, e))
         else:
-            await self.bot.say('\N{THUMBS UP SIGN}')
+            await ctx.send('\N{THUMBS UP SIGN}')
 
     @commands.command(hidden=True)
     @checks.is_owner_or_moderator()
-    async def unload(self, *, module:str):
+    async def unload(self, ctx, *, module:str):
         """Unloads a module"""
+        if module == "owner" or module == "default":
+            await ctx.send("This cog cannot be unloaded")
+            return
         try:
             self.bot.unload_extension('cogs.'+module)
         except Exception as e:
-            await self.bot.say('\N{THUMBS DOWN SIGN}')
-            await self.bot.say('`{}: {}`'.format(type(e).__name__, e))
+            await ctx.send('\N{THUMBS DOWN SIGN}')
+            await ctx.send('`{}: {}`'.format(type(e).__name__, e))
         else:
-            await self.bot.say('\N{THUMBS UP SIGN}')
+            await ctx.send('\N{THUMBS UP SIGN}')
 
     @commands.command(name='reload', hidden=True)
     @checks.is_owner_or_moderator()
-    async def _reload(self, *, module : str):
+    async def _reload(self, ctx, *, module : str):
         """Reloads a module."""
         try:
-            self.bot.unload_extension('cogs.'+module)
-            self.bot.load_extension('cogs.'+module)
+            self.bot.reload_extension('cogs.'+module)
         except Exception as e:
-            await self.bot.say('\N{THUMBS DOWN SIGN}')
-            await self.bot.say('{}: {}'.format(type(e).__name__, e))
+            try:
+                self.bot.load_extension('cogs.'+module)
+                await ctx.send('\N{THUMBS UP SIGN}')
+            except Exception as inner_e:
+                await ctx.send('\N{THUMBS DOWN SIGN}')
+                await ctx.send('{}: {}'.format(type(e).__name__, e))
         else:
-            await self.bot.say('\N{THUMBS UP SIGN}')
+            await ctx.send('\N{THUMBS UP SIGN}')
 
     @commands.command(name='shutdown', hidden=True)
     @checks.is_owner_or_admin()
-    async def _shutdown(self):
+    async def _shutdown(self, ctx):
         """Shutdown bot"""
         try:
-            await self.bot.say('Shutting down...')
+            await ctx.send('Shutting down...')
         except:
             pass
         extensions = self.bot.extensions.copy()
@@ -84,52 +90,53 @@ class Owner:
         :return:
         """
         if ctx.invoked_subcommand is None:
-            await self.bot.say("use `blacklist add` or `global_ignores remove`")
+            await ctx.send("use `blacklist add` or `global_ignores remove`")
 
     @blacklist.command(name="add", pass_context=True)
     async def _blacklist_add(self, ctx, user: User):
         if ctx.message.author.id == user.id:
-            await self.bot.say("Don't blacklist yourself, dummy")
+            await ctx.send("Don't blacklist yourself, dummy")
             return
         if user.id not in self.global_ignores:
             self.global_ignores.append(user.id)
             with open("data/ignores.json", "w") as f:
                 json.dump(self.global_ignores,f)
-            await self.bot.say('User {} has been blacklisted'.format(user.name))
+            await ctx.send('User {} has been blacklisted'.format(user.name))
         else:
-            await self.bot.say("User {} already is blacklisted".format(user.name))
+            await ctx.send("User {} already is blacklisted".format(user.name))
 
 
     @blacklist.command(name="remove")
-    async def _blacklist_remove(self, user:User):
+    async def _blacklist_remove(self, ctx, user:User):
         if user.id in self.global_ignores:
             self.global_ignores.remove(user.id)
             with open("data/ignores.json", "w") as f:
                 json.dump(self.global_ignores, f)
-            await self.bot.say("User {} has been removed from blacklist".format(user.name))
+            await ctx.send("User {} has been removed from blacklist".format(user.name))
         else:
-            await self.bot.say("User {} is not blacklisted".format(user.name))
+            await ctx.send("User {} is not blacklisted".format(user.name))
 
     @commands.group(name="command", pass_context=True)
     @checks.is_owner()
     async def _commands(self, ctx):
         if ctx.invoked_subcommand is None:
-            await self.bot.say("use `command help`")
+            await ctx.send("use `command help`")
 
     @_commands.command(name='disable', pass_context=True)
     async def _commands_disable(self, ctx, command:str ):
-        server = ctx.message.server
+        server = ctx.message.guild
         self.disabled_commands.append({"server": server.id, "command": command})
         with open(self.disabled_commands_file, 'w') as f:
             json.dump(self.disabled_commands, f)
-        await self.bot.say("command {} disabled".format(command))
+        await ctx.send("command {} disabled".format(command))
 
     @_commands.command(name='enable', pass_context=True)
     async def _commands_enable(self, ctx, command:str ):
-        server = ctx.message.server
+        server = ctx.message.guild
         self.disabled_commands.remove({"server": server.id, "command": command})
         with open(self.disabled_commands_file, 'w') as f:
             json.dump(self.disabled_commands, f)
-        await self.bot.say("command {} enabled".format(command))
+        await ctx.send("command {} enabled".format(command))
+
 def setup(bot):
     bot.add_cog(Owner(bot))
