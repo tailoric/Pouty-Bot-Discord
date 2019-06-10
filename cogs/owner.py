@@ -42,7 +42,7 @@ class Owner(commands.Cog):
     @checks.is_owner_or_moderator()
     async def unload(self, ctx, *, module:str):
         """Unloads a module"""
-        if module == "owner" or "default":
+        if module == "owner" or module == "default":
             await ctx.send("This cog cannot be unloaded")
             return
         try:

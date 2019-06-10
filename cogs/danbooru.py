@@ -1,4 +1,4 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 import discord
 import aiohttp
 import json
@@ -30,6 +30,26 @@ class Helper:
             if response.status == 200:
                 json_dump = await response.json()
                 return json_dump['name']
+
+    async def lookup_posts(self, limit=200):
+        params = {'limit': limit}
+        url = 'https://danbooru.donmai.us'
+        with open(self.auth_file) as file:
+            data = json.load(file)
+            user = data['user']
+            api_key = data['api_key']
+        auth = aiohttp.BasicAuth(user, api_key)
+        async with self.session.get('{}/posts.json'.format(url), params=params, auth=auth) as response:
+            if response.status == 200:
+                json_dump = await response.json()
+                for image in json_dump:
+                    if image['has_large'] and image['file_ext'] == 'zip':
+                        image['file_url'] = self.build_url(url, image['large_file_url'])
+                    else:
+                        image['file_url'] = self.build_url(url, image['file_url'])
+                return json_dump
+            else:
+                return None
 
     async def lookup_tags(self, tags, **kwargs):
         params = {'tags' : tags}
@@ -157,56 +177,49 @@ class Scheduler:
         self.auth_file = 'data/danbooru/danbooru.json'
         self.subs_file = 'data/danbooru/subs.db'
         self.retrieve_subs()
-        self.schedule_task = self.bot.loop.create_task(self.schedule_task())
+        self.schedule_task.start()
         self.helper = Helper(self.session, self.bot, self.auth_file)
         self.logger = logging.getLogger('discord')
 
+    @tasks.loop(minutes=1)
     async def schedule_task(self):
         #iterate through all subscriptions and update information
-        while not self.bot.is_closed():
-            subs_copy = self.subscriptions.copy()
-            for sub in subs_copy:
-                # skip the subscription if the sub was already removed
-                if sub not in self.subscriptions:
+        subs_copy = self.subscriptions.copy()
+        for sub in subs_copy:
+            # skip the subscription if the sub was already removed
+            if sub not in self.subscriptions:
+                continue
+            if sub.is_private and len(sub.paused_users) > 0 or len(sub.paused_users) == len(sub.users):
+                continue
+            try:
+                images = await self.helper.lookup_tags(sub.tags_to_string())
+                if not images:
                     continue
-                if sub.is_private and len(sub.paused_users) > 0 or len(sub.paused_users) == len(sub.users):
-                    continue
-                try:
-                    tags = sub.tags_to_string()
-                    images = await self.helper.lookup_tags(tags)
-                    # skip if nothing was send back
-                    if not images:
-                        continue
-                    new_posts, timestamp_posted = await self._find_all_new_posts(images,sub)
-                    if new_posts:
-                        await self.send_new_posts(sub,new_posts)
-                        sub.old_timestamp = max(timestamp_posted)
-                        sub.write_sub_to_file()
-                    number_subs = len(self.subscriptions)
-                    # if number_subs < 1800:
-                    #     await asyncio.sleep(1800//number_subs)
-                    # else:
-                    await asyncio.sleep(5)
+                new_posts, timestamp_posted = await self._find_all_new_posts(images, sub)
+                if new_posts:
+                    await self.send_new_posts(sub, new_posts)
+                    sub.old_timestamp = max(timestamp_posted)
+                    sub.write_sub_to_file()
+                await asyncio.sleep(30)
 
-                except asyncio.CancelledError as e:
-                    self._write_subs_information_to_file()
-                    return
-                except aiohttp.ClientOSError as cle:
-                    self._write_subs_information_to_file()
-                    await asyncio.sleep(10)
-                    continue
-                except Exception as e:
-                    owner = discord.User(id=134310073014026242)
-                    self._write_subs_information_to_file()
-                    message = ('Error during update Task: `{}`\n'
-                               'during Sub: `{}`\n'
-                               '```\n{}\n```'
-                               .format(repr(e),sub.tags_to_string(),traceback.print_exc()))
-                    await self.bot.send_message(owner, message)
-                    await asyncio.sleep(10)
-                    continue
-            await asyncio.sleep(5)
-            self.write_to_file()
+            except asyncio.CancelledError as e:
+                self._write_subs_information_to_file()
+                return
+            except aiohttp.ClientOSError as cle:
+                self._write_subs_information_to_file()
+                await asyncio.sleep(10)
+                continue
+            except Exception as e:
+                owner = self.bot.get_user(134310073014026242)
+                self._write_subs_information_to_file()
+                message = ('Error during update Task: `{}`\n'
+                           'during Sub: `{}`\n'
+                           '```\n{}\n```'
+                           .format(repr(e),sub.tags_to_string(),traceback.print_exc()))
+                await owner.send(message)
+                await asyncio.sleep(10)
+                continue
+        self.write_to_file()
 
     def _write_subs_information_to_file(self):
         self.write_to_file()
@@ -257,7 +270,7 @@ class Scheduler:
             if os.path.exists('data/danbooru/sub_channel.json'):
                 with open('data/danbooru/sub_channel.json','r') as f:
                     sub_channel_file = json.load(f)
-                server = self.bot.get_server(sub_channel_file['server'])
+                server = self.bot.get_guild(sub_channel_file['server'])
                 channel = self.bot.get_channel(sub_channel_file['channel'])
             else:
                 server = self.bot.get_server(data['server'])
@@ -294,9 +307,9 @@ class Scheduler:
         message_list = self._split_message_in_groups_of_four(sub, new_posts)
         for partial_message in message_list:
             if sub.is_private:
-                await self.bot.send_message(sub.users[0], partial_message)
+                await sub.users[0].send(partial_message)
             else:
-                await self.bot.send_message(sub.channel, partial_message)
+                await sub.channel.send(partial_message)
             await asyncio.sleep(10)
 
     def find_matching_subs(self, tags, subs, image):
@@ -375,7 +388,6 @@ class Danbooru(commands.Cog):
                 self.danbooru_channels = json.load(file)
         else:
             self.danbooru_channels = []
-
 
     def cog_unload(self):
         self.scheduler.schedule_task.cancel()
@@ -593,12 +605,12 @@ class Danbooru(commands.Cog):
                                 sub.users.remove(user)
                                 self.scheduler.write_to_file()
                                 sub.write_sub_to_file()
-                                await self.bot.reply('successfully unsubscribed')
+                                await ctx.send("successfully unsubscribed")
                            except Exception as e:
                                await ctx.send('Error while unsubscribing: `{}`'.format(repr(e)))
                                raise e
                 if not user_unsubscribed:
-                    await self.bot.reply('You aren\'t subscribed to that tag')
+                    await ctx.send('You aren\'t subscribed to that tag')
                 if not sub.users:
                     try:
                         self.scheduler.subscriptions.remove(sub)
@@ -655,7 +667,7 @@ class Danbooru(commands.Cog):
             for element in found_subs_messages:
                 await ctx.send(element)
         else:
-            await self.bot.reply('You aren\'t subscribed to any tags')
+            await ctx.send('You aren\'t subscribed to any tags')
 
     @dans.command(hidden=True)
     @checks.is_owner()
