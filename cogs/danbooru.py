@@ -251,6 +251,8 @@ class Scheduler:
             line = line.replace('\n','')
             line = line.replace('\'','')
             sub = self.create_sub_from_file(line)
+            if sub == None:
+                continue
             print(sub.tags_to_string())
             self.subscriptions.append(sub)
 
@@ -264,25 +266,25 @@ class Scheduler:
             is_private = True
             id = data['users']['0']['id']
             name = data['users']['0']['name']
-            user_list.append(discord.User(username=name, id=id))
+            user = self.bot.get_user(id)
+            if user is None:
+                return None
         else:
             is_private = False
             if os.path.exists('data/danbooru/sub_channel.json'):
                 with open('data/danbooru/sub_channel.json','r') as f:
                     sub_channel_file = json.load(f)
-                server = self.bot.get_guild(sub_channel_file['server'])
-                channel = self.bot.get_channel(sub_channel_file['channel'])
+                server = self.bot.get_guild(int(sub_channel_file['server']))
+                channel = self.bot.get_channel(int(sub_channel_file['channel']))
             else:
-                server = self.bot.get_server(data['server'])
-                channel = self.bot.get_channel(data['channel'])
+                server = self.bot.get_guild(int(data['server']))
+                channel = self.bot.get_channel(int(data['channel']))
             for user in data['users']:
                 # try to get the member through Discord and their ID
-                member = server.get_member(data['users'][user]['id'])
+                member = server.get_member(int(data['users'][user]['id']))
                 # if that fails create own user with the necessary information
                 if member == None:
-                    id = data['users'][user]['id']
-                    name = data['users'][user]['name']
-                    member = discord.User(username=name,id=id)
+                    continue
                 user_list.append(member)
 
         tags = data['tags']
@@ -479,7 +481,7 @@ class Danbooru(commands.Cog):
 
     def _get_danbooru_channel_of_message(self,message : discord.Message):
         server = message.guild
-        danbooru_channel = [x["channel"] for x in self.danbooru_channels if x["server"]== server.id]
+        danbooru_channel = [x["channel"] for x in self.danbooru_channels if int(x["server"])== server.id]
         if danbooru_channel:
             return self.bot.get_channel(danbooru_channel[0])
         else:
@@ -678,7 +680,7 @@ class Danbooru(commands.Cog):
                 for line in lines:
                     sub = line.split('|')
                     await ctx.send('converting the following sub:`{}`'.format(sub[0]))
-                    server = self.bot.get_server(sub[3])
+                    server = self.bot.get_guild(sub[3])
                     channel = self.bot.get_channel(sub[2])
                     users = sub[1].split(';')
                     userlist = []
@@ -686,7 +688,7 @@ class Danbooru(commands.Cog):
                         if server:
                             member = server.get_member(user)
                         if not member:
-                            member = discord.User(id=user)
+                            member = self.bot.get_user(user)
                         userlist.append(member)
 
                     tags = sub[0]
