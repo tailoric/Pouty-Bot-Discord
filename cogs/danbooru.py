@@ -177,7 +177,6 @@ class Scheduler:
         self.auth_file = 'data/danbooru/danbooru.json'
         self.subs_file = 'data/danbooru/subs.db'
         self.retrieve_subs()
-        self.schedule_task.start()
         self.helper = Helper(self.session, self.bot, self.auth_file)
         self.logger = logging.getLogger('discord')
 
@@ -204,7 +203,7 @@ class Scheduler:
 
             except asyncio.CancelledError as e:
                 self._write_subs_information_to_file()
-                return
+                raise
             except aiohttp.ClientOSError as cle:
                 self._write_subs_information_to_file()
                 await asyncio.sleep(10)
@@ -220,6 +219,9 @@ class Scheduler:
                 await asyncio.sleep(10)
                 continue
         self.write_to_file()
+
+    def cancel_task(self):
+        self.schedule_task.cancel()
 
     def _write_subs_information_to_file(self):
         self.write_to_file()
@@ -379,6 +381,7 @@ class Danbooru(commands.Cog):
         self.auth_file = 'data/danbooru/danbooru.json'
         self.session = aiohttp.ClientSession()
         self.scheduler = Scheduler(self.bot,self.session)
+        self.running_task = self.scheduler.schedule_task.start()
         self.helper = Helper(self.session,self.bot,self.auth_file)
         self.init_directories()
         self.blacklist_tags_file = 'data/danbooru_cog_blacklist.json'
@@ -392,8 +395,8 @@ class Danbooru(commands.Cog):
             self.danbooru_channels = []
 
     def cog_unload(self):
-        self.scheduler.schedule_task.cancel()
         try:
+            self.running_task.cancel()
             if not self.scheduler.subscriptions:
                 return
             self.scheduler.write_to_file()
