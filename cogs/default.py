@@ -79,11 +79,25 @@ class Default(commands.Cog):
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
         if owner_cog:
+            if checks.user_is_in_whitelist_server(self.bot, ctx.author):
+                return True
             current_guild = ctx.guild
-            disabled_commands = [dc["command"]
-                                 for dc in owner_cog.disabled_commands if dc["server"] == current_guild.id]
-            if ctx.command.name in disabled_commands and not checks.user_is_in_whitelist_server(self.bot, ctx.author):
-                raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+            guilds_with_disabled_command = [g["server"] for g in owner_cog.disabled_commands ]
+            if current_guild:
+                disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands
+                                     if dc["server"] == current_guild.id]
+                if ctx.command.name in disabled_commands:
+                    raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+            else:
+                for guild_id in guilds_with_disabled_command:
+                    guild = self.bot.get_guild(guild_id)
+                    member = guild.get_member(ctx.author.id)
+                    if not member:
+                        continue
+                    disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands
+                                         if dc["server"] == guild.id]
+                    if ctx.command.name in disabled_commands:
+                        raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
         return True
 
     async def check_for_black_list_user(self, ctx):
