@@ -271,6 +271,7 @@ class Scheduler:
             user = self.bot.get_user(id)
             if user is None:
                 return None
+            user_list.append(user)
         else:
             is_private = False
             if os.path.exists('data/danbooru/sub_channel.json'):
@@ -492,10 +493,13 @@ class Danbooru(commands.Cog):
 
     async def _find_danbooru_image(self, ctx, tags, random):
         message = ctx.message
-        channel = self._get_danbooru_channel_of_message(message)
-        if channel is None:
-            await ctx.send("danbooru channel not setup")
-            return
+        if ctx.guild:
+            channel = self._get_danbooru_channel_of_message(message)
+            if channel is None:
+                await ctx.send("danbooru channel not setup")
+                return
+        else:
+            channel = ctx.message.channel
         tags = self._add_blacklist_to_tags(tags)
         if random:
             image = await self.helper.lookup_tags(tags, limit='1', random=random)
@@ -658,13 +662,14 @@ class Danbooru(commands.Cog):
         found_subs_messages = []
         one_sub_found = False
         for sub in self.scheduler.subscriptions:
-            if message.author in sub.users and (not sub.is_private or message.channel.is_private):
-                if sub.is_private:
-                    found_subs += ' [private]'
+            if message.author in sub.users and (not sub.is_private or isinstance(message.channel, discord.DMChannel)):
                 if len(found_subs) + len(sub.tags_to_message()) >= 2000:
                     found_subs_messages.append(found_subs)
                     found_subs = ''
-                found_subs += '\n`{}`'.format(sub.tags_to_message())
+                if sub.is_private:
+                    found_subs += '[private] `{}`\n'.format(sub.tags_to_string())
+                else:
+                    found_subs += '`{}`\n'.format(sub.tags_to_message())
                 one_sub_found = True
         found_subs_messages.append(found_subs)
 
