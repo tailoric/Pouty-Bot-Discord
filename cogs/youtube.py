@@ -39,7 +39,7 @@ class Youtube(commands.Cog):
     async def start(self, ctx):
         """starts collecting your Youtube links"""
         self.status = True
-        await self.bot.change_presence(game=discord.Game(name="Start"))
+        await self.bot.change_presence(activity=discord.Game(name="Start"))
         self.user = ctx.message.author
         await ctx.send("Collecting Links")
 
@@ -47,7 +47,7 @@ class Youtube(commands.Cog):
     async def stop(self, ctx):
         """Stops collecting your Youtube links"""
         self.status = False
-        await self.bot.change_presence(game=discord.Game(name="Stop"))
+        await self.bot.change_presence(activity=discord.Game(name="Stop"))
         self.user = None
         await ctx.send("Ignoring Links")
 
@@ -68,6 +68,7 @@ class Youtube(commands.Cog):
         """links the Radio Touhou Night Playlist"""
         await ctx.send("https://www.youtube.com/playlist?list={}".format(self.playlist))
 
+    @commands.Cog.listener()
     async def on_message(self, message):
         if self.status and message.author == self.user and self.check_if_link(message.content):
             await self.insert_videos_into_playlist(message.content)
@@ -115,9 +116,9 @@ class Youtube(commands.Cog):
                     part="id",
                     playlistId=self.playlist
                 ).execute()
-        channel = discord.Object(id='248987073124630528')
+        channel = self.bot.get_channel(id=248987073124630528)
         message = 'List contains {} songs'.format(result['pageInfo']['totalResults'])
-        await self.bot.send_message(channel, message)
+        await channel.send(message)
 
 
 def setup(bot):
