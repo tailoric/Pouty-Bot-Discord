@@ -44,11 +44,13 @@ class ReadRules(commands.Cog):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
+        if channel.id != 366659034410909717:
+            return
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
             phrases = json.load(f)
             has_confirm_in_message = "yes" in content or "i have" in content
-            if has_confirm_in_message and channel.id == 366659034410909717:
+            if has_confirm_in_message:
                 await channel.send(choice(phrases["yes"]))
                 return
             if "sex-shack" in content:
