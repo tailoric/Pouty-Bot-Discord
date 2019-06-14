@@ -11,7 +11,8 @@ class AnimemesHelpFormat(commands.DefaultHelpCommand):
 
     async def send_bot_help(self, mapping):
         channel = self.context.channel
-        if channel and channel.id == 589166885531156480:
+        ignore_cogs = ["Default", "ReadRules"]
+        if channel and channel.id == 366659034410909717:
             await self.context.send(self.random_response())
             return
         self.paginator.add_line(self.context.bot.description, empty=True)
@@ -20,7 +21,7 @@ class AnimemesHelpFormat(commands.DefaultHelpCommand):
         self.paginator.add_line("Command categories:")
         for cog in mapping:
             filtered = await self.filter_commands(mapping.get(cog))
-            if cog is None or len(filtered) == 0 or cog.qualified_name is "Default":
+            if cog is None or len(filtered) == 0 or cog.qualified_name in ignore_cogs:
                 continue
             if cog.qualified_name:
                 self.paginator.add_line("\t* {0}".format(cog.qualified_name))
@@ -45,7 +46,7 @@ class ReadRules(commands.Cog):
         with open("data/rules_channel_phrases.json") as f:
             phrases = json.load(f)
             has_confirm_in_message = "yes" in content or "i have" in content
-            if has_confirm_in_message and message.channel.id == 589166885531156480:
+            if has_confirm_in_message and message.channel.id == 366659034410909717:
                 await message.channel.send(choice(phrases["yes"]))
 
 
