@@ -1,6 +1,7 @@
 from discord.ext import commands
 import json
 from random import choice
+import re
 class AnimemesHelpFormat(commands.DefaultHelpCommand):
 
     def random_response(self):
@@ -40,14 +41,23 @@ class ReadRules(commands.Cog):
         self.bot.help_command = self._original_help_command
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.id == self.bot.user.id:
+        channel = message.channel
+        if message.author.id == self.bot.user.id or not message.guild:
             return
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
             phrases = json.load(f)
             has_confirm_in_message = "yes" in content or "i have" in content
-            if has_confirm_in_message and message.channel.id == 366659034410909717:
-                await message.channel.send(choice(phrases["yes"]))
+            if has_confirm_in_message and channel.id == 366659034410909717:
+                await channel.send(choice(phrases["yes"]))
+                return
+            if "sex-shack" in content:
+                await channel.send(choice(phrases["shack"]))
+                return
+            if "general-discussion" in content or re.match(r"#(\w+-?)+", content) or message.channel_mentions:
+                await channel.send(choice(phrases["channel"]))
+                return
+
 
 
 def setup(bot: commands.Bot):
