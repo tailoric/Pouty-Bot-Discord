@@ -64,6 +64,9 @@ class ReadRules(commands.Cog):
                 return
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
+        memester_role = after.guild.get_role(189594836687519744)
+        if memester_role and memester_role not in after.roles:
+            return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         match = alphanumeric_pattern.match(after.name)
         if match:
