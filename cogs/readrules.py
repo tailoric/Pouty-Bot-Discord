@@ -2,6 +2,7 @@ from discord.ext import commands
 import json
 from random import choice
 import re
+from .utils.dataIO import DataIO
 class AnimemesHelpFormat(commands.DefaultHelpCommand):
 
     def random_response(self):
@@ -36,6 +37,8 @@ class ReadRules(commands.Cog):
         self._original_help_command = bot.help_command
         self.bot.help_command = AnimemesHelpFormat()
         self.bot.help_command.cog = self
+        self.data_io = DataIO()
+        self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
@@ -59,6 +62,20 @@ class ReadRules(commands.Cog):
             if "general-discussion" in content or re.match(r"#(\w+-?)+", content) or message.channel_mentions:
                 await channel.send(choice(phrases["channel"]))
                 return
+    @commands.Cog.listener()
+    async def on_member_update(self, before, after):
+        alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9_]{3,}.*', re.ASCII)
+        match = alphanumeric_pattern.match(after.name)
+        if match:
+            return
+        if after.nick:
+            match = alphanumeric_pattern.match(after.nick)
+            if match:
+                return
+        old_name = after.name
+        await after.edit(nick="pingable_username")
+        if self.checkers_channel:
+            await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
 
 
 
