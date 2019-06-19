@@ -64,7 +64,7 @@ class ReadRules(commands.Cog):
                 return
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9_]{3,}.*', re.ASCII)
+        alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         match = alphanumeric_pattern.match(after.name)
         if match:
             return
