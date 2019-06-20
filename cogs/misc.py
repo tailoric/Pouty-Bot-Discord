@@ -864,11 +864,11 @@ class EightBall(commands.Cog):
                 "Concentrate and ask again."
             ],
             "negative": [
-                    "Don't count on it.",
-                    "My reply is no.",
-                    "My sources say no.",
-                    "Outlook not so good.",
-                    "Very doubtful."
+                "Don't count on it.",
+                "My reply is no.",
+                "My sources say no.",
+                "Outlook not so good.",
+                "Very doubtful."
             ]
         }
         answerlist = response[random.choice(["positive", "negative", "neutral"])]
