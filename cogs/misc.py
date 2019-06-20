@@ -831,6 +831,49 @@ class Choose(commands.Cog):
         choice = random.choice(list_of_options)
         await ctx.send(choice)
 
+class EightBall(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command(name="8ball")
+    async def eightball(self, ctx, *, question=None):
+        """
+        Let fate answer a yes or no question...
+        """
+        if not question:
+            await ctx.send("you need to ask a question")
+            return
+        response = {
+            "positive": [
+                "It is certain.",
+                "It is decidedly so.",
+                "Without a doubt.",
+                "Yes - definitely.",
+                "You may rely on it.",
+                "As I see it, yes.",
+                "Most likely.",
+                "Outlook good.",
+                "Yes.",
+                "Signs point to yes."
+            ],
+            "neutral": [
+                "Reply hazy, try again.",
+                "Ask again later.",
+                "Better not tell you now.",
+                "Cannot predict now.",
+                "Concentrate and ask again."
+            ],
+            "negative": [
+                    "Don't count on it.",
+                    "My reply is no.",
+                    "My sources say no.",
+                    "Outlook not so good.",
+                    "Very doubtful."
+            ]
+        }
+        answerlist = response[random.choice(["positive", "negative", "neutral"])]
+        await ctx.send(random.choice(answerlist))
+
 
 
 def setup(bot):
@@ -846,3 +889,4 @@ def setup(bot):
     n = RemindMe(bot)
     bot.add_cog(n)
     bot.add_cog(Choose(bot))
+    bot.add_cog(EightBall(bot))
