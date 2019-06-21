@@ -1,7 +1,6 @@
 from discord.ext import commands
 from discord import User
 from .utils import checks
-from bot import shutdown
 import json
 import os
 
@@ -73,14 +72,8 @@ class Owner(commands.Cog):
     @checks.is_owner_or_admin()
     async def _shutdown(self, ctx):
         """Shutdown bot"""
-        try:
-            await ctx.send('Shutting down...')
-        except:
-            pass
-        extensions = self.bot.extensions.copy()
-        for extension in extensions:
-            self.bot.unload_extension(extension)
-        await shutdown(bot=self.bot)
+        await ctx.send('Shutting down...')
+        await self.bot.logout()
 
     @commands.group(pass_context=True, aliases=['bl'])
     @checks.is_owner_or_moderator()

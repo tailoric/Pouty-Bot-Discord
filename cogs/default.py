@@ -51,14 +51,15 @@ class Default(commands.Cog):
         print('Logged in as')
         print(self.bot.user.name)
         print(self.bot.user.id)
+        print(discord.utils.oauth_url(self.credentials['client-id']))
         print('-'*8)
-        try:
-            init_extensions = self.data_io.load_json("initial_cogs")
-            for extension in init_extensions:
+        init_extensions = self.data_io.load_json("initial_cogs")
+        for extension in init_extensions:
+            try:
                 self.bot.load_extension(extension)
-            print(discord.utils.oauth_url(self.credentials['client-id']))
-        except Exception as e:
-            print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
+            except Exception as e:
+                print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
+                continue
 
     async def on_command_error(self, ctx, error):
         error_message_sent = False

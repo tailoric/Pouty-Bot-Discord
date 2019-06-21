@@ -16,16 +16,6 @@ bot = commands.Bot(command_prefix=['!', '.'], description=description)
 def load_credentials():
     return data_io.load_json("credentials")
 
-
-async def shutdown(bot, *, restart=False):
-    """Gracefully quits bot with exit code 0"""
-    await bot.logout()
-    if restart:
-        exit(1)
-    else:
-        exit(0)
-
-
 if __name__ == '__main__':
     credentials = load_credentials()
     bot.client_id = credentials['client-id']
@@ -36,9 +26,5 @@ if __name__ == '__main__':
     logger.addHandler(handler)
     token = credentials['token']
 
-    try:
-        bot.load_extension("cogs.default")
-        bot.run(token)
-    except KeyboardInterrupt:
-        print("Keyboard interrupt exiting with error code 0")
-        sys.exit(0)
+    bot.load_extension("cogs.default")
+    bot.run(token)
