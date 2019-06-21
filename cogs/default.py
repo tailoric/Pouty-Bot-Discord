@@ -92,6 +92,8 @@ class Default(commands.Cog):
             else:
                 for guild_id in guilds_with_disabled_command:
                     guild = self.bot.get_guild(guild_id)
+                    if not guild:
+                        continue
                     member = guild.get_member(ctx.author.id)
                     if not member:
                         continue
