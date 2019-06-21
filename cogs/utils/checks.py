@@ -16,12 +16,18 @@ def is_owner():
 
 
 def is_owner_or_admin_check(message):
-    return message.author.guild_permissions.administrator or is_owner_check(message)
+    if is_owner_check(message):
+        return True
+    if not message.guild:
+        return False
+    return message.author.guild_permissions.administrator 
 
 
 def is_owner_or_moderator_check(message):
     if is_owner_or_admin_check(message):
         return True
+    if not message.guild:
+        return False
     for role in message.author.roles:
         if role.name == "Discord-Senpai" or role.name == "Moderators":
             return True
@@ -49,3 +55,6 @@ def user_is_in_whitelist_server(bot: commands.Bot, user: User):
                 if member:
                     return True
         return False
+
+def setup(bot):
+    pass
