@@ -21,6 +21,9 @@ class Sword(commands.Cog):
         if ctx.message.channel != self.allowed_channel:
             await ctx.send(f"Not in the right channel, please use <#{self.allowed_channel.id}>")
             return
+        if ctx.author == member:
+            await ctx.send("You take a mighty leap and your own sword plunges into your heart. Congratulations, you just played yourself.")
+            return
         challenger = ctx.message.author.mention
         rival = member.mention
         battle_duration = random.randint(1, 201)
