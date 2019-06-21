@@ -31,7 +31,7 @@ class Reddit(commands.Cog):
             with open(self.reddit_settings_path, 'r') as f:
                 settings = json.load(f)
                 self.checker_channel = self.bot.get_channel(settings['channel'])
-            self.webhook_user_id = 583344751936274454
+            self.webhook_user_id = 587605124470276096
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
