@@ -22,3 +22,4 @@ websockets
 wikipedia
 youtube-dl
 pillow
+emojipedia

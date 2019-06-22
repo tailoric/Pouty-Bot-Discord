@@ -688,6 +688,8 @@ import json
 import random
 import re
 import typing
+from emojipedia import Emojipedia
+from functools import partial
 
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
@@ -881,7 +883,7 @@ class Emoji(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji]):
+    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], emoji=None):
         """
         displays a custom emote as an image in chat
         """
@@ -890,8 +892,19 @@ class Emoji(commands.Cog):
             embed.set_image(url=emote.url)
             await ctx.send(embed=embed)
             return
-        else:
-            await ctx.send("Please provide a custom emote")
+        if emoji:
+            to_run = partial(Emojipedia.search, emoji)
+            try:
+                found_emoji = await self.bot.loop.run_in_executor(None, to_run)
+            except RuntimeError:
+                await ctx.send("couldn't find emoji \N{PENSIVE FACE}")
+                return
+            twitter_emoji = next(twi for twi in found_emoji.platforms if twi.name == "Twitter")
+            embed = discord.Embed(title=found_emoji.title, url=twitter_emoji.image_url)
+            embed.set_image(url=twitter_emoji.image_url)
+            await ctx.send(embed=embed)
+            return
+        await ctx.send("Please provide a custom emote")
 
 
 
