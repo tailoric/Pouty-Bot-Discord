@@ -687,6 +687,7 @@ import logging
 import json
 import random
 import re
+import typing
 
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
@@ -874,6 +875,21 @@ class EightBall(commands.Cog):
         answerlist = response[random.choice(["positive", "negative", "neutral"])]
         await ctx.send(random.choice(answerlist))
 
+class Emoji(commands.Cog):
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @commands.command()
+    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji]):
+        if emote:
+            embed = discord.Embed(title=emote.name, url=str(emote.url))
+            embed.set_image(url=emote.url)
+            await ctx.send(embed=embed)
+            return
+        else:
+            await ctx.send("Please provide a custom emote")
+
 
 
 def setup(bot):
@@ -890,3 +906,4 @@ def setup(bot):
     bot.add_cog(n)
     bot.add_cog(Choose(bot))
     bot.add_cog(EightBall(bot))
+    bot.add_cog(Emoji(bot))
