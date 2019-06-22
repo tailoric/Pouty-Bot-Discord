@@ -1,3 +1,5 @@
+from typing import Optional
+
 from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import DataIO
@@ -50,6 +52,16 @@ class Userinfo(commands.Cog):
             embed.add_field(name="Roles", value=", ".join([x.name for x in user_roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
         await ctx.send(embed=embed)
+
+    @commands.command(aliases=["avi", "profile_pic"])
+    async def pfp(self, ctx, member :Optional[discord.Member]):
+        """
+        makes the bot post the pfp of a member
+        """
+        if member:
+            await ctx.send(member.avatar_url)
+        else:
+            await ctx.send(ctx.author.avatar_url)
 
     @commands.command(pass_context=True)
     async def serverinfo(self, ctx):
