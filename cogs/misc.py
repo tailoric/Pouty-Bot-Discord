@@ -882,6 +882,9 @@ class Emoji(commands.Cog):
 
     @commands.command()
     async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji]):
+        """
+        displays a custom emote as an image in chat
+        """
         if emote:
             embed = discord.Embed(title=emote.name, url=str(emote.url))
             embed.set_image(url=emote.url)
