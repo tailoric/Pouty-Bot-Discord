@@ -17,6 +17,23 @@ class Roles(commands.Cog):
         else:
             self.settable_roles = []
             self.save_roles_to_file()
+        self.lockdown = False
+
+
+    @checks.is_owner_or_moderator()
+    @commands.command()
+    async def lockdown(self, ctx, status):
+        """
+        locks down the server so role doesn't get assigned
+        use ".lockdown enable" to enable lockdown and
+        ".lockdown disable" to disable
+        """
+        if status.lower() == "enable":
+            self.lockdown = True
+            await ctx.send("lockdown enabled")
+        else:
+            self.lockdown = False
+            await ctx.send("lockdown disabled")
 
     def save_roles_to_file(self):
         with open('data/roles.json', 'w') as file:
@@ -28,6 +45,9 @@ class Roles(commands.Cog):
         assigns you a role
         """
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
+        if role == settable_role and self.lockdown:
+            await ctx.send("Server on lockdown due to high amount of people joining try again in a day or two")
+            return
         if role.position > settable_role.position:
             await ctx.send("can't give you that role")
             return
