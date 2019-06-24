@@ -690,6 +690,7 @@ import re
 import typing
 from emojipedia import Emojipedia
 from functools import partial
+import aiohttp
 
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
@@ -835,6 +836,7 @@ class Choose(commands.Cog):
         await ctx.send(choice)
 
 class EightBall(commands.Cog):
+    """let fate answer a yes or no question"""
     def __init__(self, bot):
         self.bot = bot
 
@@ -878,7 +880,9 @@ class EightBall(commands.Cog):
         await ctx.send(random.choice(answerlist))
 
 class Emoji(commands.Cog):
-
+    """
+    get image link of unicode emoji or a custom emote
+    """
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -907,6 +911,27 @@ class Emoji(commands.Cog):
         await ctx.send("Please provide a custom emote")
 
 
+class SCP(commands.Cog):
+    """
+    look up scp articles via number
+    """
+    def __init__(self, bot):
+        self.bot = bot
+        self.session = aiohttp.ClientSession()
+
+    @commands.command()
+    async def scp(self, ctx, number: int):
+        """look up scp by number. SCP tales or other sites don't work only numbers"""
+        url = f"http://www.scp-wiki.net/scp-{number}"""
+        async with self.session.get(url) as re:
+            if re.status == 200:
+                await ctx.send(url)
+            else:
+                await ctx.send("SCP not found")
+
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
+
 
 def setup(bot):
     global logger
@@ -923,3 +948,4 @@ def setup(bot):
     bot.add_cog(Choose(bot))
     bot.add_cog(EightBall(bot))
     bot.add_cog(Emoji(bot))
+    bot.add_cog(SCP(bot))
