@@ -792,7 +792,7 @@ class RemindMe(commands.Cog):
                         the_reminder = reminder["TEXT"]
                         await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
                     else:
-                        await user.send("You asked me to remind you this:\n{}".format(reminder["TEXT"]))
+                        await user.send("You asked me to remind you of this:\n{}".format(reminder["TEXT"]))
                 except (discord.errors.Forbidden, discord.errors.NotFound):
                     to_remove.append(reminder)
                 except discord.errors.HTTPException as e:
