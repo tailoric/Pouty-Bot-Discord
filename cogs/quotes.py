@@ -26,6 +26,7 @@ class Quotes(commands.Cog):
             while chosen_quote == self.removed_quote:
                 choice = randint(0, len(self.quotes) -1)
                 chosen_quote = self.quotes[choice]
+            chosen_quote = chosen_quote.replace("\\n", "\n")
             await ctx.send(f"{choice+1}) {chosen_quote}")
             return
         if not quote:
@@ -37,13 +38,16 @@ class Quotes(commands.Cog):
                 choice = randint(0, len(self.quotes)-1)
                 current_quote = self.quotes[choice]
             if mes:
+                current_quote = current_quote.replace("\\n", "\n")
                 await asyncio.sleep(3)
                 await mes.edit(content=f"{choice+1}) {current_quote}")
             else:
+                current_quote.replace("\\n", "\n")
                 await ctx.send(f"{choice+1}) {current_quote}")
             return
         else:
             with open("data/quotes.txt", "a", encoding="utf-8") as f:
+                quote = str(quote).replace("\n", "\\n")
                 if number:
                     quote = f"{number} {quote}"
                 f.write(f"{quote}\n")
