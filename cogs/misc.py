@@ -922,7 +922,7 @@ class SCP(commands.Cog):
     @commands.command()
     async def scp(self, ctx, number: int):
         """look up scp by number. SCP tales or other sites don't work only numbers"""
-        url = f"http://www.scp-wiki.net/scp-{number}"""
+        url = f"http://www.scp-wiki.net/scp-{number:03}"""
         async with self.session.get(url) as re:
             if re.status == 200:
                 await ctx.send(url)
