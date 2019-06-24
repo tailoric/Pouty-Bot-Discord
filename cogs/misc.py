@@ -692,6 +692,7 @@ from emojipedia import Emojipedia
 from functools import partial
 import aiohttp
 
+
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
 
@@ -920,11 +921,21 @@ class SCP(commands.Cog):
         self.session = aiohttp.ClientSession()
 
     @commands.command()
-    async def scp(self, ctx, number: int):
-        """look up scp by number. SCP tales or other sites don't work only numbers"""
-        url = f"http://www.scp-wiki.net/scp-{number:03}"""
-        async with self.session.get(url) as re:
-            if re.status == 200:
+    async def scp(self, ctx, number):
+        """look up an scp page (either via number for example .scp 2053)
+        or via page name for example .scp fear-alone"""
+        pattern = re.compile(r"(\d+)?(.*)")
+        match = pattern.match(number)
+        scp_number = None
+        if match.group(1):
+            scp_number = int(match.group(1))
+        rest = match.group(2)
+        if scp_number:
+            url = f"http://www.scp-wiki.net/scp-{scp_number:03}{rest}"
+        else:
+            url = f"http://www.scp-wiki.net/{rest}"
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
                 await ctx.send(url)
             else:
                 await ctx.send("SCP not found")
