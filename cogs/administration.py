@@ -9,6 +9,7 @@ import time
 from random import choice
 import logging
 import typing
+from io import BytesIO
 
 
 class UserOrChannel(commands.Converter):
@@ -187,9 +188,18 @@ class Admin(commands.Cog):
             report_message += "**Reported User(s):**\n{}\n".format(", ".join(reported_user))
         if len(reported_channel) > 0:
             report_message += "**In Channel(s):**\n{}\n".format(", ".join(reported_channel))
+        report_img = None
         if ctx.message.attachments:
-            report_message += "**Included Screenshot:**\n{}\n".format(ctx.message.attachments[0]['url'])
+            attachment = ctx.message.attachments[0]
+            image_bytes = BytesIO(await attachment.read())
+            report_img = discord.File(image_bytes, filename=attachment.filename)
+            report_message += "**Included Screenshot:**"
 
+        if report_img:
+            await self.report_channel.send(report_message, file=report_img)
+            self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
+            await ctx.author.send("report successfully sent.")
+            return
         await self.report_channel.send(report_message)
         self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
         await ctx.author.send("report successfully sent.")
