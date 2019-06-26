@@ -68,6 +68,11 @@ class Quotes(commands.Cog):
 
         try:
             pages = TextPages(ctx, '\n'.join(lines))
+            dm_channel = ctx.author.dm_channel
+            if dm_channel:
+                pages.channel = ctx.author.dm_channel
+            else:
+                pages.channel = await ctx.author.create_dm()
             await pages.paginate()
         except discord.Forbidden:
             await ctx.send("Cannot send message, be sure to enable messages from server members")
