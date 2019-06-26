@@ -130,8 +130,9 @@ class Admin(commands.Cog):
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
 
-    @commands.group(pass_context=True)
-    async def report(self, ctx, message: str, *args: UserOrChannel):
+    @commands.cooldown(rate=2, per=60, type=commands.BucketType.user)
+    @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
+    async def report(self, ctx, message: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
         """
         anonymously report a user to the moderators
         usage:
@@ -153,6 +154,10 @@ class Admin(commands.Cog):
             else:
                 await ctx.send("You don't have permission to do this")
                 return
+        if not message:
+            await author.send("message was missing as a parameter")
+            await author.send(f"```\n\n{ctx.command.usage}\n{ctx.command.help}\n```")
+            return
         if type(ctx.message.channel) is not discord.DMChannel:
             await ctx.author.send("Only use the `report` command in private messages")
             await ctx.send("Only use the `report` command in private messages")
@@ -160,26 +165,11 @@ class Admin(commands.Cog):
         if not self.report_channel:
             await ctx.send("report channel not set up yet, message a moderator")
             return
-        if author.id not in [i['user'] for i in self.invocations]:
-            invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
-            self.invocations.append(invocation)
-        else:
-            last_invocation = [i['timestamp'] for i in self.invocations if author.id == i['user']]
-            time_diff = int(time.time() - last_invocation[0])
-            if time_diff < self.report_countdown:
-                await ctx.author.send("Too early to report again wait for another {} seconds"
-                                      .format(self.report_countdown - time_diff))
-                return
-            else:
-                invocation = {"user": ctx.message.author.id, "timestamp": time.time()}
-                self.invocations.remove([i for i in self.invocations if author.id == i['user']][0])
-                self.invocations.append(invocation)
-
         report_message = "**Report Message:**\n```{}```\n\n".format(message)
         reported_user = []
         reported_channel = []
         for arg in args:
-            if isinstance(arg, discord.User):
+            if isinstance(arg, discord.User) or isinstance(arg, discord.ClientUser):
                 reported_user.append(arg.mention)
             if isinstance(arg, discord.TextChannel):
                 reported_channel.append(arg.mention)
@@ -188,21 +178,19 @@ class Admin(commands.Cog):
             report_message += "**Reported User(s):**\n{}\n".format(", ".join(reported_user))
         if len(reported_channel) > 0:
             report_message += "**In Channel(s):**\n{}\n".format(", ".join(reported_channel))
-        report_img = None
+        file_list = []
+        file_list_reply = []
         if ctx.message.attachments:
-            attachment = ctx.message.attachments[0]
-            image_bytes = BytesIO(await attachment.read())
-            report_img = discord.File(image_bytes, filename=attachment.filename)
+            for attachment in ctx.message.attachments:
+                image_bytes = BytesIO(await attachment.read())
+                image_bytes_reply = BytesIO(await attachment.read())
+                file_list.append(discord.File(image_bytes, filename=attachment.filename))
+                file_list_reply.append(discord.File(image_bytes_reply, filename=attachment.filename))
             report_message += "**Included Screenshot:**"
 
-        if report_img:
-            await self.report_channel.send(report_message, file=report_img)
-            self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
-            await ctx.author.send("report successfully sent.")
-            return
-        await self.report_channel.send(report_message)
+        await self.report_channel.send(report_message, files=file_list)
         self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
-        await ctx.author.send("report successfully sent.")
+        await ctx.author.send(f"sent the following report message:\n{report_message}", files=file_list_reply)
 
     @report.command(name="setup")
     @commands.has_any_role("Discord-Senpai", "Admin")
