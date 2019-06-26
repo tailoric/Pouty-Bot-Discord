@@ -58,7 +58,6 @@ class Quotes(commands.Cog):
     @commands.command()
     async def allquotes(self, ctx):
         """will send you all quotes in a DM
-        WILL BE MULTIPLE MESSAGES LONG DEPENDING ON HOW MANY QUOTES THERE ARE
         """
         lines = []
         for index, quote in enumerate(self.quotes):
@@ -74,9 +73,10 @@ class Quotes(commands.Cog):
             else:
                 pages.channel = await ctx.author.create_dm()
             await pages.paginate()
-        except discord.Forbidden:
-            await ctx.send("Cannot send message, be sure to enable messages from server members")
+        except discord.Forbidden as e:
+            await ctx.send("couldn't send message to user, be sure to have DMs from server members enabled")
             return
+
     @commands.has_any_role("Discord-Senpai", 379022249962897408, 336382505567387651)
     @commands.command(name="qdel")
     async def del_quote(self, ctx, number: int):

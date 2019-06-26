@@ -250,8 +250,11 @@ class Pages:
         if not self.paginating:
             await first_page
         else:
-            # allow us to react to reactions right away if we're paginating
-            self.bot.loop.create_task(first_page)
+            try:
+                # allow us to react to reactions right away if we're paginating
+                await first_page
+            except Exception as e:
+                raise e
 
         while self.paginating:
             try:
