@@ -262,7 +262,7 @@ class Pages:
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:
-                    await self.message.clear_reactions()
+                    await self.message.delete()
                 except:
                     pass
                 finally:
