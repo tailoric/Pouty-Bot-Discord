@@ -3,6 +3,7 @@
 from discord.ext import commands
 import asyncio
 import discord
+from .utils.paginator import TextPages
 from typing import Optional
 from random import randint
 
@@ -59,15 +60,15 @@ class Quotes(commands.Cog):
         """will send you all quotes in a DM
         WILL BE MULTIPLE MESSAGES LONG DEPENDING ON HOW MANY QUOTES THERE ARE
         """
-        paginator = commands.Paginator()
+        lines = []
         for index, quote in enumerate(self.quotes):
             if quote == self.removed_quote:
                 continue
-            paginator.add_line(f"{index+1}) {quote}")
+            lines.append(f"{index+1}) {quote}")
 
         try:
-            for page in paginator.pages:
-                await ctx.author.send(page)
+            pages = TextPages(ctx, '\n'.join(lines))
+            await pages.paginate()
         except discord.Forbidden:
             await ctx.send("Cannot send message, be sure to enable messages from server members")
             return
