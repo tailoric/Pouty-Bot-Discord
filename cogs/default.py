@@ -9,8 +9,9 @@ from discord.ext.commands import DefaultHelpCommand
 class CustomHelpCommand(DefaultHelpCommand):
 
     async def send_bot_help(self, mapping):
-        self.paginator.add_line(self.context.bot.description)
-        self.paginator.add_line(empty=True)
+        self.paginator.add_line(self.context.bot.description, empty=True)
+        self.paginator.add_line("To see more information about the commands of a category use .help <CategoryName>")
+        self.paginator.add_line("ATTENTION: The categories are case sensitive", empty=True)
         self.paginator.add_line("Command categories:")
         for cog in mapping:
             filtered = await self.filter_commands(mapping.get(cog))
@@ -20,10 +21,7 @@ class CustomHelpCommand(DefaultHelpCommand):
                 self.paginator.add_line("\t* {0}".format(cog.qualified_name))
             if cog.description:
                 self.paginator.add_line("\t\t\"{0}\"".format(cog.description))
-        self.paginator.add_line("To see more information about the commands of a category use .help <CategoryName>")
-        self.paginator.add_line("ATTENTION: The categories are case sensitive")
         await self.send_pages()
-
 
 class Default(commands.Cog):
 
@@ -62,20 +60,22 @@ class Default(commands.Cog):
                 continue
 
     async def on_command_error(self, ctx, error):
-        error_message_sent = False
-        self.logger.log(logging.INFO, f"{type(error)}; {error}")
+        self.logger.log(logging.ERROR, f"{type(error)}; {error}")
         if isinstance(error, BlackListedException):
             return
-        if isinstance(error, DisabledCommandException):
+        elif isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
-            error_message_sent = True
-        if isinstance(error, commands.CheckFailure) and not error_message_sent:
+            return
+        elif isinstance(error, commands.CheckFailure):
             await ctx.message.channel.send("You don't have permission to use this command")
-            error_message_sent = True
-        if not isinstance(error, commands.CommandNotFound) and not error_message_sent:
-            await ctx.message.channel.send(error)
+            return
+        elif isinstance(error, commands.BadArgument):
+            await ctx.send(error)
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
+        else:
+            await ctx.send(error)
+
 
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")

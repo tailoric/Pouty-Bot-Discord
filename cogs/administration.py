@@ -68,6 +68,10 @@ class Admin(commands.Cog):
         )
         handler.setFormatter(logging.Formatter("%(asctime)s: %(message)s"))
         self.logger.addHandler(handler)
+        self.reactions = [
+            '\N{WHITE HEAVY CHECK MARK}',
+            '\N{NEGATIVE SQUARED CROSS MARK}'
+        ]
 
     def cog_unload(self):
         self.unmute_loop.cancel()
@@ -130,9 +134,9 @@ class Admin(commands.Cog):
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
 
-    @commands.cooldown(rate=2, per=60, type=commands.BucketType.user)
+    @commands.cooldown(rate=1, per=60, type=commands.BucketType.user)
     @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
-    async def report(self, ctx, message: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
+    async def report(self, ctx: commands.Context, message: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
         """
         anonymously report a user to the moderators
         usage:
@@ -153,17 +157,21 @@ class Admin(commands.Cog):
                 return
             else:
                 await ctx.send("You don't have permission to do this")
+                ctx.command.reset_cooldown(ctx)
                 return
         if not message:
             await author.send("message was missing as a parameter")
             await author.send(f"```\n\n{ctx.command.usage}\n{ctx.command.help}\n```")
+            ctx.command.reset_cooldown(ctx)
             return
         if type(ctx.message.channel) is not discord.DMChannel:
             await ctx.author.send("Only use the `report` command in private messages")
             await ctx.send("Only use the `report` command in private messages")
+            ctx.command.reset_cooldown(ctx)
             return
         if not self.report_channel:
             await ctx.send("report channel not set up yet, message a moderator")
+            ctx.command.reset_cooldown(ctx)
             return
         report_message = "**Report Message:**\n```{}```\n\n".format(message)
         reported_user = []
@@ -188,9 +196,34 @@ class Admin(commands.Cog):
                 file_list_reply.append(discord.File(image_bytes_reply, filename=attachment.filename))
             report_message += "**Included Screenshot:**"
 
-        await self.report_channel.send(report_message, files=file_list)
-        self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
-        await ctx.author.send(f"sent the following report message:\n{report_message}", files=file_list_reply)
+        user_copy = await ctx.author.send(f"going to send the following report message:"
+                                          f"\n{report_message}\n check with {self.reactions[0]} to send",
+                                          files=file_list_reply)
+        for reaction in self.reactions:
+            await user_copy.add_reaction(reaction)
+
+        def react_check(reaction, user):
+            if user is None or user.id != ctx.author.id:
+                return False
+            if reaction.message.id != user_copy.id:
+                return False
+            if reaction.emoji in self.reactions:
+                return True
+            return False
+        try:
+            reaction, user = await self.bot.wait_for('reaction_add', check=react_check, timeout=60)
+        except TimeoutError as tm:
+            await user_copy.delete()
+            await author.send("time out use command again")
+        else:
+            if reaction.emoji == self.reactions[0]:
+                await self.report_channel.send(report_message, files=file_list)
+                self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
+                await author.send("successfully sent")
+            else:
+                await user_copy.edit(content="report cancelled")
+                ctx.command.reset_cooldown(ctx)
+
 
     @report.command(name="setup")
     @commands.has_any_role("Discord-Senpai", "Admin")
