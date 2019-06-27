@@ -10,6 +10,7 @@ from random import choice
 import logging
 import typing
 from io import BytesIO
+import asyncio
 
 
 class UserOrChannel(commands.Converter):
@@ -134,46 +135,9 @@ class Admin(commands.Cog):
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
 
-    @commands.cooldown(rate=1, per=60, type=commands.BucketType.user)
-    @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
-    async def report(self, ctx: commands.Context, message: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
-        """
-        anonymously report a user to the moderators
-        usage:
-        ONLY WORKS IN PRIVATE MESSAGES TO THE BOT!
-        !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
 
-        don't forget the quotes around the reason, optionally you can attach a screenshot via file upload
-
-        examples:
-        !report "I was meanly bullied by <user>" 123456789 0987654321
-        !report "I was bullied by <user>"
-        !report "I was bullied by <user>" User_Name general
-        """
-        author = ctx.message.author
-        if message == 'setup':
-            if checks.is_owner_or_moderator_check(ctx.message):
-                await ctx.invoke(self.setup)
-                return
-            else:
-                await ctx.send("You don't have permission to do this")
-                ctx.command.reset_cooldown(ctx)
-                return
-        if not message:
-            await author.send("message was missing as a parameter")
-            await author.send(f"```\n\n{ctx.command.usage}\n{ctx.command.help}\n```")
-            ctx.command.reset_cooldown(ctx)
-            return
-        if type(ctx.message.channel) is not discord.DMChannel:
-            await ctx.author.send("Only use the `report` command in private messages")
-            await ctx.send("Only use the `report` command in private messages")
-            ctx.command.reset_cooldown(ctx)
-            return
-        if not self.report_channel:
-            await ctx.send("report channel not set up yet, message a moderator")
-            ctx.command.reset_cooldown(ctx)
-            return
-        report_message = "**Report Message:**\n```{}```\n\n".format(message)
+    async def build_message(self, message, report, args):
+        report_message = "**Report Message:**\n```{}```\n\n".format(report)
         reported_user = []
         reported_channel = []
         for arg in args:
@@ -188,16 +152,64 @@ class Admin(commands.Cog):
             report_message += "**In Channel(s):**\n{}\n".format(", ".join(reported_channel))
         file_list = []
         file_list_reply = []
-        if ctx.message.attachments:
-            for attachment in ctx.message.attachments:
+        if message.attachments:
+            for attachment in message.attachments:
                 image_bytes = BytesIO(await attachment.read())
                 image_bytes_reply = BytesIO(await attachment.read())
                 file_list.append(discord.File(image_bytes, filename=attachment.filename))
                 file_list_reply.append(discord.File(image_bytes_reply, filename=attachment.filename))
             report_message += "**Included Screenshot:**"
 
+        return report_message, file_list_reply, file_list
+
+    async def report_checks(self, report, ctx):
+        if not report:
+            await ctx.author.send("message was missing as a parameter")
+            await ctx.author.send(f"```\n\n{ctx.command.usage}\n{ctx.command.help}\n```")
+            ctx.command.reset_cooldown(ctx)
+            return False
+        if type(ctx.message.channel) is not discord.DMChannel:
+            await ctx.author.send("Only use the `report` command in private messages")
+            await ctx.send("Only use the `report` command in private messages")
+            ctx.command.reset_cooldown(ctx)
+            return False
+        if not self.report_channel:
+            await ctx.send("report channel not set up yet, message a moderator")
+            ctx.command.reset_cooldown(ctx)
+            return False
+        return True
+
+    @commands.cooldown(rate=1, per=60, type=commands.BucketType.user)
+    @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
+    async def report(self, ctx: commands.Context, report: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
+        """
+        anonymously report a user to the moderators
+        usage:
+        ONLY WORKS IN PRIVATE MESSAGES TO THE BOT!
+        !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
+
+        don't forget the quotes around the reason, optionally you can attach a screenshot via file upload
+
+        examples:
+        !report "I was meanly bullied by <user>" 123456789 0987654321
+        !report "I was bullied by <user>"
+        !report "I was bullied by <user>" User_Name general
+        """
+        author = ctx.message.author
+        if report == 'setup':
+            if checks.is_owner_or_moderator_check(ctx.message):
+                await ctx.invoke(self.setup)
+                return
+            else:
+                await ctx.send("You don't have permission to do this")
+                ctx.command.reset_cooldown(ctx)
+                return
+        if not await self.report_checks(report, ctx):
+            return
+        report_message, file_list_reply, file_list = await self.build_message(ctx.message, report, args)
         user_copy = await ctx.author.send(f"going to send the following report message:"
-                                          f"\n{report_message}\n check with {self.reactions[0]} to send",
+                                          f"\n{report_message}\n check with {self.reactions[0]} to send"
+                                          f" or {self.reactions[1]} to abort",
                                           files=file_list_reply)
         for reaction in self.reactions:
             await user_copy.add_reaction(reaction)
@@ -212,13 +224,16 @@ class Admin(commands.Cog):
             return False
         try:
             reaction, user = await self.bot.wait_for('reaction_add', check=react_check, timeout=60)
-        except TimeoutError as tm:
-            await user_copy.delete()
-            await author.send("time out use command again")
+        except asyncio.TimeoutError as tm:
+            await user_copy.edit(content="You waited too long, use the command again to send a report")
+            await user_copy.remove_reaction(self.reactions[0], self.bot.user)
+            await user_copy.remove_reaction(self.reactions[1], self.bot.user)
+            ctx.command.reset_cooldown(ctx)
+            return
         else:
             if reaction.emoji == self.reactions[0]:
                 await self.report_channel.send(report_message, files=file_list)
-                self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, message)
+                self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, report)
                 await author.send("successfully sent")
             else:
                 await user_copy.edit(content="report cancelled")
