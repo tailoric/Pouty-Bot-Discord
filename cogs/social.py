@@ -98,7 +98,7 @@ class Social(commands.Cog):
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
-    @commands.command(hidden=False, pass_context=True)
+    @commands.command(aliases=["headpat"])
     async def pat(self, ctx, *, user=None):
         """
             usage: .pat (at) user
