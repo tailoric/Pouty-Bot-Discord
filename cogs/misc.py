@@ -706,7 +706,7 @@ class RemindMe(commands.Cog):
     def cog_unload(self):
         self.check_reminders.cancel()
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def remindme(self, ctx,  quantity : int, time_unit : str, *, text : str):
         """Sends you <text> when the time is up
 
@@ -729,6 +729,9 @@ class RemindMe(commands.Cog):
             await ctx.send("Text is too long.")
             return
         seconds = self.units[time_unit] * quantity
+        if seconds > 157788000:
+            await ctx.send("Please use realistic time frames")
+            return
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : author.id, "FUTURE" : future, "TEXT" : text})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
@@ -758,6 +761,9 @@ class RemindMe(commands.Cog):
             await ctx.send("Text is too long.")
             return
         seconds = self.units[time_unit] * quantity
+        if seconds > 157788000:
+            await ctx.send("Please use realistic time frames")
+            return
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
