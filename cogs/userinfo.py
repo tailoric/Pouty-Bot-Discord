@@ -130,12 +130,16 @@ class Userinfo(commands.Cog):
         nickname_list = member_name_data.get("nicknames", [])
         names_list = member_name_data.get("names", [])
         if member.name not in names_list:
-            names_list.append(member.name)
+            name = discord.utils.escape_markdown(member.name)
+            names_list.append(name)
         if member.display_name not in nickname_list:
-            nickname_list.append(member.display_name)
+            display_name = discord.utils.escape_markdown(member.display_name)
+            nickname_list.append(display_name)
         message_fmt = "**Past 20 names:**\n{}\n" \
                       "**Past 20 nicknames:**\n{}"
-        await ctx.send(message_fmt.format(", ".join(names_list), ", ".join(nickname_list)))
+        names_list_str = discord.utils.escape_markdown(", ".join(names_list))
+        display_names_list_str = discord.utils.escape_markdown(", ".join(nickname_list))
+        await ctx.send(message_fmt.format(names_list_str,display_names_list_str))
 
     @commands.Cog.listener("on_member_update")
     async def save_nickname_change(self, before, after):
