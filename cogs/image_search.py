@@ -65,7 +65,6 @@ class TraceMoe:
 class Search(commands.Cog):
     """Reverse image search commands"""
 
-
     def __init__(self, bot):
         self.bot = bot
         self.iqdb_session = aiohttp.ClientSession()
@@ -105,7 +104,8 @@ class Search(commands.Cog):
                 if json_dump['tag_count_copyright'] > 0:
                     franchise = self._tag_to_title(json_dump['tag_string_copyright'])
                 if json_dump['pixiv_id']:
-                    source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + str(json_dump['pixiv_id'])
+                    source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + str(
+                        json_dump['pixiv_id'])
                 elif json_dump['source']:
                     source = json_dump['source']
                 return characters, artist, franchise, source
@@ -246,7 +246,7 @@ class Search(commands.Cog):
     @commands.command()
     async def youtube(self,  ctx,*, query: str):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
-        info = ytdl.extract_info("ytsearch: "+ query, download=False)
+        info = ytdl.extract_info("ytsearch: " + query, download=False)
         url = info["entries"][0]["webpage_url"]
         await ctx.send(url)
 
@@ -256,8 +256,8 @@ class Search(commands.Cog):
         search = parse.quote_plus(query)
         await ctx.send("https://google.com/search?q={}".format(search))
 
-    @commands.command(name="trace",aliases=["whatanime","find_anime"],pass_context=True)
-    async def trace_moe(self, ctx, link: str=None):
+    @commands.command(name="trace", aliases=["whatanime", "find_anime"], pass_context=True)
+    async def trace_moe(self, ctx, link: str = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         if link is None and len(ctx.message.attachments) == 0:
@@ -288,33 +288,28 @@ class Search(commands.Cog):
             await ctx.send("Could not detect filetype, be sure to use actual media files"
                            "\n(for imgur please use the .gif instead of gifv)")
 
-    def scale_down_image(self, image):
-        img = Image.open(io.BytesIO(image))
-        new_width = img.size[0] // 2
-        wpercent = (new_width / float(img.size[0]))
-        new_height = int(float(img.size[1])* float(wpercent))
-        img = img.resize((new_width, new_height), Image.ANTIALIAS)
-        img_save = io.BytesIO()
-        img.save(img_save, format('PNG'))
-        return base64.b64encode(img_save.getvalue())
 
     def build_embed_for_trace_moe(self, first_result):
-        embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [trace.moe](https://trace.moe/)")
+        embed = discord.Embed(colour=discord.Colour(0xa4815f),
+                              description="Source found via [trace.moe](https://trace.moe/)")
         if not first_result["is_adult"]:
-            embed.set_thumbnail(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
-                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]), first_result["at"], first_result["tokenthumb"]))
-        embed.add_field(name="Name", value=first_result["title_romaji"])
+            embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
+                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
+                                    first_result["at"], first_result["tokenthumb"]))
+        embed.add_field(name="Name", value=first_result["title_romaji"], inline=False)
         m, s = divmod(first_result["at"], 60)
-        embed.add_field(name="Episode {0}".format(first_result["episode"]), value="at {0:02d}:{1:02d}".format( int(m), int(s)))
-        embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]))
-        embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]))
+        embed.add_field(name="Episode {0}".format(first_result["episode"]),
+                        value="at {0:02d}:{1:02d}".format(int(m), int(s)), inline=False)
+        embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]), inline=False)
+        embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]), inline=False)
         return embed
 
     def build_mal_link_from_id(self, id):
         return "https://myanimelist.net/anime/" + str(id)
 
-
     def build_anilist_link_from_id(self, id):
         return "https://anilist.co/anime/" + str(id)
+
+
 def setup(bot):
     bot.add_cog(Search(bot))
