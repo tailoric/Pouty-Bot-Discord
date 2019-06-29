@@ -1,3 +1,5 @@
+from email.mime import base
+
 from discord.ext import commands
 import discord
 import aiohttp
@@ -10,8 +12,55 @@ import os
 import urllib.parse
 import sys
 from PIL import Image
+import PIL
+import mimetypes
 import io
 import asyncio
+
+
+class TraceMoe:
+
+    @staticmethod
+    async def get_frame(url, session):
+        mime_type = mimetypes.guess_type(url)
+        if any(mime_type) and mime_type:
+            if "image" in mime_type[0]:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        return io.BytesIO(await response.read())
+                    return None
+            elif "video" in mime_type[0]:
+                process = await asyncio.create_subprocess_exec(
+                    'ffmpeg', '-y', '-i', url,
+                    '-vframes', '1',
+                    '-hide_banner','-loglevel', 'panic', 'data/trace/frame.jpg'
+                )
+                await process.communicate()
+                with open('data/trace/frame.jpg', 'rb') as f:
+                    return io.BytesIO(f.read())
+            return None
+
+    @staticmethod
+    def scale_image_down(image):
+        img = io.BytesIO()
+        image.save(img, format(image.format))
+        im_size = sys.getsizeof(img.getvalue())
+        max_size = 1* 10 ** 6
+        if image.format == 'GIF' and image.is_animated:
+            image_save = io.BytesIO()
+            image.save(image_save, format("PNG"), save_all=False)
+            return base64.b64encode(image_save.getvalue()).decode('ascii')
+        elif im_size > max_size:
+            divisor = im_size / max_size
+            new_width = int(image.size[0] // divisor)
+            wpercent = (new_width / float(image.size[0]))
+            new_height = int(float(image.size[1]) * float(wpercent))
+            img = image.resize((new_width, new_height), Image.ANTIALIAS)
+            img_save = io.BytesIO()
+            img.save(img_save, format('PNG'))
+            return base64.b64encode(img_save.getvalue()).decode('ascii')
+        return base64.b64encode(img.getvalue()).decode('ascii')
+
 
 class Search(commands.Cog):
     """Reverse image search commands"""
@@ -217,30 +266,30 @@ class Search(commands.Cog):
         if link is None and len(ctx.message.attachments) == 0:
             await ctx.send("please add an image link or invoke with an image attached")
         image_link = link if link is not None else ctx.message.attachments[0].url
-        if image_link:
-            async with self.sauce_session.get(image_link) as response:
-                if response.status == 200:
-                    image = await response.read()
-                    image_base64 = base64.b64encode(image)
-                    if sys.getsizeof(image_base64.decode("ascii")) > 1 * 10 ** 6:
-                        image_base64 = self.scale_down_image(image)
-                    request_data = {"image": image_base64.decode("ascii")}
-                    header = {"Content-Type": "application/json"}
-                    async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
-                        if resp.status == 200:
-                            resp_json = await resp.json()
-                            first_result = resp_json["docs"][0]
-                            if first_result["similarity"] > 0.75:
-                                embed = self.build_embed_for_trace_moe(first_result)
-                                await ctx.send(embed=embed)
-                            else:
-                                await ctx.send("No source similar enough")
-                        elif resp.status == 429:
-                            await ctx.send(await resp.read())
-                        elif resp.status == 413:
-                            await ctx.send("Image to big please scale it down")
-                        if resp.status == 500 or resp.status == 503:
-                            await ctx.send("Internal server error at trace.moe")
+        image = await TraceMoe.get_frame(image_link, self.sauce_session)
+        if image:
+            im = Image.open(image)
+            header = {"Content-Type": "application/json"}
+            request_data = {"image": TraceMoe.scale_image_down(im)}
+            async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
+                if resp.status == 200:
+                    resp_json = await resp.json()
+                    first_result = resp_json["docs"][0]
+                    if first_result["similarity"] > 0.85:
+                        embed = self.build_embed_for_trace_moe(first_result)
+                        await ctx.send(embed=embed)
+                    else:
+                        await ctx.send("Nothing found, refer to the FAQ to see what the cause could be:\n"
+                                       "https://trace.moe/faq")
+                elif resp.status == 429:
+                    await ctx.send(await resp.read())
+                elif resp.status == 413:
+                    await ctx.send("Image to big please scale it down")
+                if resp.status == 500 or resp.status == 503:
+                    await ctx.send("Internal server error at trace.moe")
+        else:
+            await ctx.send("Could not detect filetype, be sure to use actual media files"
+                           "\n(for imgur please use the .gif instead of gifv)")
 
     def scale_down_image(self, image):
         img = Image.open(io.BytesIO(image))
