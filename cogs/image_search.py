@@ -23,7 +23,7 @@ class TraceMoe:
     @staticmethod
     async def get_frame(url, session):
         mime_type = mimetypes.guess_type(url)
-        if mime_type:
+        if any(mime_type) and mime_type:
             if "image" in mime_type[0]:
                 async with session.get(url) as response:
                     if response.status == 200:
@@ -284,6 +284,9 @@ class Search(commands.Cog):
                     await ctx.send("Image to big please scale it down")
                 if resp.status == 500 or resp.status == 503:
                     await ctx.send("Internal server error at trace.moe")
+        else:
+            await ctx.send("Could not detect filetype, be sure to use actual media files"
+                           "\n(for imgur please use the .gif instead of gifv)")
 
     def scale_down_image(self, image):
         img = Image.open(io.BytesIO(image))
