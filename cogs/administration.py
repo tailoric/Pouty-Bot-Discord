@@ -300,7 +300,7 @@ class Admin(commands.Cog):
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
-    async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str):
+    async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
         """
         mutes the user for a certain amount of time
         usable time codes are days, hours, minutes and seconds
@@ -317,8 +317,12 @@ class Admin(commands.Cog):
             return
         length = self.units[time_unit] * amount
         unmute_ts = int(time.time() + length)
+        mute_message = f"user {user.mention} was muted"
         await user.add_roles(self.mute_role)
-        await ctx.send("user {0} was muted".format(user.mention))
+        await ctx.send(mute_message)
+        if reason:
+            mute_message = f"{mute_message} for the following reason:\n{reason}"
+        await self.check_channel.send(mute_message)
         self.mutes.append({"user": user.id, "unmute_ts": unmute_ts})
         self.save_mute_list()
 
