@@ -387,6 +387,7 @@ class Danbooru(commands.Cog):
         self.init_directories()
         self.blacklist_tags_file = 'data/danbooru_cog_blacklist.json'
         self.danbooru_channel_file = 'data/danbooru_channel_file.json'
+        self.bucket = commands.CooldownMapping.from_cooldown(2, 60, commands.BucketType.member)
         with open(self.blacklist_tags_file, 'r') as f:
             self.tags_blacklist = json.load(f)
         if path.exists(self.danbooru_channel_file):
@@ -487,7 +488,7 @@ class Danbooru(commands.Cog):
         server = message.guild
         danbooru_channel = [x["channel"] for x in self.danbooru_channels if int(x["server"])== server.id]
         if danbooru_channel:
-            return self.bot.get_channel(danbooru_channel[0])
+            return self.bot.get_channel(int(danbooru_channel[0]))
         else:
             return None
 
@@ -506,6 +507,9 @@ class Danbooru(commands.Cog):
         else:
             image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
+            if self.bucket.update_rate_limit(ctx.message):
+                await ctx.send("If you can't find images please refer to the pin:\n"
+                               "https://discordapp.com/channels/187423852224053248/402151326915493888/582629178285883394")
             await ctx.send("no image found")
             return None, None
         return channel, self.build_message(image, channel, message)
@@ -648,7 +652,7 @@ class Danbooru(commands.Cog):
         subscriber = ctx.message.author
         subscriptions_of_user = [sub for sub in self.scheduler.subscriptions if subscriber in sub.users]
         for subscription in subscriptions_of_user:
-            subscription.paused_users.remove(subscriber.id)
+            subscription.paused_users.remove(int(subscriber.id))
             subscription.write_sub_to_file()
         await ctx.send("unpaused all of your subscriptions")
 
