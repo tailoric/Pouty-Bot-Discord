@@ -21,16 +21,13 @@ class Distort(commands.Cog):
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
-    @commands.group()
+    @commands.group(invoke_without_command=True)
     async def distort(self, ctx: commands.Context, link: Optional[str]):
         """
         creates a distorted version of an image, works with direct upload and
         image link
         IMPORTANT: image link needs to end in a filename (gif,png,jpg)
         """
-        if link == "me":
-            await ctx.invoke(self._me)
-            return
         message = ctx.message
         if message.attachments:
             url = message.attachments[0].url
