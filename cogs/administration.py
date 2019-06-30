@@ -11,21 +11,25 @@ import logging
 import typing
 from io import BytesIO
 import asyncio
+import re
 
-
-class UserOrChannel(commands.Converter):
+class SnowflakeUserConverter(commands.UserConverter):
+    """
+    This converter is used for when the user already left the guild to still be able to ban them via
+    their Snoflawke/ID
+    """
     async def convert(self, ctx, argument):
-        user_converter = commands.UserConverter()
-        channel_converter = commands.TextChannelConverter()
         try:
-            found_member = await user_converter.convert(ctx, argument)
-            return found_member
-        except commands.BadArgument:
-            try:
-                found_channel = await channel_converter.convert(ctx, argument)
-                return found_channel
-            except commands.BadArgument:
-                raise commands.BadArgument("Didn't find Member or Channel with name {}.".format(argument))
+            #first try the normal UserConverter (maybe they are in the cache)
+            user = await super().convert(ctx, argument)
+            return user
+        except commands.CommandError:
+            #try the cache instead
+            pattern = re.compile('(<@!?)?(\d+)>?')
+            match = pattern.match(argument)
+            if match and match.group(2):
+                return discord.Object(int(match.group(2)))
+            raise commands.BadArgument("Please provide a user mention or a user id when user already left the server")
 
 
 class Admin(commands.Cog):
@@ -251,23 +255,28 @@ class Admin(commands.Cog):
             json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
-    @commands.command(name="ban", pass_context=True)
+    @commands.command(name="ban", aliases=['bap'])
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, member: discord.Member, *, reason: str):
+    async def ban(self, ctx, member: SnowflakeUserConverter, *, reason: str):
         try:
-            dm_message = "you have been banned for the following reasons:\n{}".format(reason)
-            await member.send(dm_message)
+            if isinstance(member, discord.Member):
+                dm_message = "you have been banned for the following reasons:\n{}".format(reason)
+                await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await ctx.send("couldn't DM reason to user")
         try:
-            await member.ban(delete_message_days=0, reason=reason)
-            message = "banned {} for the following reason:\n{}".format(member.mention, reason)
+            if isinstance(member, discord.Member):
+                await member.ban(delete_message_days=0, reason=reason)
+            else:
+                await ctx.guild.ban(user=member, delete_message_days=0, reason=reason)
+            mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
+            message = "banned {} for the following reason:\n{}".format(mention, reason)
             await self.check_channel.send(message)
             await ctx.send(self.get_ban_image())
         except discord.Forbidden:
             await ctx.send("I don't have the permission to ban this user.")
-        except discord.HTTPException:
-            await ctx.send("There was a HTTP or connection issue ban failed")
+        except discord.HTTPException as httpex:
+            await ctx.send(f"HTTP Error {httpex.status}: {httpex.text}")
 
     def get_ban_image(self):
         data_io = DataIO()

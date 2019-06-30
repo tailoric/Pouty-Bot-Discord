@@ -60,7 +60,8 @@ class Default(commands.Cog):
                 continue
 
     async def on_command_error(self, ctx, error):
-        self.logger.log(logging.ERROR, f"{type(error)}; {error}")
+        self.logger.log(logging.ERROR,  f"{ctx.command.name} invoked by {ctx.author} raised the following error:"
+                                        f"\n\t{type(error)}; {error}")
         if isinstance(error, BlackListedException):
             return
         elif isinstance(error, DisabledCommandException):
