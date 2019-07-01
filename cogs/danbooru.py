@@ -514,7 +514,7 @@ class Danbooru(commands.Cog):
             return None, None
         return channel, self.build_message(image, channel, message)
 
-    @commands.command(pass_context=True)
+    @commands.group(invoke_without_command=True)
     async def dan(self, ctx, *, tags: str = ""):
         """
         display newest image from danbooru with certain tags
@@ -524,6 +524,27 @@ class Danbooru(commands.Cog):
         if channel is None or send_message is None:
             return
         await channel.send(send_message)
+
+    @dan.command(name="def", aliases=["definition", "wiki"])
+    async def def_(self, ctx, tag):
+        async with self.session.get(f"https://danbooru.donmai.us/wiki_pages.json?search[title]={tag}") as resp:
+            if resp.status == 200:
+                info = (await resp.json())[0]
+                title = info.get("title", tag)
+                description = info.get("body")
+                description_clean = discord.utils.escape_markdown(description)
+                embed = discord.Embed(title=title,
+                                      url=f"https://danbooru.donmai.us/wiki_pages?title={title}",
+                                      description=f"{description_clean[:2040]}..."
+                                      )
+                if info.get("other_names", None):
+                    embed.add_field(name="Other Names", value="\n".join(info["other_names"]))
+                await ctx.send(embed=embed)
+            elif resp.status == 404:
+                await ctx.send("tag not found")
+            else:
+                await ctx.send(f"Danbooru replied with following code: {resp.status}")
+
 
     @commands.command(pass_context=True)
     async def danr(self, ctx, *, tags: str = ""):

@@ -66,6 +66,7 @@ class Admin(commands.Cog):
         self.report_countdown = 60
         self.logger = logging.getLogger('report')
         self.logger.setLevel(logging.INFO)
+        self.error_log = logging.getLogger('PoutyBot')
         handler = logging.FileHandler(
             filename='data/reports.log',
             mode="a",
@@ -113,18 +114,26 @@ class Admin(commands.Cog):
         """
         removes the last x messages of one or multiple users in this channel (defaults to 10)
         """
-        number = number if number <= 100 else 100
-        channel = ctx.channel
+        number = 100 if number > 100 else number
         if not users:
             await ctx.send("provide at least one user who's messages will be deleted")
         try:
-            messages = await channel.history(limit=500, before=ctx.message).flatten()
-            user_messages = [mes for mes in messages if mes.author in users]
-            await channel.delete_messages(user_messages[0:number])
-            user_names = [user.display_name for user in users]
-            await ctx.send(f"deleted the last {len(user_messages[0:number])} messages by {', '.join(user_names)}")
+            def message_belongs_to_user_check(mes):
+                return mes.author in users
+            deleted_messages = await ctx.channel.purge(limit=number, check=message_belongs_to_user_check)
+            await ctx.send(f"deleted the last {len(deleted_messages[0:number])} "
+                           f"messages by {', '.join([u.name for u in users])}")
         except (discord.ClientException, discord.HTTPException, discord.Forbidden) as e:
+            import traceback
             await ctx.send(str(e))
+            owner = ctx.guild.get_member(self.bot.owner_id)
+            await owner.send(traceback.print_exc())
+        except Exception as ex:
+            import traceback
+            owner = ctx.guild.get_member(self.bot.owner_id)
+            if owner:
+                await owner.send(traceback.print_exc())
+            self.error_log.error(traceback.print_exc())
 
     @_cleanup.command(name="channel")
     async def channel_(self, ctx, number=10):
@@ -134,10 +143,17 @@ class Admin(commands.Cog):
         number = number if number <= 100 else 100
         messages = await ctx.channel.history(limit=number, before=ctx.message).flatten()
         try:
-            await ctx.channel.delete_messages(messages)
+            await ctx.channel.purge(limit=number)
             await ctx.send(f"deleted the last {len(messages)} messages from this channel")
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
+        except Exception as ex:
+            import traceback
+            owner = ctx.guild.get_member(self.bot.owner_id)
+            if owner:
+                await owner.send(traceback.print_exc())
+            self.error_log.error(traceback.print_exc())
+
 
 
     async def build_message(self, message, report, args):

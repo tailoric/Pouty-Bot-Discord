@@ -10,7 +10,7 @@ if 'win32' in sys.platform:
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
-bot = commands.Bot(command_prefix=['!', '.'], description=description)
+bot = commands.Bot(command_prefix=['!', '.'], description=description, owner_id=134310073014026242)
 
 
 def load_credentials():
