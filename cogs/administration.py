@@ -259,7 +259,7 @@ class Admin(commands.Cog):
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, member: SnowflakeUserConverter, *, reason: str):
         try:
-            if isinstance(member, discord.Member):
+            if isinstance(member, discord.User):
                 dm_message = "you have been banned for the following reasons:\n{}".format(reason)
                 await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
