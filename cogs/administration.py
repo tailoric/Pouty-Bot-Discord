@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 from discord.utils import get
 import os.path
 import json
-from .utils import checks
+from .utils import checks, paginator
 from .utils.dataIO import DataIO
 import time
 from random import choice
@@ -90,6 +90,23 @@ class Admin(commands.Cog):
         }
         with open("data/mute_list.json", 'w') as f:
             json.dump(data, f)
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(ban_members=True)
+    async def banlist(self, ctx, *, username=None):
+        """search for user in the ban list"""
+        bans = await ctx.guild.bans()
+        list_of_matched_users = []
+        for ban in bans:
+            if username is None or username in ban.user.name:
+                list_of_matched_users.append(ban)
+
+        lines = []
+        for ban in list_of_matched_users:
+            lines.append(f"{ban.user.name}#{ban.user.discriminator}: {ban.reason}")
+        text_pages = paginator.TextPages(ctx, "\n".join(lines))
+        await text_pages.paginate()
 
     @commands.has_permissions(manage_messages=True)
     @commands.group(name="cleanup")
