@@ -99,7 +99,7 @@ class Admin(commands.Cog):
         bans = await ctx.guild.bans()
         list_of_matched_users = []
         for ban in bans:
-            if username is None or username in ban.user.name.lower():
+            if username is None or username.lower() in ban.user.name.lower():
                 list_of_matched_users.append(ban)
 
         lines = []
