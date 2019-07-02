@@ -9,6 +9,7 @@ import asyncio
 import re
 import traceback
 from .utils import checks
+from .utils.paginator import TextPages
 import logging
 from os import path
 
@@ -684,23 +685,17 @@ class Danbooru(commands.Cog):
         """
         message = ctx.message
         found_subs = ''
-        found_subs_messages = []
         one_sub_found = False
         for sub in self.scheduler.subscriptions:
             if message.author in sub.users and (not sub.is_private or isinstance(message.channel, discord.DMChannel)):
-                if len(found_subs) + len(sub.tags_to_message()) >= 2000:
-                    found_subs_messages.append(found_subs)
-                    found_subs = ''
                 if sub.is_private:
-                    found_subs += '[private] `{}`\n'.format(sub.tags_to_string())
+                    found_subs += '[private] {}\n'.format(sub.tags_to_string())
                 else:
-                    found_subs += '`{}`\n'.format(sub.tags_to_message())
+                    found_subs += '{}\n'.format(sub.tags_to_message())
                 one_sub_found = True
-        found_subs_messages.append(found_subs)
-
         if one_sub_found:
-            for element in found_subs_messages:
-                await ctx.send(element)
+            pages = TextPages(ctx, found_subs)
+            await pages.paginate()
         else:
             await ctx.send('You aren\'t subscribed to any tags')
 
