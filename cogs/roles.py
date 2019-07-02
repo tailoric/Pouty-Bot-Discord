@@ -58,7 +58,12 @@ class Roles(commands.Cog):
                     return
             member = ctx.message.author
             await member.add_roles(role)
-            await ctx.send("your role is now: %s " % role.name)
+            if role.id == 189594836687519744 and ctx.channel.id == 366659034410909717:
+                await ctx.message.delete()
+                join_log = ctx.guild.get_channel(595585060909088774)
+                await join_log.send(f"{ctx.author.mention} joined the server.")
+            else:
+                await ctx.send(f"Assigned you the following role: {role.name}")
         except discord.Forbidden as fb:
             await ctx.send("Sorry I don't have the permission to give you that role")
 
