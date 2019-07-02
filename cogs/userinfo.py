@@ -59,9 +59,9 @@ class Userinfo(commands.Cog):
         makes the bot post the pfp of a member
         """
         if member:
-            await ctx.send(member.avatar_url)
+            await ctx.send(member.avatar_url_as(static_format="png"))
         else:
-            await ctx.send(ctx.author.avatar_url)
+            await ctx.send(ctx.author.avatar_url_as(static_format="png"))
 
     @commands.command(pass_context=True)
     async def serverinfo(self, ctx):
