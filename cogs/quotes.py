@@ -104,7 +104,10 @@ class Quotes(commands.Cog):
     async def del_quote(self, ctx, number: int):
         """deletes the quote specified by number"""
         response = await self.remove_quote(number)
-        await ctx.send(f"quote #{response['number']} deleted")
+        if response:
+            await ctx.send(f"quote #{response['number']} deleted")
+        else:
+            await ctx.send("quote was already deleted")
 
 
     @commands.has_any_role("Discord-Senpai", 379022249962897408, 336382505567387651)
