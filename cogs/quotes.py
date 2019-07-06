@@ -41,6 +41,7 @@ class Quotes(commands.Cog):
                                       "RETURNING *")
             async with conn.transaction():
                 return await stmt.fetchrow(number)
+
     async def fetch_single_quote(self, number):
         async with self.bot.db.acquire() as conn:
             stmt = await conn.prepare("SELECT * FROM quotes WHERE number = $1")
@@ -48,6 +49,11 @@ class Quotes(commands.Cog):
                 return await stmt.fetchrow(number)
 
 
+    async def fetch_quotes_from_user(self, member_id: int):
+        async with self.bot.db.acquire() as conn:
+            stmt = await conn.prepare("SELECT * FROM quotes WHERE user_id = $1 ORDER BY number")
+            async with conn.transaction():
+                return await stmt.fetch(member_id)
 
     @commands.command(usage="**quoted text** - user, 20XX (for adding quote)\n.quote [number] (for specific quote)\n.quote (for random quote)")
     async def quote(self, ctx, number: Optional[int], *, quote: Optional[commands.clean_content]):
@@ -103,11 +109,26 @@ class Quotes(commands.Cog):
 
     @commands.has_any_role("Discord-Senpai", 379022249962897408, 336382505567387651)
     @commands.command(name="qinfo")
-    async def info_quote(self, ctx, number:int):
-        """shows who added the quote"""
-        quote = await self.fetch_single_quote(number)
-        if quote:
-            await ctx.send(f"{quote['number']}) {quote['text']} added by <@{quote['user_id']}>")
+    async def info_quote(self, ctx, number: Optional[int], by_member: Optional[discord.Member]):
+        """shows who added what quote(s)"""
+        if by_member:
+            lines = []
+            for quote in await self.fetch_quotes_from_user(by_member.id):
+                lines.append(f"{quote['number']}) {quote['text']}")
+            if not lines:
+                await ctx.send("No quotes added by this user")
+                return
+            pages = TextPages(ctx, '\n'.join(lines))
+            await pages.paginate()
+        elif number:
+            quote = await self.fetch_single_quote(number)
+            if quote:
+                added_by_string = f"added by <@{quote['user_id']}>" if quote['user_id'] else ""
+                await ctx.send(f"{quote['number']}) {quote['text']} {added_by_string}")
+        else:
+            await ctx.send("either provide a user or a number")
+
+
 
     @commands.command(name="lquotes")
     @commands.is_owner()
