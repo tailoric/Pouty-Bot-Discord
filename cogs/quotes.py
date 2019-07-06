@@ -1,69 +1,85 @@
 # -*- coding: utf-8 -*-
 
 from discord.ext import commands
-import asyncio
 import discord
 from .utils.paginator import TextPages
 from typing import Optional
-from random import randint
+from random import randint, choice
 
 class Quotes(commands.Cog):
     """Save and get random quotes provided and added by the users"""
 
     def __init__(self, bot):
         self.bot = bot
-        self.removed_quote = "[Removed Quote]\n"
-        with open("data/quotes.txt", "r", encoding="utf-8") as f:
-            self.quotes = f.readlines()
+        self.bot.loop.create_task(self.initialize_quote_table())
+
+    async def initialize_quote_table(self):
+        query = "CREATE TABLE IF NOT EXISTS quotes (" \
+                "number SERIAL PRIMARY KEY, " \
+                "text varchar(2000)," \
+                "user_id BIGINT);"
+        async with self.bot.db.acquire() as conn:
+            async with conn.transaction():
+                await self.bot.db.execute(query)
+
+    async def fetch_quotes(self):
+        query = "SELECT * FROM quotes ORDER BY number"
+        async with self.bot.db.acquire() as connection:
+            return await connection.fetch(query)
+
+    async def add_quote(self, quote, user_id):
+        quote = discord.utils.escape_mentions(quote)
+        async with self.bot.db.acquire() as conn:
+            stmt = await conn.prepare("INSERT INTO quotes (number, text, user_id) VALUES (DEFAULT, $1, $2)\n"
+                                      "                                         RETURNING number;")
+            async with conn.transaction():
+                return await stmt.fetchval(quote, user_id)
+
+    async def remove_quote(self, number):
+        async with self.bot.db.acquire() as conn:
+            stmt = await conn.prepare("DELETE FROM quotes WHERE number = $1\n "
+                                      "RETURNING *")
+            async with conn.transaction():
+                return await stmt.fetchrow(number)
+    async def fetch_single_quote(self, number):
+        async with self.bot.db.acquire() as conn:
+            stmt = await conn.prepare("SELECT * FROM quotes WHERE number = $1")
+            async with conn.transaction():
+                return await stmt.fetchrow(number)
+
+
 
     @commands.command(usage="**quoted text** - user, 20XX (for adding quote)\n.quote [number] (for specific quote)\n.quote (for random quote)")
     async def quote(self, ctx, number: Optional[int], *, quote: Optional[commands.clean_content]):
         """add a quote by writing it down or get a random or specific quote """
-        if number and not quote and number-1 < len(self.quotes) and number > 0:
-            choice = number-1
-            chosen_quote = self.quotes[choice]
-            if chosen_quote == self.removed_quote:
-                await ctx.send("chosen quote was removed sending random quote instead...")
-            while chosen_quote == self.removed_quote:
-                choice = randint(0, len(self.quotes) -1)
-                chosen_quote = self.quotes[choice]
-            chosen_quote = chosen_quote.replace("\\n", "\n")
-            await ctx.send(f"{choice+1}) {chosen_quote}")
-            return
-        if not quote:
-            mes = None
-            if number and (number-1 >= len(self.quotes) or number <= 0):
-                mes = await ctx.send("quote number not found sending random quote...")
-            current_quote = self.removed_quote
-            while current_quote == self.removed_quote:
-                choice = randint(0, len(self.quotes)-1)
-                current_quote = self.quotes[choice]
-            if mes:
-                current_quote = current_quote.replace("\\n", "\n")
-                await asyncio.sleep(3)
-                await mes.edit(content=f"{choice+1}) {current_quote}")
+        quotes = await self.fetch_quotes()
+
+        if number and not quote:
+            quote = next(iter(q for q in quotes if q["number"] == number), None)
+            if quote:
+                await ctx.send(f"{quote['number']}) {quote['text']}")
             else:
-                current_quote.replace("\\n", "\n")
-                await ctx.send(f"{choice+1}) {current_quote}")
+                quote = choice(quotes)
+                await ctx.send("quote was deleted send random quote instead...")
+                await ctx.send(f"{quote['number']}) {quote['text']}")
             return
+        elif not quote:
+            quote = choice(quotes)
+            await ctx.send(f"{quote['number']}) {quote['text']}")
         else:
-            with open("data/quotes.txt", "a", encoding="utf-8") as f:
-                quote = str(quote).replace("\n", "\\n")
-                if number:
-                    quote = f"{number} {quote}"
-                f.write(f"{quote}\n")
-                self.quotes.append(f"{quote}\n")
-                await ctx.send(f"quote #{len(self.quotes)} added")
+            if number:
+                quote = str(number) + quote
+            new_quote_number = await self.add_quote(quote, ctx.author.id)
+            await ctx.send(f"quote #{new_quote_number} added")
+
 
     @commands.command()
     async def allquotes(self, ctx):
         """will send you all quotes in a DM
         """
         lines = []
-        for index, quote in enumerate(self.quotes):
-            if quote == self.removed_quote:
-                continue
-            lines.append(f"{index+1}) {quote}")
+        for quote in await self.fetch_quotes():
+            lines.append(f"{quote['number']}) {quote['text']}")
 
         try:
             pages = TextPages(ctx, '\n'.join(lines))
@@ -81,14 +97,29 @@ class Quotes(commands.Cog):
     @commands.command(name="qdel")
     async def del_quote(self, ctx, number: int):
         """deletes the quote specified by number"""
-        if number-1 < 1 or number-1 >= len(self.quotes):
-            await ctx.send(f"Invalid quote number, this number is either too big or smaller than 1, please use a number"
-                           f"smaller or equal to {len(self.quotes)}")
-            return
-        self.quotes[number-1] = self.removed_quote
-        with open("data/quotes.txt", "w") as f:
-            f.writelines(self.quotes)
-        await ctx.send(f"quote #{number} deleted")
+        response = await self.remove_quote(number)
+        await ctx.send(f"quote #{response['number']} deleted")
+
+
+    @commands.has_any_role("Discord-Senpai", 379022249962897408, 336382505567387651)
+    @commands.command(name="qinfo")
+    async def info_quote(self, ctx, number:int):
+        """shows who added the quote"""
+        quote = await self.fetch_single_quote(number)
+        if quote:
+            await ctx.send(f"{quote['number']}) {quote['text']} added by <@{quote['user_id']}>")
+
+    @commands.command(name="lquotes")
+    @commands.is_owner()
+    async def load_quotes(self, ctx):
+        with open("data/quotes.txt", 'rb') as f:
+            async with self.bot.db.acquire() as con:
+                result = await con.copy_to_table(
+                    'quotes', columns=['text'], source=f, format="text"
+                )
+                await ctx.send(result)
+                await con.execute("DELETE FROM quotes WHERE text = '[Removed Quote]'")
+
 
 
 
