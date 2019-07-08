@@ -174,7 +174,7 @@ class Admin(commands.Cog):
 
 
     async def build_message(self, message, report, args):
-        report_message = "**Report Message:**\n```{}```\n\n".format(report)
+        embed = discord.Embed(title="**Report Message:**", description=report)
         reported_user = []
         reported_channel = []
         for arg in args:
@@ -184,20 +184,27 @@ class Admin(commands.Cog):
                 reported_channel.append(arg.mention)
 
         if len(reported_user) > 0:
-            report_message += "**Reported User(s):**\n{}\n".format(", ".join(reported_user))
+            embed.add_field(name="**Reported User(s):**", value='\n'.join(reported_user))
         if len(reported_channel) > 0:
-            report_message += "**In Channel(s):**\n{}\n".format(", ".join(reported_channel))
+            embed.add_field(name="**Reported Channel(s):**", value='\n'.join(reported_channel))
         file_list = []
         file_list_reply = []
         if message.attachments:
-            for attachment in message.attachments:
+            if len(message.attachments) == 1:
+                filename = message.attachments[0].filename
+                image_bytes = BytesIO(await message.attachments[0].read())
+                image_bytes_reply = BytesIO(await message.attachments[0].read())
+                f = discord.File(image_bytes, filename=filename)
+                f_reply = discord.File(image_bytes_reply, filename=filename)
+                embed.set_image(url=f"attachment://{filename}")
+                return embed, [f], [f_reply]
+            for index, attachment in enumerate(message.attachments):
                 image_bytes = BytesIO(await attachment.read())
                 image_bytes_reply = BytesIO(await attachment.read())
                 file_list.append(discord.File(image_bytes, filename=attachment.filename))
                 file_list_reply.append(discord.File(image_bytes_reply, filename=attachment.filename))
-            report_message += "**Included Screenshot:**"
 
-        return report_message, file_list_reply, file_list
+        return embed, file_list_reply, file_list
 
     async def report_checks(self, report, ctx):
         if not report:
@@ -243,11 +250,11 @@ class Admin(commands.Cog):
                 return
         if not await self.report_checks(report, ctx):
             return
-        report_message, file_list_reply, file_list = await self.build_message(ctx.message, report, args)
+        embed, file_list_reply, file_list = await self.build_message(ctx.message, report, args)
         user_copy = await ctx.author.send(f"going to send the following report message:"
-                                          f"\n{report_message}\n check with {self.reactions[0]} to send"
+                                          f"\n check with {self.reactions[0]} to send"
                                           f" or {self.reactions[1]} to abort",
-                                          files=file_list_reply)
+                                          files=file_list_reply, embed=embed)
         for reaction in self.reactions:
             await user_copy.add_reaction(reaction)
 
@@ -269,11 +276,11 @@ class Admin(commands.Cog):
             return
         else:
             if reaction.emoji == self.reactions[0]:
-                await self.report_channel.send(report_message, files=file_list)
+                await self.report_channel.send(embed=embed, files=file_list)
                 self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, report)
                 await author.send("successfully sent")
             else:
-                await user_copy.edit(content="report cancelled")
+                await user_copy.delete()
                 ctx.command.reset_cooldown(ctx)
 
 
