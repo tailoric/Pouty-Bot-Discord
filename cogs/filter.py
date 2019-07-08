@@ -39,21 +39,38 @@ class Filter(commands.Cog):
         if match and not message.channel == self.allowed_channel:
             await asyncio.sleep(1)
             await message.delete()
+        contains_nhentai_link = re.compile(r"https?://nhentai\.net/g/(\d+)/")
+        matches = contains_nhentai_link.findall(message.content)
+        if matches:
+            for match in matches:
+                _id = int(match)
+                data = await self.call_nhentai_api(_id)
+                for tag in data['tags']:
+                    if tag['name'] in self.banned_tags:
+                        await message.delete()
+                        await message.channel.send(f"{message.author.mention} your link was deleted because it contained"
+                                                   f" a forbidden tag: {tag['name']} (Server Rule 5)")
+                        admin_cog = self.bot.get_cog("Admin")
+                        if admin_cog and admin_cog.report_channel:
+                            await admin_cog.report_channel.send(f"deleted nhentai link by {message.author.mention} "
+                                                                f"because it contained a banned tag: {tag['name']}")
 
     async def check_for_tags(self, message):
         matches = re.findall(r'\d{1,6}', message)
         if matches:
             for match in matches:
                 number = int(match)
-                url = f"https://nhentai.net/api/gallery/{number}"
-                async with self.session.get(url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        for tag in data['tags']:
-                            if tag['name'] in self.banned_tags:
-                                return True, tag['name']
-            return False, None
+                data = await self.call_nhentai_api(number)
+                for tag in data['tags']:
+                    if tag['name'] in self.banned_tags:
+                        return True, tag['name']
+                return False, None
 
+    async def call_nhentai_api(self, id: int):
+        url = f"https://nhentai.net/api/gallery/{id}"
+        async with self.session.get(url) as response:
+            if response.status == 200:
+                return await response.json()
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
