@@ -41,7 +41,7 @@ class Filter(commands.Cog):
             await message.delete()
 
     async def check_for_tags(self, message):
-        matches = re.findall(r'\b\d{1,6}\b', message)
+        matches = re.findall(r'\d{1,6}', message)
         if matches:
             for match in matches:
                 number = int(match)
@@ -52,20 +52,21 @@ class Filter(commands.Cog):
                         for tag in data['tags']:
                             if tag['name'] in self.banned_tags:
                                 return True, tag['name']
-                        return False, None
+            return False, None
 
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         mod_role = user.guild.get_role(191094827562041345)
         search_emoji = self.bot.get_emoji(595953208556257292)
-        if isinstance(user, discord.Member) and mod_role in user.roles and reaction.emoji == search_emoji:
+        if isinstance(user, discord.Member) and mod_role in user.roles and reaction.emoji == "\N{MICROSCOPE}":
             check_true, tag = await self.check_for_tags(reaction.message.content)
             if check_true:
                 await reaction.message.delete()
                 admin_cog = self.bot.get_cog("Admin")
                 if admin_cog and admin_cog.report_channel:
-                    await admin_cog.report_channel.send(f"deleted message by {reaction.message.author.mention} "
+                    await reaction.message.channel.send(f"{reaction.message.author.mention} message deleted because it was an nhentai id with following tag: {tag} (Server rule 5)")
+                    await admin_cog.check_channel.send(f"deleted message by {reaction.message.author.mention} "
                                                         f"because it contained a banned tag: {tag}")
 
 
