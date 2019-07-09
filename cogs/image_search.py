@@ -260,6 +260,7 @@ class Search(commands.Cog):
         await ctx.send("https://google.com/search?q={}".format(search))
 
     @commands.command(name="trace", aliases=["whatanime", "find_anime"])
+    @commands.cooldown(rate=1,per=60,type=commands.BucketType.user)
     async def trace_moe(self, ctx, link: str = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
