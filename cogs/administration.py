@@ -295,7 +295,7 @@ class Admin(commands.Cog):
             json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
-    @commands.command(name="ban", aliases=['bap'])
+    @commands.command(name="ban")
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, member: SnowflakeUserConverter, *, reason: str):
         try:
