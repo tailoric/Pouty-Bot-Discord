@@ -148,10 +148,12 @@ class Owner(commands.Cog):
         prompt_text = f'This will update the following modules, are you sure?\n{mods_text}'
         mes = await ctx.send(prompt_text)
 
-        def user_check(reaction, user):
-            return reaction.emoji in self.confirmation_reacts and mes.author.id == user.id,
+        def user_check(reaction, user_):
+            return reaction.emoji in self.confirmation_reacts and ctx.author.id == user_.id
+        for reactions in self.confirmation_reacts:
+            await mes.add_reaction(reactions)
         confirm, user = await self.bot.wait_for('reaction_add', check=user_check, timeout=60)
-        if confirm.emoji == self.confirmation_reacts[2]:
+        if confirm.emoji == self.confirmation_reacts[1]:
             return await ctx.send('Aborting.')
 
         statuses = []
