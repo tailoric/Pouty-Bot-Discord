@@ -51,8 +51,8 @@ class Filter(commands.Cog):
                         await message.channel.send(f"{message.author.mention} your link was deleted because it contained"
                                                    f" a forbidden tag: {tag['name']} (Server Rule 5)")
                         admin_cog = self.bot.get_cog("Admin")
-                        if admin_cog and admin_cog.report_channel:
-                            await admin_cog.report_channel.send(f"deleted nhentai link by {message.author.mention} "
+                        if admin_cog and admin_cog.check_channel:
+                            await admin_cog.check_channel.send(f"deleted nhentai link by {message.author.mention} "
                                                                 f"because it contained a banned tag: {tag['name']}")
 
     async def check_for_tags(self, message):
@@ -81,7 +81,7 @@ class Filter(commands.Cog):
             if check_true:
                 await reaction.message.delete()
                 admin_cog = self.bot.get_cog("Admin")
-                if admin_cog and admin_cog.report_channel:
+                if admin_cog and admin_cog.check_channel:
                     await reaction.message.channel.send(f"{reaction.message.author.mention} message deleted because it was an nhentai id with following tag: {tag} (Server rule 5)")
                     await admin_cog.check_channel.send(f"deleted message by {reaction.message.author.mention} "
                                                         f"because it contained a banned tag: {tag}")
