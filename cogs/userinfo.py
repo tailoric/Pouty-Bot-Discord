@@ -12,6 +12,7 @@ class Userinfo(commands.Cog):
     """show infos about the current or other users"""
     def __init__(self, bot):
         self.bot = bot
+        self.bot.loop.create_task(self.create_name_tables())
 
     @commands.command(pass_context=True)
     async def userinfo(self,ctx, member: Member=None):
