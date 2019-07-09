@@ -12,7 +12,7 @@ class Birthday(commands.Cog):
         self.remove_birthday.start()
 
     def cog_unload(self):
-        self.remove_birthday.cancel()
+        self.remove_birthday.stop()
 
     @commands.has_permissions(manage_roles=True)
     @commands.command(aliases=['bday'])
@@ -46,7 +46,7 @@ class Birthday(commands.Cog):
                     guild = get(self.bot.guilds, id=entry["guild"])
                     bday_role = get(guild.roles, id=entry["role"])
                     member = get(guild.members, id=entry["member"])
-                    if member:
+                    if member and guild and bday_role:
                         await member.remove_roles(bday_role)
                 except (discord.errors.Forbidden, discord.errors.NotFound):
                     to_remove.append(entry)
