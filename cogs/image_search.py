@@ -259,7 +259,8 @@ class Search(commands.Cog):
         search = parse.quote_plus(query)
         await ctx.send("https://google.com/search?q={}".format(search))
 
-    @commands.command(name="trace", aliases=["whatanime", "find_anime"], pass_context=True)
+    @commands.command(name="trace", aliases=["whatanime", "find_anime"])
+    @commands.cooldown(rate=1,per=60,type=commands.BucketType.user)
     async def trace_moe(self, ctx, link: str = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
@@ -284,7 +285,7 @@ class Search(commands.Cog):
                 elif resp.status == 429:
                     await ctx.send(await resp.read())
                 elif resp.status == 413:
-                    await ctx.send("Image to big please scale it down")
+                    await ctx.send("Image too big please scale it down")
                 if resp.status == 500 or resp.status == 503:
                     await ctx.send("Internal server error at trace.moe")
         else:
@@ -295,7 +296,7 @@ class Search(commands.Cog):
     def build_embed_for_trace_moe(self, first_result):
         embed = discord.Embed(colour=discord.Colour(0xa4815f),
                               description="Source found via [trace.moe](https://trace.moe/)")
-        if not first_result["is_adult"]:
+        if not first_result.get("is_adult", False):
             embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
                             .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
                                     first_result["at"], first_result["tokenthumb"]))
