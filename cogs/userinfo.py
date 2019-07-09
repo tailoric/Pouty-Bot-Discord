@@ -1,5 +1,4 @@
 from typing import Optional
-
 from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import DataIO
@@ -114,64 +113,122 @@ class Userinfo(commands.Cog):
             embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
         await ctx.send(embed=embed)
 
+    async def fetch_names(self, member):
+        async with self.bot.db.acquire() as con:
+            stmt = await con.prepare('''
+                SELECT *
+                FROM (
+                    SELECT DISTINCT ON (name) *
+                    from names
+                    where user_id = $1
+                 ) p
+                ORDER BY change_date  
+                LIMIT 20
+            ''')
+            return await stmt.fetch(member.id)
+
+    async def fetch_nicknames(self, member):
+        async with self.bot.db.acquire() as con:
+            stmt = await con.prepare('''
+                SELECT *
+                FROM (
+                    SELECT DISTINCT ON (nickname) *
+                    from nicknames
+                    where user_id = $1
+                 ) p
+                ORDER BY change_date 
+                LIMIT 20
+            ''')
+            return await stmt.fetch(member.id)
+
+    async def create_name_tables(self):
+        query = '''
+                CREATE TABLE IF NOT EXISTS names(
+                    user_id BIGINT,
+                    name varchar(32),
+                    change_date timestamp
+                );
+                CREATE TABLE IF NOT EXISTS nicknames(
+                    user_id BIGINT,
+                    nickname varchar(32),
+                    change_date timestamp
+                );
+        '''
+        async with self.bot.db.acquire() as con:
+            async with con.transaction():
+                await con.execute(query)
+
+    @commands.is_owner()
+    @commands.command()
+    async def lnames(self, ctx):
+        data_io = DataIO()
+        entries = data_io.load_json('names')
+        for entry in entries:
+            names = entries[entry].get("names", [])
+            nicknames = entries[entry].get("nicknames", [])
+
+            async with self.bot.db.acquire() as con:
+                for name in names:
+                    stmt = await con.prepare('''
+                                   INSERT INTO names VALUES ($1,$2,current_timestamp)
+                                   RETURNING *
+                               ''')
+                    async with con.transaction():
+                        await stmt.fetch(int(entry), name)
+                for nickname in nicknames:
+                    stmt = await con.prepare('''
+                                   INSERT INTO nicknames VALUES ($1,$2,current_timestamp)
+                                   RETURNING *
+                               ''')
+                    async with con.transaction():
+                        await stmt.fetch(int(entry), nickname)
+
     @commands.command()
     async def names(self, ctx, member: Member=None):
         """
         lists the past 20 names and nicknames of a user
         """
-        dataIO = DataIO()
-        if member:
-            member_id = member.id
-        else:
+        if not member:
             member = ctx.message.author
-            member_id = member.id
-        data = dataIO.load_json("names")
-        member_name_data = data.get(str(member_id), {})
-        nickname_list = member_name_data.get("nicknames", [])
-        names_list = member_name_data.get("names", [])
+        data_names = await self.fetch_names(member)
+        data_nicknames = await self.fetch_nicknames(member)
+        nickname_list = []
+        names_list = []
+        for entry in data_names:
+            names_list.append(entry['name'])
+        for entry in data_nicknames:
+            nickname_list.append(entry['nickname'])
         if member.name not in names_list:
-            name = discord.utils.escape_markdown(member.name)
-            names_list.append(name)
-        if member.display_name not in nickname_list:
-            display_name = discord.utils.escape_markdown(member.display_name)
-            nickname_list.append(display_name)
+            names_list.insert(0, member.name)
+        if member.nick not in nickname_list and member.nick:
+            nickname_list.insert(0, member.nick)
         message_fmt = "**Past 20 names:**\n{}\n" \
                       "**Past 20 nicknames:**\n{}"
         names_list_str = discord.utils.escape_markdown(", ".join(names_list))
         display_names_list_str = discord.utils.escape_markdown(", ".join(nickname_list))
-        await ctx.send(message_fmt.format(names_list_str,display_names_list_str))
+        await ctx.send(message_fmt.format(names_list_str, display_names_list_str))
 
     @commands.Cog.listener("on_member_update")
     async def save_nickname_change(self, before, after):
-        if before.display_name != after.display_name:
-            dataIO = DataIO()
-            data = dataIO.load_json("names")
-            member_name_info = data.get(str(before.id), {})
-            nickname_list = member_name_info.get("nicknames", [])
-            if before.display_name not in nickname_list:
-                nickname_list.append(before.display_name)
-            nickname_list.append(after.display_name)
-            if len(nickname_list) > 20:
-                nickname_list.pop(0)
-            member_name_info["nicknames"] = nickname_list
-            data[str(before.id)] = member_name_info
-            dataIO.save_json("names", data)
+        if before.nick != after.nick and after.nick:
+            async with self.bot.db.acquire() as con:
+                stmt = await con.prepare('''
+                               INSERT INTO nicknames VALUES ($1,$2,current_timestamp)
+                               RETURNING *
+                           ''')
+                async with con.transaction():
+                    new_row = await stmt.fetch(after.id, after.nick)
 
     @commands.Cog.listener("on_user_update")
     async def save_username_change(self, before, after):
         if before.name != after.name:
-            dataIO = DataIO()
-            data = dataIO.load_json("names")
-            member_name_info = data.get(str(before.id), {})
-            name_list = member_name_info.get("names", [])
-            if before.display_name not in name_list:
-                name_list.append(before.name)
-            name_list.append(after.name)
-            if len(name_list) > 20:
-                name_list.pop(0)
-            member_name_info["names"] = name_list
-            data[str(before.id)] = member_name_info
-            dataIO.save_json("names", data)
+            async with self.bot.db.acquire() as con:
+                stmt = await con.prepare('''
+                    INSERT INTO names VALUES ($1,$2,current_timestamp)
+                    RETURNING *
+                ''')
+                async with con.transaction():
+                    new_row = await stmt.fetch(after.id, after.name)
 
 
 
