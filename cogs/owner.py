@@ -129,7 +129,7 @@ class Owner(commands.Cog):
             self.bot.load_extension(module)
 
     @commands.command()
-    @checks.is_owner()
+    @commands.is_owner()
     async def update(self, ctx):
         """Reloads all modules, while pulling from git."""
 
