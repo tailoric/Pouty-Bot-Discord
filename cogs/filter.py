@@ -64,7 +64,7 @@ class Filter(commands.Cog):
                 for tag in data['tags']:
                     if tag['name'] in self.banned_tags:
                         return True, tag['name']
-                return False, None
+            return False, None
 
     async def call_nhentai_api(self, id: int):
         url = f"https://nhentai.net/api/gallery/{id}"
