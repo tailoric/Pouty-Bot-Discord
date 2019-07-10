@@ -4,6 +4,8 @@ import discord
 import json
 import os
 import cogs.utils.checks as checks
+import random
+import colorsys
 from .utils.converters import RoleConverter
 
 class Roles(commands.Cog):
@@ -135,6 +137,16 @@ class Roles(commands.Cog):
             await ctx.send('role `{}` removed'.format(role_name))
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission to remove that role")
+
+    def check_is_booster_channel(ctx):
+        return ctx.channel.id == 582894980436328449 or ctx.channel.id == 208765039727869954
+    @commands.command(aliases=["color","colour"])
+    @commands.check(check_is_booster_channel)
+    async def random_colors(self, ctx):
+        value = [int(x * 255) for x in colorsys.hls_to_rgb(random.random(), 0.8, 1.0)]
+        color = discord.Color.from_rgb(*value)
+        await ctx.send(embed=discord.Embed(color=color, description=str(color)))
+
 
 def setup(bot: commands.Bot):
     bot.add_cog(Roles(bot))
