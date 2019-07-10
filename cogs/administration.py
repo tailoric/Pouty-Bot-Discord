@@ -172,8 +172,8 @@ class Admin(commands.Cog):
             return
 
         try:
-            messages = await ctx.channel.purge(limit=number)
-            await ctx.send(f"deleted the last {len(messages)} messages from this channel")
+            messages = await ctx.channel.purge(limit=number+1)
+            await ctx.send(f"deleted the last {len(messages)-1} messages from this channel")
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
         except Exception as ex:
