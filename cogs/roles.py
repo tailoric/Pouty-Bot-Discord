@@ -41,7 +41,7 @@ class Roles(commands.Cog):
         with open('data/roles.json', 'w') as file:
             json.dump(self.settable_roles, file)
 
-    @commands.command(name="iam", pass_context=True)
+    @commands.command(name="iam", aliases=["Iam", "IAM"])
     async def assign_role(self, ctx, role: RoleConverter):
         """
         assigns you a role
