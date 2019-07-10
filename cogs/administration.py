@@ -25,7 +25,7 @@ class SnowflakeUserConverter(commands.MemberConverter):
             return user
         except commands.CommandError:
             #try the cache instead
-            pattern = re.compile('(<@!?)?(\d+)>?')
+            pattern = re.compile('(<@!?)?(\d{17,})>?')
             match = pattern.match(argument)
             if match and match.group(2):
                 return discord.Object(int(match.group(2)))
@@ -110,7 +110,7 @@ class Admin(commands.Cog):
 
     @commands.has_permissions(manage_messages=True)
     @commands.group(name="cleanup")
-    async def _cleanup(self, ctx, users: commands.Greedy[discord.Member], number: typing.Optional[int] = 10):
+    async def _cleanup(self, ctx, users: commands.Greedy[SnowflakeUserConverter], number: typing.Optional[int] = 10):
         """
         cleanup command that deletes either the last x messages in a channel or the last x messages of one
         or multiple user
@@ -127,30 +127,27 @@ class Admin(commands.Cog):
             return
 
     @_cleanup.command(name="user")
-    async def user_(self, ctx, users: commands.Greedy[discord.Member], number=10):
+    async def user_(self, ctx, users: commands.Greedy[SnowflakeUserConverter], number=10):
         """
         removes the last x messages of one or multiple users in this channel (defaults to 10)
         """
-        number = 100 if number > 100 else number
+        number = number if number <= 100 else 100
         if not users:
             await ctx.send("provide at least one user who's messages will be deleted")
+            return
         try:
-            def message_belongs_to_user_check(mes):
-                return mes.author in users
-            deleted_messages = await ctx.channel.purge(limit=number, check=message_belongs_to_user_check)
-            await ctx.send(f"deleted the last {len(deleted_messages[0:number])} "
-                           f"messages by {', '.join([u.name for u in users])}")
+            history_mes = await ctx.channel.history(limit=100).flatten()
+            messages_to_delete = [mes for mes in history_mes if mes.author.id in [u.id for u in users]]
+            await ctx.channel.delete_messages(messages_to_delete[:number])
+            await ctx.send(f"deleted {len(messages_to_delete[0:number])} messages")
         except (discord.ClientException, discord.HTTPException, discord.Forbidden) as e:
-            import traceback
-            await ctx.send(str(e))
-            owner = ctx.guild.get_member(self.bot.owner_id)
-            await owner.send(traceback.print_exc())
+            raise
         except Exception as ex:
             import traceback
             owner = ctx.guild.get_member(self.bot.owner_id)
             if owner:
-                await owner.send(traceback.print_exc())
-            self.error_log.error(traceback.print_exc())
+                await owner.send(traceback.format_exc())
+            self.error_log.error(traceback.format_exc())
 
     @_cleanup.command(name="channel")
     async def channel_(self, ctx, number=10):
@@ -158,9 +155,24 @@ class Admin(commands.Cog):
         removes the last x messages from the channel it was called in (defaults to 10)
         """
         number = number if number <= 100 else 100
-        messages = await ctx.channel.history(limit=number, before=ctx.message).flatten()
+        question = await ctx.send(f"this will delete the last {number} messages from ALL users. Continue?")
+        await question.add_reaction(self.reactions[0])
+        await question.add_reaction(self.reactions[1])
+
+        def check_is_author(reaction, user):
+            return reaction.message.id == question.id and user.id == ctx.author.id and \
+                   reaction.emoji in self.reactions
         try:
-            await ctx.channel.purge(limit=number)
+            reaction, user = await self.bot.wait_for("reaction_add", check=check_is_author, timeout=20)
+            if reaction.emoji == self.reactions[1]:
+                await question.delete()
+                return
+        except asyncio.TimeoutError:
+            await question.delete()
+            return
+
+        try:
+            messages = await ctx.channel.purge(limit=number)
             await ctx.send(f"deleted the last {len(messages)} messages from this channel")
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
