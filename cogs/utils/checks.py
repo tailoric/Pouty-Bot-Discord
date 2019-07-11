@@ -1,8 +1,9 @@
 from discord.ext import commands
 from discord.utils import find
-from discord import User
 import json
+import discord
 from os import path
+
 
 
 def is_owner_check(message):
@@ -41,7 +42,18 @@ def is_owner_or_moderator():
     return commands.check(lambda ctx: is_owner_or_moderator_check(ctx.message))
 
 
-def user_is_in_whitelist_server(bot: commands.Bot, user: User):
+def channel_only(*channels: int):
+    def predicate(ctx):
+        if ctx.channel.id not in channels:
+            if ctx.guild:
+                channel_mentions= [f"<#{ch.id}>" for ch in ctx.guild.text_channels if ch.id in channels]
+                raise commands.CheckFailure(f"Please use the command only in the following channels:\n"
+                                            f"{' '.join(channel_mentions)}")
+            raise commands.CheckFailure("Can't use  this command in DMs")
+        return True
+    return commands.check(predicate)
+
+def user_is_in_whitelist_server(bot: commands.Bot, user: discord.User):
     if not path.exists('data/server_whitelist.json'):
         f = open('data/server_whitelist.json', 'w')
         json.dump([], f)
@@ -56,5 +68,3 @@ def user_is_in_whitelist_server(bot: commands.Bot, user: User):
                     return True
         return False
 
-def setup(bot):
-    pass

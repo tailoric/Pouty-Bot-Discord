@@ -3,24 +3,20 @@ from discord.ext import commands
 from discord.ext.commands import Bot
 import discord
 from .utils.dataIO import DataIO
+from .utils.checks import channel_only
 
 class Penis(commands.Cog):
     """cog for finding the 100% accurate penis length of a user"""
-    def __init__(self, bot:Bot, allowed_channels):
+    data_io = DataIO()
+    allowed_channels = data_io.load_json("bot_channels")
+
+    def __init__(self, bot:Bot):
         self.bot = bot
-        self.allowed_channel = None
-        for channel_id in allowed_channels:
-            channel = bot.get_channel(channel_id)
-            if channel:
-                self.allowed_channel = channel
-                break
 
     @commands.command(pass_context=True)
+    @channel_only(*allowed_channels)
     async def penis(self, ctx, members: commands.Greedy[discord.Member]):
         """accurately measure a user's penis size or compare the penis size of multiple users"""
-        if ctx.message.channel != self.allowed_channel:
-            await ctx.send(f"Please use the following channel: <#{self.allowed_channel.id}>")
-            return
         if not members:
             members = [ctx.author]
         length_list = []
@@ -35,6 +31,4 @@ class Penis(commands.Cog):
 
 
 def setup(bot):
-    data_io = DataIO()
-    allowed_channels = data_io.load_json("bot_channels")
-    bot.add_cog(Penis(bot, allowed_channels))
+    bot.add_cog(Penis(bot))
