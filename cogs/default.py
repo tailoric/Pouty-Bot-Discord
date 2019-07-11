@@ -4,6 +4,7 @@ from .utils.exceptions import *
 from .utils import checks
 from .utils.dataIO import DataIO
 from discord.ext.commands import DefaultHelpCommand
+import traceback
 
 
 class CustomHelpCommand(DefaultHelpCommand):
@@ -37,6 +38,15 @@ class Default(commands.Cog):
         self.data_io = DataIO()
         self.credentials = self.data_io.load_json("credentials")
         self.logger = logging.getLogger("PoutyBot")
+        handler = logging.FileHandler(filename='data/pouty.log', encoding='utf-8', mode='a')
+        handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+        self.logger.addHandler(handler)
+        self.dm_logger = logging.getLogger("DMLogger")
+        self.dm_logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(filename='data/dms.log', encoding='utf-8', mode='a')
+        handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+        self.dm_logger.addHandler(handler)
+
 
     def cog_unload(self):
         self.bot.remove_listener(self.on_ready, 'on_ready')
@@ -59,9 +69,16 @@ class Default(commands.Cog):
                 print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
                 continue
 
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if isinstance(message.channel, discord.DMChannel):
+            user = message.author
+            self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
+
+
     async def on_command_error(self, ctx, error):
-        self.logger.log(logging.ERROR,  f"{ctx.command.name} invoked by {ctx.author} raised the following error:"
-                                        f"\n\t{type(error)}; {error}")
+        if isinstance(error, commands.CommandNotFound):
+            return
         if isinstance(error, BlackListedException):
             return
         elif isinstance(error, DisabledCommandException):
