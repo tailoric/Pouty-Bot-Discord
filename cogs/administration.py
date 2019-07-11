@@ -224,11 +224,6 @@ class Admin(commands.Cog):
             await ctx.author.send(f"```\n\n{ctx.command.usage}\n{ctx.command.help}\n```")
             ctx.command.reset_cooldown(ctx)
             return False
-        if type(ctx.message.channel) is not discord.DMChannel:
-            await ctx.author.send("Only use the `report` command in private messages")
-            await ctx.send("Only use the `report` command in private messages")
-            ctx.command.reset_cooldown(ctx)
-            return False
         if not self.report_channel:
             await ctx.send("report channel not set up yet, message a moderator")
             ctx.command.reset_cooldown(ctx)
@@ -237,6 +232,7 @@ class Admin(commands.Cog):
 
     @commands.cooldown(rate=1, per=60, type=commands.BucketType.user)
     @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
+    @commands.dm_only()
     async def report(self, ctx: commands.Context, report: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
         """
         anonymously report a user to the moderators
