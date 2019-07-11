@@ -6,6 +6,7 @@ from discord import Member, Embed, Role, utils
 import discord
 from datetime import datetime,timedelta
 import time
+import json
 
 
 class Userinfo(commands.Cog):

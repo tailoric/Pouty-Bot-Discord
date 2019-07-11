@@ -74,8 +74,9 @@ class Filter(commands.Cog):
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
+        if not user.guild:
+            return
         mod_role = user.guild.get_role(191094827562041345)
-        search_emoji = self.bot.get_emoji(595953208556257292)
         if isinstance(user, discord.Member) and mod_role in user.roles and reaction.emoji == "\N{MICROSCOPE}":
             check_true, tag = await self.check_for_tags(reaction.message.content)
             if check_true:

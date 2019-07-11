@@ -84,9 +84,6 @@ class Default(commands.Cog):
         elif isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
-        elif isinstance(error, commands.CheckFailure):
-            await ctx.message.channel.send("You don't have permission to use this command")
-            return
         elif isinstance(error, commands.BadArgument):
             await ctx.send(error)
             if ctx.command.help is not None:
