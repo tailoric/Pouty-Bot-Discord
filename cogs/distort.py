@@ -38,7 +38,7 @@ class Distort(commands.Cog):
             if filetype.lower() not in self.allowed_file_extensions:
                 await ctx.send("not allowed filetype only images or gifs allowed")
                 return
-            await message.attachments[0].save(filename)
+            await message.attachments[0].save(f"data/{filename}")
         else:
             if isinstance(link, PartialEmoji):
                 filetype = str(link.url)[str(link.url).rfind("."):]
