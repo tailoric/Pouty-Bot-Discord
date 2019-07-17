@@ -12,6 +12,7 @@ import typing
 from io import BytesIO
 import asyncio
 import re
+import datetime
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -46,15 +47,11 @@ class Admin(commands.Cog):
         if os.path.exists('data/mute_list.json'):
             with open('data/mute_list.json') as f:
                 json_data = json.load(f)
-                self.mutes = json_data['mutes']
                 for server in self.bot.guilds:
                     self.mute_role = get(server.roles, id=int(json_data['mute_role']))
                     if self.mute_role is not None:
                         break
             self.unmute_loop.start()
-        else:
-            self.mutes = []
-            self.mute_role = None
         if os.path.exists("data/reddit_settings.json"):
             with open("data/reddit_settings.json") as f:
                 json_data = json.load(f)
@@ -78,18 +75,23 @@ class Admin(commands.Cog):
             '\N{WHITE HEAVY CHECK MARK}',
             '\N{NEGATIVE SQUARED CROSS MARK}'
         ]
+        self.bot.loop.create_task(self.create_mute_database())
 
+    @property
+    async def mutes(self):
+        query =("SELECT * FROM mutes")
+        async with self.bot.db.acquire() as con:
+            return await con.fetch(query)
     def cog_unload(self):
         self.unmute_loop.cancel()
-        self.save_mute_list()
 
-    def save_mute_list(self):
-        data = {
-            "mute_role": self.mute_role.id,
-            "mutes": self.mutes
-        }
-        with open("data/mute_list.json", 'w') as f:
-            json.dump(data, f)
+    async def create_mute_database(self):
+        query = ("CREATE TABLE IF NOT EXISTS mutes ("
+                 "user_id BIGINT PRIMARY KEY,"
+                 "unmute_ts TIMESTAMP )")
+        async with self.bot.db.acquire() as conn:
+            async with conn.transaction():
+                await self.bot.db.execute(query)
 
     @commands.command()
     @commands.guild_only()
@@ -337,10 +339,10 @@ class Admin(commands.Cog):
     @tasks.loop(seconds=5.0)
     async def unmute_loop(self):
         to_remove = []
-        for mute in self.mutes:
-            if mute["unmute_ts"] <= int(time.time()):
+        for mute in await self.mutes:
+            if mute["unmute_ts"] <= datetime.datetime.utcnow():
                 try:
-                    user = get(self.mute_role.guild.members, id=mute["user"])
+                    user = get(self.mute_role.guild.members, id=mute["user_id"])
                     if user:
                         await user.remove_roles(self.mute_role)
                 except (discord.errors.Forbidden, discord.errors.NotFound):
@@ -350,13 +352,31 @@ class Admin(commands.Cog):
                 else:
                     to_remove.append(mute)
         for mute in to_remove:
-            self.mutes.remove(mute)
+            await self.remove_user_from_mute_list(mute['user_id'])
             if self.check_channel is not None:
-                user = get(self.mute_role.guild.members, id=mute["user"])
+                user = get(self.mute_role.guild.members, id=mute["user_id"])
                 if user:
                     await self.check_channel.send("User {0} unmuted".format(user.mention))
-        if to_remove:
-            self.save_mute_list()
+                else:
+                    await self.check_channel.send(f"User <@{mute['user_id']}> unmuted")
+
+
+    async def remove_user_from_mute_list(self, member_id):
+        query = ("DELETE FROM mutes "
+                 "WHERE user_id = $1"
+                 "RETURNING user_id")
+        async with self.bot.db.acquire() as con:
+            stmt = await con.prepare(query)
+            async with con.transaction():
+                unmuted_user_id = await stmt.fetchval(member_id)
+        return unmuted_user_id
+    async def add_mute_to_mute_list(self, member_id, timestamp):
+        query = ("INSERT INTO mutes "
+                 "VALUES ($1,$2)")
+        async with self.bot.db.acquire() as con:
+            stmt = await con.prepare(query)
+            async with con.transaction():
+                await stmt.fetch(member_id, timestamp)
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
@@ -376,22 +396,32 @@ class Admin(commands.Cog):
             await ctx.send("amount needs to be at least 1")
             return
         length = self.units[time_unit] * amount
-        unmute_ts = int(time.time() + length)
+        unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
         mute_message = f"user {user.mention} was muted"
         await user.add_roles(self.mute_role)
         await ctx.send(mute_message)
         if reason:
             mute_message = f"{mute_message} for the following reason:\n{reason}"
+        await self.add_mute_to_mute_list(user.id, unmute_ts)
         await self.check_channel.send(mute_message)
-        self.mutes.append({"user": user.id, "unmute_ts": unmute_ts})
-        self.save_mute_list()
 
     @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
     async def mute_setup(self, ctx, role):
         mute_role = get(ctx.message.guild.roles, name=role)
         self.mute_role = mute_role
-        self.save_mute_list()
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        muted_user_ids = [m['user_id'] for m in await self.mutes]
+        if member.id in muted_user_ids:
+            await member.add_roles(self.mute_role)
+            await self.check_channel.send(f"{member.mention} tried to circumvent a mute by leaving")
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        muted_user_ids = [m['user_id'] for m in await self.mutes]
+        if member.id in muted_user_ids:
+            await self.check_channel.send(f"{member.mention} left the server while being muted")
 
 
 def setup(bot):
