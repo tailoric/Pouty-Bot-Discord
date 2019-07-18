@@ -926,7 +926,7 @@ class SCP(commands.Cog):
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
-    @commands.command()
+    @commands.group(invoke_without_command=True)
     async def scp(self, ctx, number):
         """look up an scp page (either via number for example .scp 2053)
         or via page name for example .scp fear-alone"""
@@ -945,6 +945,23 @@ class SCP(commands.Cog):
                 await ctx.send(url)
             else:
                 await ctx.send("SCP not found")
+
+    @scp.command(name="random")
+    async def scp_random(self, ctx):
+        """
+        display a random scp article (only works with scp-001 to scp-4999)
+        """
+        max_scp_number = 4999
+        scp_number = random.randint(1,max_scp_number)
+        url = f"http://www.scp-wiki.net/scp-{scp_number:03}"
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
+                await ctx.send(url)
+            else:
+                await ctx.send("SCP not found")
+
+
+
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
