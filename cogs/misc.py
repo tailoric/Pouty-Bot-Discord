@@ -954,11 +954,7 @@ class SCP(commands.Cog):
         max_scp_number = 4999
         scp_number = random.randint(1,max_scp_number)
         url = f"http://www.scp-wiki.net/scp-{scp_number:03}"
-        async with self.session.get(url) as resp:
-            if resp.status == 200:
-                await ctx.send(url)
-            else:
-                await ctx.send("SCP not found")
+        await ctx.send(url)
 
 
 
