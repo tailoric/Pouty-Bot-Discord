@@ -107,7 +107,10 @@ class Admin(commands.Cog):
         lines = []
         def channel_mention_to_name(matchobj):
             channel = ctx.guild.get_channel(int(matchobj.group(1)))
-            return f"#{channel.name}"
+            if channel:
+                return f"#{channel.name}"
+            else:
+                return "#invalid-channel"
 
         for ban in list_of_matched_users:
             reason = None
