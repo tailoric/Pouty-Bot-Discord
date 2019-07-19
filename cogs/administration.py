@@ -105,8 +105,13 @@ class Admin(commands.Cog):
                 list_of_matched_users.append(ban)
 
         lines = []
+        def channel_mention_to_name(matchobj):
+            channel = ctx.guild.get_channel(int(matchobj.group(1)))
+            return f"#{channel.name}"
+
         for ban in list_of_matched_users:
-            lines.append(f"{ban.user.name}#{ban.user.discriminator}: {ban.reason}")
+            reason = re.sub(r'<#(\d+)>', channel_mention_to_name, ban.reason)
+            lines.append(f"{ban.user.name}#{ban.user.discriminator}: {reason}")
         text_pages = paginator.TextPages(ctx, "\n".join(lines))
         await text_pages.paginate()
 
