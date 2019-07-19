@@ -110,7 +110,9 @@ class Admin(commands.Cog):
             return f"#{channel.name}"
 
         for ban in list_of_matched_users:
-            reason = re.sub(r'<#(\d+)>', channel_mention_to_name, ban.reason)
+            reason = None
+            if ban.reason:
+                reason = re.sub(r'<#(\d+)>', channel_mention_to_name, ban.reason)
             lines.append(f"{ban.user.name}#{ban.user.discriminator}: {reason}")
         text_pages = paginator.TextPages(ctx, "\n".join(lines))
         await text_pages.paginate()
