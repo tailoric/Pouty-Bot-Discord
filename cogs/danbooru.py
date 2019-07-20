@@ -12,6 +12,18 @@ from .utils import checks
 from .utils.paginator import TextPages
 import logging
 from os import path
+import typing
+
+
+class DanbooruTypeConverter(commands.Converter):
+
+
+    async def convert(self, ctx, argument):
+        types = {"general": 0, "artist": 1, "copyright": 3, "character": 4, "meta": 5}
+        if argument in types.keys():
+            return types[argument]
+        else:
+            raise commands.BadArgument(f"type must be one of the following {','.join(types.keys())}")
 
 class Helper:
     def __init__(self, session, bot, auth_file):
@@ -514,6 +526,40 @@ class Danbooru(commands.Cog):
             await ctx.send("no image found")
             return None, None
         return channel, self.build_message(image, channel, message)
+
+    @commands.command(name="dant", aliases=["dantag", "dan_tag"], usage="tagname category=[general, artist, copyright, character, meta]")
+    async def dan_tag(self, ctx, tag, category: typing.Optional[DanbooruTypeConverter]):
+        """Searches danbooru for matching tags
+           category can be either of those [general, artist, copyright, character, meta]
+           examples:
+                .dantag eyes general (to search tags of the geneeral category containing the name 'eyes')
+                .dantag fate copyright (to search franchises containing the name 'fate')
+           """
+        types = {0: "general",  1: "artist",  3: "copyright", 4: "character", 5: "meta"}
+        url = f"https://danbooru.donmai.us/tags.json?search[hide_empty]=yes&search[order]=count&search[name_matches]={tag}*"
+        if category:
+            url += f"&search[category]={category}"
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
+                info = (await resp.json())
+                embed = discord.Embed(title="Found tags")
+                for tag in info[:5]:
+                    related_tags = tag['related_tags']
+                    tag_name = tag['name']
+                    related_tags_list = related_tags.split()
+                    related_tags_list = [t for t in related_tags_list if not t.isdigit()]
+                    related_tags_list = [t for t in related_tags_list if not re.fullmatch(r'\d+\.\d+', t)]
+                    if tag_name in related_tags_list:
+                        related_tags_list.remove(tag_name)
+                    tag_name = discord.utils.escape_markdown(tag_name)
+                    related_tags = ', '.join(related_tags_list)
+                    related_tags = discord.utils.escape_markdown(related_tags)
+                    embed.add_field(name=f"{tag_name} [{types[tag['category']]}] ", value=f"**related tags**: {related_tags}")
+                await ctx.send(embed=embed)
+
+
+
+
 
     @commands.group(invoke_without_command=True)
     async def dan(self, ctx, *, tags: str = ""):
