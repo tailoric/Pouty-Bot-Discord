@@ -13,6 +13,7 @@ from io import BytesIO
 import asyncio
 import re
 import datetime
+import asyncpg
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -76,12 +77,34 @@ class Admin(commands.Cog):
             '\N{NEGATIVE SQUARED CROSS MARK}'
         ]
         self.bot.loop.create_task(self.create_mute_database())
+        self.bot.loop.create_task(self.create_voice_unmute_table())
+        self.to_unmute = []
+
+    async def get_voice_unmutes(self):
+        query =("SELECT * FROM vmutes")
+        async with self.bot.db.acquire() as con:
+            return await con.fetch(query)
+
+    async def add_to_unmutes(self, member_id):
+        query = ("INSERT INTO vmutes VALUES ($1)")
+        async with self.bot.db.acquire() as con:
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(member_id)
+
+    async def remove_from_unmutes(self, member_id):
+        query = ("DELETE FROM vmutes WHERE user_id = $1")
+        async with self.bot.db.acquire() as con:
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(member_id)
 
     @property
     async def mutes(self):
-        query =("SELECT * FROM mutes")
+        query =("SELECT * FROM vmutes")
         async with self.bot.db.acquire() as con:
             return await con.fetch(query)
+
     def cog_unload(self):
         self.unmute_loop.cancel()
 
@@ -92,6 +115,14 @@ class Admin(commands.Cog):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 await self.bot.db.execute(query)
+
+    async def create_voice_unmute_table(self):
+        query = ("CREATE TABLE IF NOT EXISTS vmutes ("
+                 "user_id BIGINT PRIMARY KEY)")
+        async with self.bot.db.acquire() as conn:
+            async with conn.transaction():
+                await self.bot.db.execute(query)
+
 
     @commands.command()
     @commands.guild_only()
@@ -431,8 +462,27 @@ class Admin(commands.Cog):
     @commands.command(name="vunmute", aliases=["unmute"])
     async def voice_unmute(self, ctx, member: discord.Member, *, reason: typing.Optional[str]):
         """ removes the voice mute from the user"""
-        await member.edit(mute=False, reason=reason)
-        await ctx.send(f"User {member.mention} successfully unmuted from voice")
+        if member.voice and member.voice.mute:
+            await member.edit(mute=False, reason=reason)
+            await ctx.send(f"User {member.mention} successfully unmuted from voice")
+            return
+        if member.voice and not member.voice.mute:
+            await ctx.send("User is not muted")
+            return
+        self.to_unmute.append(member.id)
+        await self.add_to_unmutes(member.id)
+        await ctx.send(f"User {member.mention} added to users that will be unmuted")
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        if not self.to_unmute:
+            records = await self.get_voice_unmutes()
+            self.to_unmute = [rec["user_id"] for rec in records]
+        if member.voice and member.voice.mute and member.id in self.to_unmute:
+            await member.edit(mute=False)
+            self.to_unmute.remove(member.id)
+            await self.remove_from_unmutes(member.id)
+
     @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
     async def mute_setup(self, ctx, role):
