@@ -478,10 +478,11 @@ class Admin(commands.Cog):
         if not self.to_unmute:
             records = await self.get_voice_unmutes()
             self.to_unmute = [rec["user_id"] for rec in records]
-        if member.voice and member.voice.mute and member.id in self.to_unmute:
+        if member.voice and member.id in self.to_unmute:
             await member.edit(mute=False)
             self.to_unmute.remove(member.id)
             await self.remove_from_unmutes(member.id)
+
 
     @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
