@@ -9,7 +9,7 @@ import asyncio
 import re
 import traceback
 from .utils import checks
-from .utils.paginator import TextPages
+from .utils.paginator import TextPages,FieldPages
 import logging
 from os import path
 import typing
@@ -539,11 +539,12 @@ class Danbooru(commands.Cog):
         url = f"https://danbooru.donmai.us/tags.json?search[hide_empty]=yes&search[order]=count&search[name_matches]={tag}*"
         if category:
             url += f"&search[category]={category}"
+        entries = []
         async with self.session.get(url) as resp:
             if resp.status == 200:
                 info = (await resp.json())
                 embed = discord.Embed(title="Found tags")
-                for tag in info[:5]:
+                for tag in info:
                     related_tags = tag['related_tags']
                     tag_name = tag['name']
                     related_tags_list = related_tags.split()
@@ -554,8 +555,11 @@ class Danbooru(commands.Cog):
                     tag_name = discord.utils.escape_markdown(tag_name)
                     related_tags = ', '.join(related_tags_list)
                     related_tags = discord.utils.escape_markdown(related_tags)
-                    embed.add_field(name=f"{tag_name} [{types[tag['category']]}] ", value=f"**related tags**: {related_tags}")
-                await ctx.send(embed=embed)
+                    key = f"{tag_name} [{types[tag['category']]}]"
+                    value = f"**related tags**: {related_tags}"
+                    entries.append((key, value))
+                pages = FieldPages(ctx, entries=entries, per_page=5)
+                await pages.paginate()
 
 
 
