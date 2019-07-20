@@ -523,7 +523,7 @@ class Danbooru(commands.Cog):
             await ctx.send("no image found please refer to the pin:\n"
                            "https://discordapp.com/channels/187423852224053248/402151326915493888/582629178285883394\n"
                            "or use the `dantag` command with part of the character or franchise name to see how it"
-                           "is written correctly")
+                           " is written correctly")
             return None, None
         return channel, self.build_message(image, channel, message)
 
