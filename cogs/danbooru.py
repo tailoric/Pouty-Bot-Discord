@@ -400,7 +400,7 @@ class Danbooru(commands.Cog):
         self.init_directories()
         self.blacklist_tags_file = 'data/danbooru_cog_blacklist.json'
         self.danbooru_channel_file = 'data/danbooru_channel_file.json'
-        self.bucket = commands.CooldownMapping.from_cooldown(2, 60, commands.BucketType.member)
+        self.bucket = commands.CooldownMapping.from_cooldown(1, 60, commands.BucketType.member)
         with open(self.blacklist_tags_file, 'r') as f:
             self.tags_blacklist = json.load(f)
         if path.exists(self.danbooru_channel_file):
@@ -520,10 +520,10 @@ class Danbooru(commands.Cog):
         else:
             image = await self.helper.lookup_tags(tags, limit='1')
         if len(image) == 0:
-            if self.bucket.update_rate_limit(ctx.message):
-                await ctx.send("If you can't find images please refer to the pin:\n"
-                               "https://discordapp.com/channels/187423852224053248/402151326915493888/582629178285883394")
-            await ctx.send("no image found")
+            await ctx.send("no image found please refer to the pin:\n"
+                           "https://discordapp.com/channels/187423852224053248/402151326915493888/582629178285883394\n"
+                           "or use the `dantag` command with part of the character or franchise name to see how it"
+                           "is written correctly")
             return None, None
         return channel, self.build_message(image, channel, message)
 
