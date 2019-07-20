@@ -416,6 +416,24 @@ class Admin(commands.Cog):
         await self.check_channel.send(mute_message)
 
     @checks.is_owner_or_moderator()
+    @commands.command(name="vmute")
+    async def voice_mute(self, ctx, member: discord.Member, *,reason: typing.Optional[str]):
+        """
+        mutes a user from voice for the whole server
+        """
+        await member.edit(mute=True, reason=reason)
+        await ctx.send(f"User {member.mention} successfully muted from voice")
+        if reason:
+            await self.check_channel.send(f"user {member.mention} muted from voice for the following reason:\n"
+                                          f"{reason}")
+
+    @checks.is_owner_or_moderator()
+    @commands.command(name="vunmute", aliases=["unmute"])
+    async def voice_unmute(self, ctx, member: discord.Member, *, reason: typing.Optional[str]):
+        """ removes the voice mute from the user"""
+        await member.edit(mute=False, reason=reason)
+        await ctx.send(f"User {member.mention} successfully unmuted from voice")
+    @checks.is_owner_or_moderator()
     @commands.command(name="setup_mute", pass_context=True)
     async def mute_setup(self, ctx, role):
         mute_role = get(ctx.message.guild.roles, name=role)
