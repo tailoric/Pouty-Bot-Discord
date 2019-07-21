@@ -5,6 +5,7 @@ import re
 from .utils.dataIO import DataIO
 class AnimemesHelpFormat(commands.DefaultHelpCommand):
 
+
     def random_response(self):
         with open("data/rules_channel_phrases.json")as f:
             phrases = json.load(f)
@@ -33,6 +34,7 @@ class AnimemesHelpFormat(commands.DefaultHelpCommand):
 
 class ReadRules(commands.Cog):
     def __init__(self, bot : commands.Bot):
+        self.bucket = commands.CooldownMapping.from_cooldown(3, 600, commands.BucketType.member)
         self.bot = bot
         self._original_help_command = bot.help_command
         self.bot.help_command = AnimemesHelpFormat()
@@ -54,12 +56,21 @@ class ReadRules(commands.Cog):
             phrases = json.load(f)
             has_confirm_in_message = "yes" in content or "i have" in content
             if has_confirm_in_message:
+                if self.bucket.update_rate_limit(message):
+                    await channel.send(choice(phrases['repeat']))
+                    return
                 await channel.send(choice(phrases["yes"]))
                 return
             if "sex-shack" in content:
+                if self.bucket.update_rate_limit(message):
+                    await channel.send(choice(phrases['repeat']))
+                    return
                 await channel.send(choice(phrases["shack"]))
                 return
             if "general-discussion" in content or re.match(r"#(\w+-?)+", content) or message.channel_mentions:
+                if self.bucket.update_rate_limit(message):
+                    await channel.send(choice(phrases['repeat']))
+                    return
                 await channel.send(choice(phrases["channel"]))
                 return
     @commands.Cog.listener()
