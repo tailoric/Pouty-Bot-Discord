@@ -14,6 +14,7 @@ import asyncio
 import re
 import datetime
 import asyncpg
+import traceback
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -101,7 +102,7 @@ class Admin(commands.Cog):
 
     @property
     async def mutes(self):
-        query =("SELECT * FROM vmutes")
+        query =("SELECT * FROM mutes")
         async with self.bot.db.acquire() as con:
             return await con.fetch(query)
 
@@ -380,26 +381,29 @@ class Admin(commands.Cog):
     @tasks.loop(seconds=5.0)
     async def unmute_loop(self):
         to_remove = []
-        for mute in await self.mutes:
-            if mute["unmute_ts"] <= datetime.datetime.utcnow():
-                try:
+        try:
+            for mute in await self.mutes:
+                if mute["unmute_ts"] <= datetime.datetime.utcnow():
+                    try:
+                        user = get(self.mute_role.guild.members, id=mute["user_id"])
+                        if user:
+                            await user.remove_roles(self.mute_role)
+                    except (discord.errors.Forbidden, discord.errors.NotFound):
+                        to_remove.append(mute)
+                    except discord.errors.HTTPException:
+                        pass
+                    else:
+                        to_remove.append(mute)
+            for mute in to_remove:
+                await self.remove_user_from_mute_list(mute['user_id'])
+                if self.check_channel is not None:
                     user = get(self.mute_role.guild.members, id=mute["user_id"])
                     if user:
-                        await user.remove_roles(self.mute_role)
-                except (discord.errors.Forbidden, discord.errors.NotFound):
-                    to_remove.append(mute)
-                except discord.errors.HTTPException:
-                    pass
-                else:
-                    to_remove.append(mute)
-        for mute in to_remove:
-            await self.remove_user_from_mute_list(mute['user_id'])
-            if self.check_channel is not None:
-                user = get(self.mute_role.guild.members, id=mute["user_id"])
-                if user:
-                    await self.check_channel.send("User {0} unmuted".format(user.mention))
-                else:
-                    await self.check_channel.send(f"User <@{mute['user_id']}> unmuted")
+                        await self.check_channel.send("User {0} unmuted".format(user.mention))
+                    else:
+                        await self.check_channel.send(f"User <@{mute['user_id']}> unmuted")
+        except Exception as e: 
+            self.error_log.exception('exception while handling unmutes:')
 
 
     async def remove_user_from_mute_list(self, member_id):
