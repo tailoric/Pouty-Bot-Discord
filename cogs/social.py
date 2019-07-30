@@ -207,5 +207,8 @@ class Social(commands.Cog):
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
+    @commands.command(name="iloveyou")
+    async def love(self, ctx):
+        await ctx.send(f"I love you too, {ctx.author.mention} \N{HEAVY BLACK HEART}")
 def setup(bot):
     bot.add_cog(Social(bot))
