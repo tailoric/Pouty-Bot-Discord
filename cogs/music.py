@@ -266,19 +266,20 @@ class Music(commands.Cog):
     async def remove(self, ctx, index: int):
         """ Removes an item from the player's queue with the given index. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
-        if not checks.is_owner_or_moderator_check(ctx.message) or ctx.author.id != player.current.requester:
-            await ctx.send("Only requester or mods can remove items from this list")
-            return
+        if checks.is_owner_or_moderator_check(ctx.message) or ctx.author.id == player.current.requester:
+            if not player.queue:
+                return await ctx.send('Nothing queued.')
 
-        if not player.queue:
-            return await ctx.send('Nothing queued.')
+            if index > len(player.queue) or index < 1:
+                return await ctx.send(f'Index has to be **between** 1 and {len(player.queue)}')
 
-        if index > len(player.queue) or index < 1:
-            return await ctx.send(f'Index has to be **between** 1 and {len(player.queue)}')
+            removed = player.queue.pop(index - 1)  # Account for 0-index.
 
-        removed = player.queue.pop(index - 1)  # Account for 0-index.
+            await ctx.send(f'Removed **{removed.title}** from the queue.')
+        else:
+            await ctx.send("Only requester and moderators can remove from the list")
 
-        await ctx.send(f'Removed **{removed.title}** from the queue.')
+
 
     @commands.command(aliases=["search"])
     async def find(self, ctx, *, query):
