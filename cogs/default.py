@@ -89,7 +89,7 @@ class Default(commands.Cog):
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
         else:
-            await ctx.send(error)
+            await ctx.send(error.original)
 
 
     async def check_disabled_command(self, ctx):
