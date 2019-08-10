@@ -56,10 +56,14 @@ class Music(commands.Cog):
 
 
     async def track_hook(self, event):
+        guild_id = int(event.player.guild_id)
         if isinstance(event, lavalink.events.QueueEndEvent):
             guild_id = int(event.player.guild_id)
             await self.connect_to(guild_id, None)
             # Disconnect from the channel -- there's nothing else to play.
+        if isinstance(event, lavalink.events.TrackEndEvent):
+            if guild_id in self.skip_votes.keys():
+                self.skip_votes[guild_id].clear()
 
     async def connect_to(self, guild_id: int, channel_id: str):
         """ Connects to the given voicechannel ID. A channel_id of `None` means disconnect. """
@@ -117,7 +121,7 @@ class Music(commands.Cog):
 
     @commands.command(aliases=['forceskip'])
     async def skip(self, ctx):
-        """ Skips the current track. """
+        """ if invoked by requester skips the current song otherwise starts a skip vote, use again to remove skip vote"""
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
         if not player.is_playing:
@@ -126,6 +130,8 @@ class Music(commands.Cog):
 
         if ctx.author.id == player.current.requester or len(current_voice.members) <= 2:
             await player.skip()
+            if ctx.guild.id in self.skip_votes.keys():
+                self.skip_votes[ctx.guild.id].clear()
             await ctx.send('⏭ | Skipped by requester.')
         else:
             if ctx.guild.id not in self.skip_votes.keys():
@@ -140,6 +146,7 @@ class Music(commands.Cog):
             number_of_users_in_voice = len(current_voice.members)-1
             if skip_vote_number >= number_of_users_in_voice / 2:
                 await player.skip()
+                self.skip_votes[ctx.guild.id].clear()
                 await ctx.send('⏭ | Skip vote passed.')
             else:
                 await ctx.send(f"current skip vote [{skip_vote_number}/{number_of_users_in_voice}]")
