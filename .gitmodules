@@ -1,0 +1,3 @@
+[submodule "lavalinkpy"]
+	path = lavalinkpy
+	url = https://github.com/Devoxin/Lavalink.py
