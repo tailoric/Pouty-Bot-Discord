@@ -67,6 +67,7 @@ class Music(commands.Cog):
             await self.bot.change_presence(activity=None)
         if isinstance(event, lavalink.events.TrackStartEvent):
             await self.bot.change_presence(activity=discord.Game(name=event.player.current.title))
+
     async def connect_to(self, guild_id: int, channel_id: str):
         """ Connects to the given voicechannel ID. A channel_id of `None` means disconnect. """
         ws = self.bot._connection._get_websocket(guild_id)
