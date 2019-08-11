@@ -388,10 +388,8 @@ class Admin(commands.Cog):
                         user = get(self.mute_role.guild.members, id=mute["user_id"])
                         if user:
                             await user.remove_roles(self.mute_role)
-                    except (discord.errors.Forbidden, discord.errors.NotFound):
+                    except (discord.errors.Forbidden, discord.errors.NotFound) as e:
                         to_remove.append(mute)
-                    except discord.errors.HTTPException:
-                        pass
                     else:
                         to_remove.append(mute)
             for mute in to_remove:
@@ -404,7 +402,6 @@ class Admin(commands.Cog):
                         await self.check_channel.send(f"User <@{mute['user_id']}> unmuted")
         except Exception as e: 
             self.error_log.exception('exception while handling unmutes:')
-
 
     async def remove_user_from_mute_list(self, member_id):
         query = ("DELETE FROM mutes "
