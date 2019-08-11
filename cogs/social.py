@@ -1,8 +1,10 @@
 from discord.ext import commands
 from discord.utils import find
+from .utils.checks import channel_only
 import discord.ext.commands
 import random
 import json
+import asyncio
 
 
 class Social(commands.Cog):
@@ -208,7 +210,32 @@ class Social(commands.Cog):
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
     @commands.command(name="iloveyou")
-    async def love(self, ctx):
+    async def iloveyou(self, ctx):
         await ctx.send(f"I love you too, {ctx.author.mention} \N{HEAVY BLACK HEART}")
+    @commands.command()
+    async def love(self, ctx, member: discord.Member):
+        """accurately calculate of how much love you are possible of giving to the other user"""
+        lover = ctx.author
+        love_capability = random.randint(0, 100)
+        love_message_string = (f"**{lover.display_name}** is capable of loving "
+                               f"**{member.display_name}** a whooping {love_capability}%")
+        love_message = await ctx.send(love_message_string)
+        def sad_reaction_check(reaction: discord.Reaction, user):
+            reaction_name = reaction.emoji.name
+            return 'sad' in reaction_name.lower() \
+                   and (user.id == lover.id or user.id == member.id) and love_capability < 60
+        try:
+            await self.bot.wait_for('reaction_add', timeout=20.0, check=sad_reaction_check)
+        except asyncio.TimeoutError:
+            return
+        love_bonus = random.randint(0, 100-love_capability)
+        love_capability = min(love_capability+love_bonus, 100)
+        await love_message.edit(content="\N{SPARKLING HEART} love booster activated recalculating the score"
+                                        "\N{SPARKLING HEART}")
+        await asyncio.sleep(3)
+        await love_message.edit(content=f"**{lover.display_name}** is capable of loving "
+                                        f"**{member.display_name}** a whooping {love_capability}% "
+                                        f"(with a love boost of {love_bonus}%)")
+
 def setup(bot):
     bot.add_cog(Social(bot))
