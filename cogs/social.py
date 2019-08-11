@@ -221,9 +221,12 @@ class Social(commands.Cog):
                                f"**{member.display_name}** a whooping {love_capability}%")
         love_message = await ctx.send(love_message_string)
         def sad_reaction_check(reaction: discord.Reaction, user):
+            if isinstance(reaction.emoji, str):
+                return False
             reaction_name = reaction.emoji.name
             return 'sad' in reaction_name.lower() \
-                   and (user.id == lover.id or user.id == member.id) and love_capability < 60
+                   and (user.id == lover.id or user.id == member.id) and love_capability < 60 \
+                   and reaction.message.channel.id == ctx.channel.id
         try:
             await self.bot.wait_for('reaction_add', timeout=20.0, check=sad_reaction_check)
         except asyncio.TimeoutError:
