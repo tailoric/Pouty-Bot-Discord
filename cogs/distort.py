@@ -73,7 +73,7 @@ class Distort(commands.Cog):
         asset = ctx.author.avatar_url_as(static_format="png")
         filetype = str(asset)[str(asset).rfind("."):str(asset).rfind("?")]
         async with ctx.typing():
-            filename = f"{ctx.author.name}{filetype}"
+            filename = f"{ctx.author.id}{filetype}"
             await asset.save(f"data/{filename}")
             output_path = await self.spawn_magick(filename=filename, filetype=filetype)
             await ctx.send(file=File(output_path))
