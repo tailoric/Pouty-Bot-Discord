@@ -8,6 +8,7 @@ import random
 import colorsys
 from .utils.converters import RoleConverter
 from .utils.checks import channel_only
+import typing
 
 class Roles(commands.Cog):
     """role managing commands"""
@@ -141,9 +142,14 @@ class Roles(commands.Cog):
 
     @commands.command(aliases=["color","colour"])
     @channel_only(582894980436328449, 208765039727869954)
-    async def random_colors(self, ctx):
-        value = [int(x * 255) for x in colorsys.hls_to_rgb(random.random(), 0.8, 1.0)]
-        color = discord.Color.from_rgb(*value)
+    async def random_colors(self, ctx, hexcode : typing.Optional[str]):
+        if hexcode:
+            hexcode = hexcode.strip("#")
+            value = int(hexcode, 16)
+            color = discord.Colour(value)
+        else:
+            value = [int(x * 255) for x in colorsys.hls_to_rgb(random.random(), 0.8, 1.0)]
+            color = discord.Color.from_rgb(*value)
         await ctx.send(embed=discord.Embed(color=color, description=str(color)))
 
 

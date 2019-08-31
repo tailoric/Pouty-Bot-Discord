@@ -47,6 +47,8 @@ def channel_only(*channels: int):
         if ctx.channel.id not in channels:
             if ctx.guild:
                 channel_mentions= [f"<#{ch.id}>" for ch in ctx.guild.text_channels if ch.id in channels]
+                if not channel_mentions:
+                    raise commands.CheckFailure("You can't use the command on this server.")
                 raise commands.CheckFailure(f"Please use the command only in the following channels:\n"
                                             f"{' '.join(channel_mentions)}")
             raise commands.CheckFailure("Can't use  this command in DMs")
