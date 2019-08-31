@@ -15,6 +15,7 @@ from os import path
 import typing
 
 
+
 class DanbooruTypeConverter(commands.Converter):
 
 
@@ -603,15 +604,17 @@ class Danbooru(commands.Cog):
         if ctx.channel.id not in [d["channel"] for d in self.danbooru_channels]:
             await ctx.send("Please use the command in the danbooru channel")
         deleted_counter = 0
-        messages = await ctx.channel.history(limit=20, before=ctx.message).flatten()
+        messages = await ctx.channel.history(limit=100, before=ctx.message).flatten()
+        to_delete = []
         for index, message in enumerate(messages):
             if message.author.id == ctx.author.id and "donmai" in messages[index -1].content:
-                await messages[index-1].delete()
+                to_delete.append(messages[index-1])
                 deleted_counter += 1
                 if not number and deleted_counter == 1:
                     break
                 elif number <= deleted_counter:
                     break
+        await ctx.channel.delete_messages(to_delete)
 
     @commands.command(pass_context=True)
     async def danr(self, ctx, *, tags: str = ""):
