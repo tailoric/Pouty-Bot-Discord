@@ -56,15 +56,16 @@ class Filter(commands.Cog):
                                                                 f"because it contained a banned tag: {tag['name']}")
 
     async def check_for_tags(self, message):
-        matches = re.findall(r'\d{1,6}', message)
+        matches = re.findall(r'\b\d{1,6}\b', message)
         if matches:
             for match in matches:
                 number = int(match)
                 data = await self.call_nhentai_api(number)
-                for tag in data['tags']:
-                    if tag['name'] in self.banned_tags:
-                        return True, tag['name']
-            return False, None
+                if data:
+                    for tag in data['tags']:
+                        if tag['name'] in self.banned_tags:
+                            return True, tag['name']
+        return False, None
 
     async def call_nhentai_api(self, id: int):
         url = f"https://nhentai.net/api/gallery/{id}"
@@ -78,7 +79,7 @@ class Filter(commands.Cog):
             return
         mod_role = user.guild.get_role(191094827562041345)
         if isinstance(user, discord.Member) and mod_role in user.roles and reaction.emoji == "\N{MICROSCOPE}":
-            check_true, tag = await self.check_for_tags(reaction.message.content)
+            check_true, tag = await self.check_for_tags(reaction.message.clean_content)
             if check_true:
                 await reaction.message.delete()
                 admin_cog = self.bot.get_cog("Admin")
