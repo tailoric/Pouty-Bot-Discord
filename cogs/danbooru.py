@@ -537,27 +537,28 @@ class Danbooru(commands.Cog):
                 .dantag fate copyright (to search franchises containing the name 'fate')
            """
         types = {0: "general",  1: "artist",  3: "copyright", 4: "character", 5: "meta"}
-        url = f"https://danbooru.donmai.us/tags.json?search[hide_empty]=yes&search[order]=count&search[name_matches]={tag}*"
+        url = f"https://danbooru.donmai.us/tags.json?search[hide_empty]=yes&search[order]=count&search[name_matches]=*{tag}*"
         if category:
             url += f"&search[category]={category}"
         entries = []
         async with self.session.get(url) as resp:
             if resp.status == 200:
                 info = (await resp.json())
-                embed = discord.Embed(title="Found tags")
                 for tag in info:
-                    related_tags = tag['related_tags']
-                    tag_name = tag['name']
-                    related_tags_list = related_tags.split()
-                    related_tags_list = [t for t in related_tags_list if not t.isdigit()]
-                    related_tags_list = [t for t in related_tags_list if not re.fullmatch(r'\d+\.\d+', t)]
-                    if tag_name in related_tags_list:
-                        related_tags_list.remove(tag_name)
+                    related_tags = tag.get('related_tags', '')
+                    tag_name = tag.get('name', None)
+                    value = '\u200b'
+                    if related_tags:
+                        related_tags_list = related_tags.split()
+                        related_tags_list = [t for t in related_tags_list if not t.isdigit()]
+                        related_tags_list = [t for t in related_tags_list if not re.fullmatch(r'\d+\.\d+', t)]
+                        if tag_name in related_tags_list:
+                            related_tags_list.remove(tag_name)
+                        related_tags = ', '.join(related_tags_list)
+                        related_tags = discord.utils.escape_markdown(related_tags)
+                        value = f"**related tags**: {related_tags}"
                     tag_name = discord.utils.escape_markdown(tag_name)
-                    related_tags = ', '.join(related_tags_list)
-                    related_tags = discord.utils.escape_markdown(related_tags)
                     key = f"{tag_name} [{types[tag['category']]}]"
-                    value = f"**related tags**: {related_tags}"
                     entries.append((key, value))
                 pages = FieldPages(ctx, entries=entries, per_page=5)
                 await pages.paginate()
