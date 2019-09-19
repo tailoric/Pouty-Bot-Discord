@@ -1,4 +1,4 @@
-from discord import File, PartialEmoji
+from discord import File, PartialEmoji, Member
 from discord.ext import commands
 from typing import Optional, Union
 import aiohttp
@@ -23,7 +23,7 @@ class Distort(commands.Cog):
         self.bot.loop.create_task(self.session.close())
 
     @commands.group(invoke_without_command=True)
-    async def distort(self, ctx: commands.Context, link: Optional[Union[PartialEmoji,str]]):
+    async def distort(self, ctx: commands.Context, link: Optional[Union[PartialEmoji,Member,str]]):
         """
         creates a distorted version of an image, works with direct upload and
         image link
@@ -44,6 +44,10 @@ class Distort(commands.Cog):
                 filetype = str(link.url)[str(link.url).rfind("."):]
                 filename = f"{link.name}{filetype}"
                 await link.url.save(f"data/{link.name}{filetype}")
+            if isinstance(link, Member):
+                ctx.author = link
+                await ctx.invoke(self._me)
+                return
             else:
                 try:
                     async with self.session.get(url=link) as r:
@@ -58,7 +62,7 @@ class Distort(commands.Cog):
                                 buffer = io.BytesIO(await r.read())
                                 f.write(buffer.read())
                 except aiohttp.InvalidURL:
-                    await ctx.send("this command only works with custom emojis")
+                    await ctx.send("this command only works with custom emojis, direct image links or usernames or mentions.")
                     return
         async with ctx.typing():
             output_file = await self.spawn_magick(filename, filetype)
