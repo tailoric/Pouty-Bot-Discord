@@ -267,7 +267,7 @@ class Music(commands.Cog):
     async def remove(self, ctx, index: int):
         """ Removes an item from the player's queue with the given index. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
-        if checks.is_owner_or_moderator_check(ctx.message) or ctx.author.id == player.current.requester:
+        if checks.is_owner_or_moderator_check(ctx.message) or ctx.author.id == player.queue[index-1].requester:
             if not player.queue:
                 return await ctx.send('Nothing queued.')
 
