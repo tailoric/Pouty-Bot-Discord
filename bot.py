@@ -1,6 +1,7 @@
 from discord.ext import commands
 from cogs.utils.dataIO import DataIO
 import logging
+from logging.handlers import RotatingFileHandler
 import asyncpg
 import sys
 import asyncio
@@ -12,6 +13,7 @@ description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
 bot = commands.Bot(command_prefix=['!', '.'], description=description, owner_id=134310073014026242)
+LOG_SIZE = 200 * 1024 * 1024
 
 
 def load_credentials():
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     bot.client_id = credentials['client-id']
     logger = logging.getLogger('discord')
     logger.setLevel(logging.DEBUG)
-    handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+    handler = RotatingFileHandler(filename='discord.log', encoding='utf-8', mode='a', maxBytes=LOG_SIZE, backupCount=2)
     handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
     logger.addHandler(handler)
     loop = asyncio.get_event_loop()
