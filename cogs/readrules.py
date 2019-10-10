@@ -41,15 +41,25 @@ class ReadRules(commands.Cog):
         self.bot.help_command.cog = self
         self.data_io = DataIO()
         self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
+        self.animemes_guild = self.bot.get_guild(187423852224053248)
+        self.memester_role = self.animemes_guild.get_role(189594836687519744)
+        self.join_log = self.animemes_guild.get_channel(595585060909088774)
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
+
     @commands.Cog.listener()
     async def on_message(self, message):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
         if channel.id != 366659034410909717:
+            return
+        iam_memester_regex = re.compile(r'i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
+        if iam_memester_regex.search(message.clean_content):
+            await message.author.add_roles(self.memester_role)
+            await message.delete()
+            await self.join_log.send(f"{message.author.mention} joined the server.")
             return
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
@@ -73,10 +83,10 @@ class ReadRules(commands.Cog):
                     return
                 await channel.send(choice(phrases["channel"]))
                 return
+
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        memester_role = after.guild.get_role(189594836687519744)
-        if memester_role and memester_role not in after.roles:
+        if self.memester_role and self.memester_role not in after.roles:
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         forbidden_word_pattern = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
