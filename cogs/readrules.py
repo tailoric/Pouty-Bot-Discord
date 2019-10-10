@@ -80,13 +80,18 @@ class ReadRules(commands.Cog):
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         forbidden_word_pattern = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
-        match = alphanumeric_pattern.match(after.display_name)
+        match_name = alphanumeric_pattern.match(after.name)
+        match_nickname = None
+        if after.nick:
+            match_nickname = alphanumeric_pattern.match(after.nick)
         forbidden_match = forbidden_word_pattern.search(after.display_name)
         old_name = after.display_name
-        if not match:
+        if not match_nickname and not match_name:
+            await after.edit(nick="pingable_username")
+        elif not match_name and not after.nick:
             await after.edit(nick="pingable_username")
         elif forbidden_match:
-            new_nick = forbidden_word_pattern.sub('', after.display_name)
+            new_nick = forbidden_word_pattern.sub('*', after.display_name)
             await after.edit(nick=new_nick)
         else:
             return
