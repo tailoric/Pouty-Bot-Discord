@@ -6,6 +6,7 @@ from discord import Member, Embed, Role, utils
 import discord
 from datetime import datetime,timedelta
 import time
+import re
 import json
 
 
@@ -212,6 +213,9 @@ class Userinfo(commands.Cog):
 
     @commands.Cog.listener("on_member_update")
     async def save_nickname_change(self, before, after):
+        forbidden_word_regex = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
+        if forbidden_word_regex.search(before.display_name) or forbidden_word_regex.search(after.display_name):
+            return
         if before.nick != after.nick and after.nick:
             async with self.bot.db.acquire() as con:
                 stmt = await con.prepare('''
@@ -223,6 +227,9 @@ class Userinfo(commands.Cog):
 
     @commands.Cog.listener("on_user_update")
     async def save_username_change(self, before, after):
+        forbidden_word_regex = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
+        if forbidden_word_regex.search(before.name) or forbidden_word_regex.search(after.name):
+            return
         if before.name != after.name:
             async with self.bot.db.acquire() as con:
                 stmt = await con.prepare('''

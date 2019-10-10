@@ -79,15 +79,17 @@ class ReadRules(commands.Cog):
         if memester_role and memester_role not in after.roles:
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
-        match = alphanumeric_pattern.match(after.name)
-        if match:
+        forbidden_word_pattern = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
+        match = alphanumeric_pattern.match(after.display_name)
+        forbidden_match = forbidden_word_pattern.search(after.display_name)
+        old_name = after.display_name
+        if not match:
+            await after.edit(nick="pingable_username")
+        elif forbidden_match:
+            new_nick = forbidden_word_pattern.sub('', after.display_name)
+            await after.edit(nick=new_nick)
+        else:
             return
-        if after.nick:
-            match = alphanumeric_pattern.match(after.nick)
-            if match:
-                return
-        old_name = after.name
-        await after.edit(nick="pingable_username")
         if self.checkers_channel:
             await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
 
