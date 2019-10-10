@@ -53,7 +53,7 @@ class ReadRules(commands.Cog):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
-        if channel.id != 366659034410909717:
+        if channel.id != 601692389052252170:
             return
         iam_memester_regex = re.compile(r'i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
         if iam_memester_regex.search(message.clean_content):
@@ -89,7 +89,7 @@ class ReadRules(commands.Cog):
         if self.memester_role and self.memester_role not in after.roles:
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
-        forbidden_word_pattern = re.compile(r'(trap|nigg(a|er)|fag(got)?)')
+        forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
         match_name = alphanumeric_pattern.match(after.name)
         match_nickname = None
         if after.nick:
