@@ -81,6 +81,7 @@ class Distort(commands.Cog):
             await asset.save(f"data/{filename}")
             output_path = await self.spawn_magick(filename=filename, filetype=filetype)
             await ctx.send(file=File(output_path))
+            os.remove(output_path)
 
     async def spawn_magick(self, filename, filetype):
         output_path_temp = os.path.join('data', filename)
