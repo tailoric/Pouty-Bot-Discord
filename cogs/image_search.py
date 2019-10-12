@@ -16,6 +16,7 @@ import PIL
 import mimetypes
 import io
 import asyncio
+import typing
 
 
 class TraceMoe:
@@ -261,12 +262,16 @@ class Search(commands.Cog):
 
     @commands.command(name="trace", aliases=["whatanime", "find_anime"])
     @commands.cooldown(rate=1,per=60,type=commands.BucketType.user)
-    async def trace_moe(self, ctx, link: str = None):
+    async def trace_moe(self, ctx, similarity: typing.Optional[int] = 85,link: typing.Optional[str] = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         await ctx.trigger_typing()
+        if similarity < 1 or similarity > 99:
+            await ctx.send("similarity must be between 1 or 99 percent")
+            return
         if link is None and len(ctx.message.attachments) == 0:
             await ctx.send("please add an image link or invoke with an image attached")
+            return
         image_link = link if link is not None else ctx.message.attachments[0].url
         image = await TraceMoe.get_frame(image_link, self.sauce_session)
         if image:
@@ -276,8 +281,10 @@ class Search(commands.Cog):
             async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
                 if resp.status == 200:
                     resp_json = await resp.json()
-                    first_result = resp_json["docs"][0]
-                    if first_result["similarity"] > 0.85:
+                    sorted_found = sorted(resp_json["docs"], key=lambda d: d['similarity'], reverse=True)
+                    first_result = sorted_found[0]
+                    threshold = similarity / 100
+                    if first_result["similarity"] >= threshold:
                         embed = self.build_embed_for_trace_moe(first_result)
                         await ctx.send(embed=embed)
                     else:
@@ -297,16 +304,19 @@ class Search(commands.Cog):
     def build_embed_for_trace_moe(self, first_result):
         embed = discord.Embed(colour=discord.Colour(0xa4815f),
                               description="Source found via [trace.moe](https://trace.moe/)")
-        if not first_result.get("is_adult", False):
-            embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
-                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
-                                    first_result["at"], first_result["tokenthumb"]))
         embed.add_field(name="Name", value=first_result["title_romaji"], inline=False)
         m, s = divmod(first_result["at"], 60)
         embed.add_field(name="Episode {0}".format(first_result["episode"]),
                         value="at {0:02d}:{1:02d}".format(int(m), int(s)), inline=False)
+        if not first_result.get("is_adult", False):
+            embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
+                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
+                                    first_result["at"], first_result["tokenthumb"]))
+        else:
+            embed.add_field(name="Hentai?", value="Yes")
         embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]), inline=False)
         embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]), inline=False)
+        embed.add_field(name="Image Similarity", value=f'{int(first_result["similarity"] * 100)}%')
         return embed
 
     def build_mal_link_from_id(self, id):
