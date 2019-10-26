@@ -4,11 +4,11 @@ from .utils.dataIO import DataIO
 from .utils.checks import channel_only
 import aiohttp
 import asyncio
-class GithubIssues(commands.Cog):
+class Suggestions(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         dataIO = DataIO()
-        self.github_data= dataIO.load_json('github')
+        self.github_data = dataIO.load_json('github')
         self.token = self.github_data['p_access_token']
         self.session = aiohttp.ClientSession()
 
