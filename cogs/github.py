@@ -70,4 +70,4 @@ class Suggestions(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(GithubIssues(bot))
+    bot.add_cog(Suggestions(bot))
