@@ -122,7 +122,20 @@ class Music(commands.Cog):
 
         await ctx.send(f'Moved track to **{lavalink.utils.format_time(track_time)}**')
 
-    @commands.command(aliases=['forceskip'])
+    @commands.command(name="fskip", aliases=['forceskip'])
+    @checks.is_owner_or_moderator()
+    async def force_skip(self, ctx):
+        """can only be invoked by moderators, immediately skips the current song"""
+        player = self.bot.lavalink.players.get(ctx.guild.id)
+
+        if not player.is_playing:
+            return await ctx.send('Not playing.')
+        await player.skip()
+        if self.skip_votes:
+            self.skip_votes[ctx.guild.id].clear()
+        await ctx.send("⏭ | Skipped by moderator")
+
+    @commands.command()
     async def skip(self, ctx):
         """ if invoked by requester skips the current song otherwise starts a skip vote, use again to remove skip vote"""
         player = self.bot.lavalink.players.get(ctx.guild.id)
