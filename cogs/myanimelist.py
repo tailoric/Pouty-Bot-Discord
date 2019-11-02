@@ -17,13 +17,13 @@ class MyAnimeList(commands.Cog):
 
     @commands.cooldown(30,60,commands.BucketType.default)
     @commands.group(name="mal", invoke_without_command=True)
-    async def mal_search(self, ctx, *, series_name):
+    async def mal_search(self, ctx, *, title):
         """
         main command for searching myanimelist for anime, if no subcommand (manga or anime) used then
         it uses the anime search.
         """
         if ctx.invoked_subcommand is None:
-            await ctx.invoke(self.mal_anime, series_name=series_name)
+            await ctx.invoke(self.mal_anime, title=title)
 
     @mal_search.command(name="anime")
     async def mal_anime(self, ctx, *, title):
