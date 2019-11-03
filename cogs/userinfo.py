@@ -7,6 +7,7 @@ import discord
 from datetime import datetime,timedelta
 import time
 import re
+from typing import Union
 import json
 
 
@@ -56,12 +57,22 @@ class Userinfo(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["avi", "profile_pic"])
-    async def pfp(self, ctx, member :Optional[discord.Member]):
+    async def pfp(self, ctx, member: Union[discord.Member, str] = None):
         """
         makes the bot post the pfp of a member
         """
-        if member:
+        if isinstance(member, discord.Member):
             await ctx.send(member.avatar_url_as(static_format="png"))
+        elif isinstance(member, str):
+            pattern = re.compile(r'(<@!?)?(\d{17,})>?')
+            match = pattern.match(member)
+            if match and match.group(2):
+                user = await self.bot.fetch_user(int(match.group(2)))
+                if user:
+                    await ctx.send(user.avatar_url_as(static_format="png"))
+            else:
+                await ctx.send("Not a valid user ID or mention")
+
         else:
             await ctx.send(ctx.author.avatar_url_as(static_format="png"))
 
