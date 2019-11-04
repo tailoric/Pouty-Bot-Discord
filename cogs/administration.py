@@ -361,9 +361,9 @@ class Admin(commands.Cog):
                 if 191094827562041345 in [role.id for role in member.roles]:
                     await ctx.send("I could never ban a dear senpai of mine <a:shinpanic:427749630445486081>")
                     return
-                await member.ban(delete_message_days=0, reason=reason)
+                await member.ban(delete_message_days=0, reason=reason[:512])
             else:
-                await ctx.guild.ban(user=member, delete_message_days=0, reason=reason)
+                await ctx.guild.ban(user=member, delete_message_days=0, reason=reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
             message = "banned {} for the following reason:\n{}".format(mention, reason)
             await self.check_channel.send(message)
@@ -453,7 +453,7 @@ class Admin(commands.Cog):
         """
         mutes a user from voice for the whole server
         """
-        await member.edit(mute=True, reason=reason)
+        await member.edit(mute=True, reason=reason[:512])
         await ctx.send(f"User {member.mention} successfully muted from voice")
         if reason:
             await self.check_channel.send(f"user {member.mention} muted from voice for the following reason:\n"
@@ -464,7 +464,7 @@ class Admin(commands.Cog):
     async def voice_unmute(self, ctx, member: discord.Member, *, reason: typing.Optional[str]):
         """ removes the voice mute from the user"""
         if member.voice and member.voice.mute:
-            await member.edit(mute=False, reason=reason)
+            await member.edit(mute=False, reason=reason[:512])
             await ctx.send(f"User {member.mention} successfully unmuted from voice")
             return
         if member.voice and not member.voice.mute:
