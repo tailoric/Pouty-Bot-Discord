@@ -113,8 +113,10 @@ class Reddit(commands.Cog):
                                           color=discord.Colour(0xea0027))
                     embed.set_thumbnail(url=sub_data["header_img"])
                 else:
-                    embed = discord.Embed(title=post["title"], timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
-                                          url=post["url"], color=discord.Colour(0xea0027))
+                    embed = discord.Embed(title=post["title"],
+                                          timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
+                                          url=f"https://reddit.com{post['permalink']}",
+                                          color=discord.Colour(0xea0027))
                     if not post["over_18"]:
                         embed.set_thumbnail(url=post["thumbnail"])
                     else:
