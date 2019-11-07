@@ -12,7 +12,8 @@ if 'win32' in sys.platform:
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
-bot = commands.Bot(command_prefix=['!', '.'], description=description, owner_id=134310073014026242)
+bot = commands.Bot(command_prefix=['!', '.'], description=description, owner_id=134310073014026242,
+                   case_insensitive=True)
 LOG_SIZE = 200 * 1024 * 1024
 
 
