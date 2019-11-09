@@ -162,7 +162,7 @@ class Contest(commands.Cog):
                 return await statement.fetch()
 
 
-    @commands.command(name="lentries", aliases=["list_entries", "myentries"])
+    @commands.command(name="lentries", aliases=["list_entries", "myentries"], hidden=True)
     @commands.dm_only()
     async def list_entries(self, ctx):
         entries = await self.list_contest_entries(ctx.author.id)
@@ -191,6 +191,7 @@ class Contest(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="winner", aliases=["get_winner"])
+    @is_owner_or_moderator()
     async def get_winner(self, ctx):
         all_entries = await self.get_top_entries()
         embed = discord.Embed(title="Contest Winner:")
@@ -229,7 +230,7 @@ class Contest(commands.Cog):
         await self.contestant_disqualified(member.id)
         await ctx.send(f"{member.display_name} has been disqualified.")
 
-    @commands.command(name="submit")
+    @commands.command(name="submit", hidden=True)
     @commands.dm_only()
     async def contest_submit(self, ctx):
         """
@@ -251,7 +252,7 @@ class Contest(commands.Cog):
             await self.add_contest_entry(ctx.author.id, contest_entry)
             await ctx.send("your entry has been submitted")
 
-    @commands.command(name="enter")
+    @commands.command(name="enter", hidden=True)
     @commands.dm_only()
     async def enter_contest(self, ctx):
         """
