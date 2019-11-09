@@ -319,7 +319,7 @@ class Contest(commands.Cog):
         overwrite_contestant = self.set_contestant_permission(current_guild)
         overwrite_everyone = self.set_default_permission(current_guild)
         everyone = current_guild.default_role
-        memester = current_guild.get_role(514884001417134110)
+        memester = current_guild.get_role(642864221318676490)
         self.contestant_role = await current_guild.create_role(name="contestant")
         await self.contestant_role.edit(position=memester.position)
         self.contest_channel = await current_guild.create_text_channel(name="contest-channel")
