@@ -264,6 +264,7 @@ class Contest(commands.Cog):
         else:
             member = self.contest_channel.guild.get_member(ctx.author.id)
             await member.add_roles(self.contestant_role)
+            await ctx.send("congratulations you have entered the contest")
 
 
     @commands.Cog.listener("on_raw_reaction_add")
