@@ -110,17 +110,19 @@ class Reddit(commands.Cog):
                 if post["is_self"]:
                     embed = discord.Embed(title=post["title"], timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
                                           url=post["url"], description=post["selftext"][:500]+"...",
-                                          color=discord.Colour(0xea0027))
+                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
                     embed.set_thumbnail(url=sub_data["header_img"])
                 else:
                     embed = discord.Embed(title=post["title"],
                                           timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
                                           url=f"https://reddit.com{post['permalink']}",
-                                          color=discord.Colour(0xea0027))
-                    if not post["over_18"]:
-                        embed.set_thumbnail(url=post["thumbnail"])
-                    else:
+                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
+                    if post["over_18"]:
                         embed.set_thumbnail(url=sub_data["header_img"])
+                    elif "image" in post["post_hint"]:
+                        embed.set_image(url=post["url"])
+                    elif post["thumbnail"] is not "default":
+                        embed.set_thumbnail(url=post["thumbnail"])
 
                 embed.set_author(name=post["author"], url=f"https://reddit.com/user/{post['author']}")
                 embed.set_footer(icon_url=sub_data["icon_img"], text="Animemes")
