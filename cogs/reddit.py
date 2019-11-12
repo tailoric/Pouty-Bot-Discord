@@ -77,7 +77,7 @@ class Reddit(commands.Cog):
         self.reddit_channel = ctx.channel
         await ctx.send(f"{ctx.channel.mention} set up as the reddit channel for announcements")
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=3)
     async def check_reddit_for_pinned_threads(self):
         async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
                                     headers=self.headers) as resp:
@@ -99,12 +99,19 @@ class Reddit(commands.Cog):
                             await self.reddit_channel.send(embed=embed)
                             await self.insert_post(post["id"], post_creation)
 
-
+    async def get_stickied_comment(self, post):
+        async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
+            if resp.status == 200:
+                json_data = await resp.json()
+                return next(comment for comment in json_data[1]["data"]["children"] if comment["data"]["stickied"])
+            else:
+                return None
 
     async def build_embed_for_stickied_thread(self, post):
         async with self.session.get(url="https://reddit.com/r/Animemes/about.json", auth=self.auth,
                                     headers=self.headers) as resp:
             if resp.status == 200:
+                stickied_comment = await self.get_stickied_comment(post)
                 resp_data = await resp.json()
                 sub_data = resp_data["data"]
                 if post["is_self"]:
@@ -116,7 +123,9 @@ class Reddit(commands.Cog):
                     embed = discord.Embed(title=post["title"],
                                           timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
                                           url=f"https://reddit.com{post['permalink']}",
-                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
+                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
+                                          description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
+                                          else "\u200b")
                     if post["over_18"]:
                         embed.set_thumbnail(url=sub_data["header_img"])
                     elif "image" in post["post_hint"]:
