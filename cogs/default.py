@@ -19,8 +19,8 @@ class CustomHelpCommand(DefaultHelpCommand):
                 continue
             if cog.qualified_name:
                 entry.append(cog.qualified_name)
-            if mapping[cog]:
-                entry.append("\t\n".join([f"**{command.name}**:\n{command.short_doc}" for command in mapping[cog]]))
+            if filtered:
+                entry.append("\t\n".join([f"**{command.name}**:\n{command.short_doc}" for command in filtered]))
             entries.append(entry)
         help_page = paginator.FieldPages(self.context, entries=entries, per_page=1)
         await help_page.paginate()
