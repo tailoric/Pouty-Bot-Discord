@@ -3,6 +3,7 @@ import logging
 from .utils.exceptions import *
 from .utils import checks
 from .utils.dataIO import DataIO
+from .utils import paginator
 from discord.ext.commands import DefaultHelpCommand
 import traceback
 
@@ -10,19 +11,59 @@ import traceback
 class CustomHelpCommand(DefaultHelpCommand):
 
     async def send_bot_help(self, mapping):
-        self.paginator.add_line(self.context.bot.description, empty=True)
-        self.paginator.add_line("To see more information about the commands of a category use .help <CategoryName>")
-        self.paginator.add_line("ATTENTION: The categories are case sensitive", empty=True)
-        self.paginator.add_line("Command categories:")
+        entries = []
         for cog in mapping:
+            entry = []
             filtered = await self.filter_commands(mapping.get(cog))
             if cog is None or len(filtered) == 0 or cog.qualified_name is "Default":
                 continue
             if cog.qualified_name:
-                self.paginator.add_line("\t* {0}".format(cog.qualified_name))
-            if cog.description:
-                self.paginator.add_line("\t\t\"{0}\"".format(cog.description))
-        await self.send_pages()
+                entry.append(cog.qualified_name)
+            if mapping[cog]:
+                entry.append("\t\n".join([f"**{command.name}**:\n{command.short_doc}" for command in mapping[cog]]))
+            entries.append(entry)
+        help_page = paginator.FieldPages(self.context, entries=entries, per_page=1)
+        await help_page.paginate()
+
+    async def send_cog_help(self, cog):
+        embed = discord.Embed()
+        embed.title = cog.qualified_name
+        embed.description = cog.description if cog.description else discord.Embed.Empty
+        filtered_commands = await self.filter_commands(cog.get_commands(), sort=True)
+        for command in filtered_commands:
+            command_title = f"{command.name} [{', '.join(command.aliases)}]" if command.aliases\
+                else f"{command.name}"
+            embed.add_field(name=command_title, value=command.short_doc if command.short_doc else "\u200b")
+        embed.set_footer(text="[] means aliases for the command. "
+                              "Use '.help command' (without quotes) for more help for a certain command ")
+        await self.get_destination().send(embed=embed)
+
+    async def send_command_help(self, command):
+        embed = discord.Embed()
+        embed.title = f"{self.clean_prefix}{command.qualified_name} {command.signature}"
+        embed.description = command.help if command.help else discord.Embed.Empty
+        if command.aliases:
+            embed.add_field(name="aliases", value=", ".join(command.aliases), inline=True)
+        if command.usage:
+            embed.add_field(name="usage", value=command.usage, inline=True)
+        await self.get_destination().send(embed=embed)
+
+    async def send_group_help(self, group):
+        embed = discord.Embed()
+        embed.title = f"{self.clean_prefix}{group.qualified_name} {group.signature}"
+        embed.description = group.help if group.help else discord.Embed.Empty
+        if group.aliases:
+            embed.add_field(name="aliases", value=", ".join(group.aliases), inline=False)
+        if group.usage:
+            embed.add_field(name="usage", value=group.usage, inline=False)
+        if group.commands:
+            embed.add_field(name="Commands", value=f"\n"
+                            .join([f"{command.qualified_name}: {command.short_doc}" for command in group.commands]),
+                            inline=False)
+        await self.get_destination().send(embed=embed)
+
+
+
 
 class Default(commands.Cog):
 
@@ -77,6 +118,7 @@ class Default(commands.Cog):
 
 
     async def on_command_error(self, ctx, error):
+        self.logger.error(error, exc_info=True)
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, BlackListedException):
