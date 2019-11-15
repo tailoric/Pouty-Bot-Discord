@@ -3,7 +3,8 @@ import json
 from random import choice
 import re
 from .utils.dataIO import DataIO
-class AnimemesHelpFormat(commands.DefaultHelpCommand):
+from cogs.default import CustomHelpCommand
+class AnimemesHelpFormat(CustomHelpCommand):
 
     def random_response(self):
         with open("data/rules_channel_phrases.json")as f:
