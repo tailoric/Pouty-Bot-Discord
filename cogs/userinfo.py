@@ -52,7 +52,7 @@ class Userinfo(commands.Cog):
 
         user_roles.pop(0)
         if user_roles:
-            embed.add_field(name="Roles", value=", ".join([x.name for x in user_roles]), inline=True)
+            embed.add_field(name="Roles", value=", ".join([x.mention for x in user_roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
         await ctx.send(embed=embed)
 
