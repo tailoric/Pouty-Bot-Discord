@@ -259,6 +259,11 @@ class Search(commands.Cog):
         """give a google search link"""
         search = parse.quote_plus(query)
         await ctx.send("https://google.com/search?q={}".format(search))
+    @commands.command()
+    async def lmgtfy(self,  ctx, *, query: str):
+        """give a let me google that for you link"""
+        search = parse.quote_plus(query)
+        await ctx.send("https://lmgtfy.com/?q={}".format(search))
 
     @commands.command(name="trace", aliases=["whatanime", "find_anime"])
     @commands.cooldown(rate=1,per=60,type=commands.BucketType.user)
