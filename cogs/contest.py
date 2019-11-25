@@ -20,8 +20,11 @@ from builtins import hasattr
 import discord
 import io
 import asyncpg
+import aiohttp
 import asyncio
 import logging
+import mimetypes as mime
+import typing
 from discord.ext import commands
 from .utils.checks import is_owner_or_moderator
 class Contest(commands.Cog):
@@ -35,8 +38,12 @@ class Contest(commands.Cog):
         self.bot = bot
         self.contestant_role = None
         self.contest_channel = None
+        self.session = aiohttp.ClientSession()
         self.bot.loop.create_task(self.setup_database())
         self.bot.loop.create_task(self.load_settings())
+
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
 
     async def load_settings(self):
         await asyncio.sleep(1)
@@ -232,7 +239,7 @@ class Contest(commands.Cog):
 
     @commands.command(name="submit", hidden=True)
     @commands.dm_only()
-    async def contest_submit(self, ctx):
+    async def contest_submit(self, ctx, url : typing.Optional[str]):
         """
         allows you to submit to the contest
         """
@@ -244,9 +251,27 @@ class Contest(commands.Cog):
             await ctx.send("you already have 3 entries")
             return
         else:
-            attachment = ctx.message.attachments[0]
-            submission = io.BytesIO(await attachment.read())
-            contest_entry = await self.contest_channel.send(file=discord.File(submission, attachment.filename))
+            attachment = ctx.message.attachments[0] if ctx.message.attachments else None
+            if attachment:
+                submission = io.BytesIO(await attachment.read())
+                contest_entry = await self.contest_channel.send(file=discord.File(submission, attachment.filename))
+            else:
+                file_ext = mime.guess_type(url)[0].split("/")[1]
+                if mime.guess_type(url)[0].split("/")[0] == "image":
+                    async with self.session.get(url) as resp:
+                        image_bytes = await resp.read()
+                        submission = io.BytesIO(image_bytes)
+                        try:
+                            contest_entry = await self.contest_channel.send(
+                                file=discord.File(submission, "submission."+file_ext))
+                        except discord.HTTPException as e:
+                            if e.status == 413:
+                                await ctx.send("File too big")
+                            return
+
+                else:
+                    await ctx.send("Please only send images")
+                    return
             await contest_entry.add_reaction("\N{THUMBS UP SIGN}")
             await contest_entry.add_reaction("\N{CROSS MARK}")
             await self.add_contest_entry(ctx.author.id, contest_entry)
