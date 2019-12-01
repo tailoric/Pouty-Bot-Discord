@@ -106,8 +106,7 @@ class Userinfo(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @checks.is_owner_or_moderator()
-    @commands.command(pass_context=True)
+    @commands.command()
     async def roleinfo(self, ctx, role=None):
         """shows information about the server roles"""
         role_converter = commands.RoleConverter()
