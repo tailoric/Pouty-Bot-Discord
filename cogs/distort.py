@@ -7,13 +7,13 @@ import io
 import uuid
 import os
 import sys
-
+import uuid
 
 class Distort(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
-        self.allowed_file_extensions = ['.png', '.jpg', '.jpeg', '.gif']
+        self.allowed_file_extensions = ['png', 'jpg', 'jpeg', 'gif']
         if 'win32' in sys.platform:
             self.image_magick_command = "magick"
         else:
@@ -32,7 +32,7 @@ class Distort(commands.Cog):
         message = ctx.message
         if message.attachments:
             url = str(message.attachments[0].url)
-            filetype = url[url.rfind('.'):]
+            filetype = url[url.rfind('.')+1:]
             pos = url.rfind("/")
             filename = url[pos+1:]
             if filetype.lower() not in self.allowed_file_extensions:
@@ -51,9 +51,8 @@ class Distort(commands.Cog):
             else:
                 try:
                     async with self.session.get(url=link) as r:
-                        filetype = link[link.rfind('.'):]
-                        pos = link.rfind("/")
-                        filename = link[pos+1:]
+                        filetype = r.headers["Content-Type"].split("/")[1]
+                        filename = f"{uuid.uuid4()}.{filetype}"
                         if filetype.lower() not in self.allowed_file_extensions:
                             await ctx.send("not allowed filetype only images or gifs allowed")
                             return
@@ -65,7 +64,7 @@ class Distort(commands.Cog):
                     await ctx.send("this command only works with custom emojis, direct image links or usernames or mentions.")
                     return
         async with ctx.typing():
-            output_file = await self.spawn_magick(filename, filetype)
+            output_file = await self.spawn_magick(filename, f".{filetype}")
             await ctx.send(file=File(output_file))
             os.remove(output_file)
 
@@ -74,8 +73,12 @@ class Distort(commands.Cog):
         """
         distort your user profile pic
         """
-        asset = ctx.author.avatar_url_as(static_format="png")
-        filetype = str(asset)[str(asset).rfind("."):str(asset).rfind("?")]
+        if ctx.author.is_avatar_animated():
+            asset = ctx.author.avatar_url_as(format="gif")
+            filetype = ".gif"
+        else:
+            asset = ctx.author.avatar_url_as(format="png")
+            filetype = ".png"
         async with ctx.typing():
             filename = f"{ctx.author.id}{filetype}"
             await asset.save(f"data/{filename}")
