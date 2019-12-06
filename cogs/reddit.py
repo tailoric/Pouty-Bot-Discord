@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands, tasks
 from os import path
 from .utils import checks
+import asyncio
 
 
 class Reddit(commands.Cog):
@@ -50,19 +51,16 @@ class Reddit(commands.Cog):
                 await connection.execute(query)
 
     async def fetch_last_stickied_entries(self):
-        query = "SELECT post_id, created from stickied_threads order by created desc limit 2"
+        query = "SELECT post_id, created from stickied_threads"
         async with self.bot.db.acquire() as connection:
             return await connection.fetch(query)
     async def insert_post(self, id, created):
         query = ("INSERT INTO stickied_threads VALUES ($1, $2);"
                  )
-        query_delete = (" DELETE from stickied_threads WHERE post_id = any (array(select post_id from stickied_threads ORDER BY"
-                 " created desc offset 2))")
         async with self.bot.db.acquire() as connection:
             statement = await connection.prepare(query)
             async with connection.transaction():
                 await statement.fetch(id, created)
-                await connection.execute(query_delete)
 
 
     @commands.command(name="redditc")
@@ -77,7 +75,7 @@ class Reddit(commands.Cog):
         self.reddit_channel = ctx.channel
         await ctx.send(f"{ctx.channel.mention} set up as the reddit channel for announcements")
 
-    @tasks.loop(minutes=3)
+    @tasks.loop(minutes=1)
     async def check_reddit_for_pinned_threads(self):
         async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
                                     headers=self.headers) as resp:
@@ -87,23 +85,26 @@ class Reddit(commands.Cog):
                 last_posts = await self.fetch_last_stickied_entries()
                 if not last_posts:
                     for post in stickied_post:
-                        post_creation = datetime.datetime.utcfromtimestamp(post['created_utc'])
+                        post_creation = datetime.datetime.utcnow()
                         await self.insert_post(post["id"], post_creation)
                         return
                 for post in stickied_post:
-                    post_creation = datetime.datetime.utcfromtimestamp(post['created_utc'])
-                    if all([post_creation > old_post["created"]
-                            for old_post in last_posts]):
+                    post_creation = datetime.datetime.utcnow()
+                    if post["id"] not in [p["post_id"] for p in last_posts]:
                         embed = await self.build_embed_for_stickied_thread(post)
                         if embed:
                             await self.reddit_channel.send(embed=embed)
                             await self.insert_post(post["id"], post_creation)
 
     async def get_stickied_comment(self, post):
+        await asyncio.sleep(180)
         async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
             if resp.status == 200:
                 json_data = await resp.json()
-                return next(comment for comment in json_data[1]["data"]["children"] if comment["data"]["stickied"])
+                try:
+                    return next(comment for comment in json_data[1]["data"]["children"] if comment["data"]["stickied"])
+                except StopIteration:
+                    return None
             else:
                 return None
 
@@ -111,7 +112,6 @@ class Reddit(commands.Cog):
         async with self.session.get(url="https://reddit.com/r/Animemes/about.json", auth=self.auth,
                                     headers=self.headers) as resp:
             if resp.status == 200:
-                stickied_comment = await self.get_stickied_comment(post)
                 resp_data = await resp.json()
                 sub_data = resp_data["data"]
                 if post["is_self"]:
@@ -120,6 +120,7 @@ class Reddit(commands.Cog):
                                           color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
                     embed.set_thumbnail(url=sub_data["header_img"])
                 else:
+                    stickied_comment = await self.get_stickied_comment(post)
                     embed = discord.Embed(title=post["title"],
                                           timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
                                           url=f"https://reddit.com{post['permalink']}",
