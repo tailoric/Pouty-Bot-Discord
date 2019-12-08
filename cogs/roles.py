@@ -52,7 +52,7 @@ class Roles(commands.Cog):
         if role == settable_role and self.lockdown:
             await ctx.send("Server on lockdown due to high amount of people joining try again in a day or two")
             return
-        if role.position > settable_role.position:
+        if role.position > settable_role.position and ctx.channel.name != "have-you-read-the-rules":
             await ctx.send("can't give you that role")
             return
         try:
@@ -62,12 +62,7 @@ class Roles(commands.Cog):
                     return
             member = ctx.message.author
             await member.add_roles(role)
-            if role.id == 189594836687519744 and ctx.channel.id == 366659034410909717:
-                await ctx.message.delete()
-                join_log = ctx.guild.get_channel(595585060909088774)
-                await join_log.send(f"{ctx.author.mention} joined the server.")
-            else:
-                await ctx.send(f"Assigned you the following role: {role.name}")
+            await ctx.send(f"Assigned you the following role: {role.name}")
         except discord.Forbidden as fb:
             await ctx.send("Sorry I don't have the permission to give you that role")
 
