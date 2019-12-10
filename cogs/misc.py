@@ -840,7 +840,10 @@ class Choose(commands.Cog):
 
         list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
         choice = random.choice(list_of_options)
-        await ctx.send(choice.strip("\""))
+        message_content = choice.strip("\"")
+        if not message_content:
+            message_content = "\u200b"
+        await ctx.send(message_content)
 
 class EightBall(commands.Cog):
     """let fate answer a yes or no question"""
