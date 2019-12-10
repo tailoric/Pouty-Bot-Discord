@@ -839,6 +839,10 @@ class Choose(commands.Cog):
         """
 
         list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
+        set_of_options = set([i.lower() for i in list_of_options])
+        if len(set_of_options) == 1:
+            await ctx.send("There is only one choice. This is pointless :T")
+            return
         choice = random.choice(list_of_options)
         await ctx.send(choice.strip("\""))
 
