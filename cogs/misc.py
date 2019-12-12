@@ -831,7 +831,7 @@ class Choose(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def choose(self,  ctx, *, options:str):
+    async def choose(self,  ctx, *, options: commands.clean_content):
         """
         choose from a list of options seperated by a space
         example:
