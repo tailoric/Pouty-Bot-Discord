@@ -967,11 +967,10 @@ class SCP(commands.Cog):
         """
         max_scp_number = 4999
         scp_number = random.randint(1,max_scp_number)
-        url = f"http://www.scp-wiki.net/random:random-scp"
+        url = f"http://www.scp-wiki.net/scp-{scp_number:03}" 
         async with self.session.options(url=url, allow_redirects=True) as resp:
             if resp.status == 200:
-                text = await resp.text()
-                await ctx.send(await resp.text())
+                await ctx.send(url)
 
 
 
