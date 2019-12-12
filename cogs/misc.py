@@ -837,17 +837,24 @@ class Choose(commands.Cog):
         example:
             .choose heads tails "two words"
         """
-
-        list_of_options = [opt for opt in re.split("( |\\\".*?\\\"|'.*?')", options) if opt.strip()]
-        set_of_options = set([i.lower() for i in list_of_options])
+        count_quotes = len(list(filter(lambda c: c in ['"', "\u201c", "\u201d"], options)))
+        if count_quotes % 2 != 0:
+            await ctx.send("there is an unmatched quote")
+            return
+        list_of_options = [opt.strip('"\u201c\u201d') for opt in
+                           re.split(r"( |[\"\u201c].*?[\"\u201d]|'.*?')",
+                                    options,
+                                    flags=re.UNICODE) if opt.strip()
+                           ]
+        list_of_options = list(filter(lambda i: bool(i), list_of_options))
+        set_of_options = set([i.lower().strip("\"").rstrip().lstrip() for i in list_of_options])
         if len(set_of_options) == 1:
             await ctx.send("There is only one choice. This is pointless :T")
             return
         choice = random.choice(list_of_options)
-        message_content = choice.strip("\"")
-        if not message_content:
-            message_content = "\u200b"
-        await ctx.send(message_content)
+        if not choice.strip("\""):
+            choice = '\u200b'
+        await ctx.send(choice.strip("\""))
 
 class EightBall(commands.Cog):
     """let fate answer a yes or no question"""
@@ -960,8 +967,11 @@ class SCP(commands.Cog):
         """
         max_scp_number = 4999
         scp_number = random.randint(1,max_scp_number)
-        url = f"http://www.scp-wiki.net/scp-{scp_number:03}"
-        await ctx.send(url)
+        url = f"http://www.scp-wiki.net/random:random-scp"
+        async with self.session.options(url=url, allow_redirects=True) as resp:
+            if resp.status == 200:
+                text = await resp.text()
+                await ctx.send(await resp.text())
 
 
 
