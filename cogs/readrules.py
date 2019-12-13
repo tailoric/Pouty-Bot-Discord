@@ -91,8 +91,8 @@ class ReadRules(commands.Cog):
             return
         if channel.id != 366659034410909717:
             return
-        iam_memester_regex = re.compile(r'i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
-        if iam_memester_regex.search(message.clean_content):
+        iam_memester_regex = re.compile(r'\.?i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
+        if iam_memester_regex.match(message.clean_content):
             await message.author.add_roles(self.new_memester)
             await message.delete()
             await self.join_log.send(f"{message.author.mention} joined the server.")
@@ -100,7 +100,17 @@ class ReadRules(commands.Cog):
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
             phrases = json.load(f)
+            curses = ["fuck you", "fuck u", "stupid bot", "fucking bot"]
             has_confirm_in_message = "yes" in content or "i have" in content
+            if "gaston is always tight" in content.lower():
+                await channel.send(choice(phrases["tight"]))
+                return
+            if any([c in content for c in curses]):
+                await channel.send(choice(phrases["curse"]))
+                return
+            if message.role_mentions:
+                await channel.send(choice(phrases["pinged"]))
+                return
             if has_confirm_in_message:
                 if self.bucket.update_rate_limit(message):
                     await channel.send(choice(phrases['repeat']))
