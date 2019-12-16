@@ -266,8 +266,10 @@ class Contest(commands.Cog):
     async def my_votes(self, ctx: commands.Context):
         """gives you a list of all images you have voted on"""
         votes = await self.get_votes_of_user(ctx.author.id)
+        if not votes:
+            await ctx.send("You haven't voted yet")
         paginator = commands.Paginator(prefix=None, suffix=None)
-        paginator.add_line("you have voted for the following entries: ")
+        paginator.add_line("You have voted for the following entries: ")
         for vote in votes:
             paginator.add_line(f"https://discordapp.com/channels/{self.contest_channel.guild.id}/{self.contest_channel.id}/{vote['message_id']}")
         for page in paginator.pages:
