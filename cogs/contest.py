@@ -186,6 +186,7 @@ class Contest(commands.Cog):
     @commands.command(name="lentries", aliases=["list_entries", "myentries"], hidden=True)
     @commands.dm_only()
     async def list_entries(self, ctx):
+        """show all entries of mine"""
         entries = await self.list_contest_entries(ctx.author.id)
         entry_list = ""
         for entry in entries:
@@ -200,6 +201,7 @@ class Contest(commands.Cog):
     @commands.command(name="gentry", aliases=["get_entry"])
     @is_owner_or_moderator()
     async def get_entry(self, ctx, message: discord.Message):
+        """get the entry specified by jump_url or message id"""
         entry = await self.get_entry_by_message(message.id)
         votes = await self.get_number_of_votes(message.id)
         submission_image = message.attachments[0].url
@@ -214,6 +216,7 @@ class Contest(commands.Cog):
     @commands.command(name="winner", aliases=["get_winner"])
     @is_owner_or_moderator()
     async def get_winner(self, ctx):
+        """list the top 10 contestants by vote"""
         all_entries = await self.get_top_entries()
         embed = discord.Embed(title="Contest Winner:")
         winners = []
@@ -234,6 +237,7 @@ class Contest(commands.Cog):
     @commands.command(name="rentry", aliases=["remove_entry"])
     @is_owner_or_moderator()
     async def remove_entry(self, ctx, message: discord.Message):
+        """remove an entry"""
         await message.delete()
         await self.remove_entry_from_database(message.id)
         await ctx.send("Entry was deleted")
@@ -241,6 +245,7 @@ class Contest(commands.Cog):
     @commands.command(name="disqualify")
     @is_owner_or_moderator()
     async def disqualify(self, ctx, member: discord.Member):
+        """removes all entries of a user and makes them unable to join the contest again"""
         entries = await self.list_contest_entries(member.id)
 
         def check(m):
@@ -252,12 +257,14 @@ class Contest(commands.Cog):
         await ctx.send(f"{member.display_name} has been disqualified.")
     @commands.command(name="qualify")
     @is_owner_or_moderator()
-    async def qualify(self, ctx : commands.Context, member: discord.Member):
+    async def qualify(self, ctx: commands.Context, member: discord.Member):
+        """removes user from disqualification list"""
         await self.contestant_qualify(member.id)
         await ctx.send(f"{member.display_name} has been qualified again")
 
     @commands.command(name="my_votes")
     async def my_votes(self, ctx: commands.Context):
+        """gives you a list of all images you have voted on"""
         votes = await self.get_votes_of_user(ctx.author.id)
         paginator = commands.Paginator(prefix=None, suffix=None)
         paginator.add_line("you have voted for the following entries: ")
