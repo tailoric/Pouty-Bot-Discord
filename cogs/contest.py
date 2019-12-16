@@ -19,6 +19,7 @@ from builtins import hasattr
 
 import discord
 import io
+import os.path
 import asyncpg
 import aiohttp
 import asyncio
@@ -151,6 +152,19 @@ class Contest(commands.Cog):
             async with connection.transaction():
                 await statement_dq.fetchval(user_id)
                 return await statement.fetchval(user_id)
+    async def contestant_qualify(self, user_id):
+        async with self.bot.db.acquire() as connection:
+            statement = await connection.prepare("DELETE FROM contest_disqualified "
+                                                 "WHERE user_id = $1")
+            async with connection.transaction():
+                return await statement.fetchrow(user_id)
+    async def get_votes_of_user(self, user_id):
+        async with self.bot.db.acquire() as connection:
+            statement = await connection.prepare("SELECT user_id, message_id FROM contest_votes "
+                                                 "WHERE user_id = $1")
+            async with connection.transaction():
+                return await statement.fetch(user_id)
+
 
     async def fetch_disqualified(self, user_id):
         async with self.bot.db.acquire() as connection:
@@ -236,6 +250,22 @@ class Contest(commands.Cog):
         await self.contest_channel.purge(check=check)
         await self.contestant_disqualified(member.id)
         await ctx.send(f"{member.display_name} has been disqualified.")
+    @commands.command(name="qualify")
+    @is_owner_or_moderator()
+    async def qualify(self, ctx : commands.Context, member: discord.Member):
+        await self.contestant_qualify(member.id)
+        await ctx.send(f"{member.display_name} has been qualified again")
+
+    @commands.command(name="my_votes")
+    async def my_votes(self, ctx: commands.Context):
+        votes = await self.get_votes_of_user(ctx.author.id)
+        paginator = commands.Paginator(prefix=None, suffix=None)
+        paginator.add_line("you have voted for the following entries: ")
+        for vote in votes:
+            paginator.add_line(f"https://discordapp.com/channels/{self.contest_channel.guild.id}/{self.contest_channel.id}/{vote['message_id']}")
+        for page in paginator.pages:
+            await ctx.send(page)
+
 
     @commands.command(name="submit", hidden=True)
     @commands.dm_only()
@@ -243,6 +273,9 @@ class Contest(commands.Cog):
         """
         allows you to submit to the contest
         """
+        if os.path.exists("data/.contest_closed"):
+            await ctx.send("contest is closed")
+            return
         if not self.contestant_check(ctx):
             await ctx.send("you are not a contestant")
             return
@@ -307,9 +340,9 @@ class Contest(commands.Cog):
                     await message_entry.remove_reaction("\N{THUMBS UP SIGN}", member)
                     await member.send("don't vote on your own entries dummy :T")
                     return
-                await message_entry.remove_reaction("\N{THUMBS UP SIGN}", member)
-                await self.add_vote_to_entry(payload.user_id, payload.message_id)
-                await member.send(f"you have successfully voted on the following entry: {message_entry.jump_url}")
+            await message_entry.remove_reaction("\N{THUMBS UP SIGN}", member)
+            await self.add_vote_to_entry(payload.user_id, payload.message_id)
+            await member.send(f"you have successfully voted on the following entry: {message_entry.jump_url}")
         except asyncpg.PostgresError as e:
             logger = logging.getLogger('PoutyBot')
             logger.error(e)
@@ -337,16 +370,25 @@ class Contest(commands.Cog):
     def is_setup_complete(self):
         return self.contestant_role and self.contest_channel
 
-    @commands.command(name="cstart")
+    @commands.group(name="contest", invoke_without_command=True)
+    async def contest(self, ctx: commands.context):
+        pass
+
+    @contest.command(name="start")
     @is_owner_or_moderator()
     async def contest_start(self, ctx):
         """creates the contest channel and role and sets their permissions"""
+        if os.path.exists("data/.contest_closed"):
+            try:
+                os.remove("data/.contest_closed")
+            except OSError:
+                await ctx.send("could not delete contest closed file")
         current_guild = ctx.guild
         overwrite_memester = self.set_memester_permission(current_guild)
         overwrite_contestant = self.set_contestant_permission(current_guild)
         overwrite_everyone = self.set_default_permission(current_guild)
         everyone = current_guild.default_role
-        memester = current_guild.get_role(189594836687519744)
+        memester = current_guild.get_role(514884001417134110)
         self.contestant_role = await current_guild.create_role(name="contestant")
         await self.contestant_role.edit(position=memester.position)
         self.contest_channel = await current_guild.create_text_channel(name="contest-channel")
@@ -356,7 +398,8 @@ class Contest(commands.Cog):
         await self.save_settings(self.contestant_role.id, self.contest_channel.id, ctx.guild.id)
         await ctx.send("contest has been started")
 
-    @commands.command(name="contestcc")
+
+    @contest.command(name="cleanup")
     @is_owner_or_moderator()
     async def cleanup_contest(self, ctx):
         """small help command for resetting before contest"""
@@ -366,6 +409,18 @@ class Contest(commands.Cog):
         self.contestant_role = None
         self.contest_channel = None
         await ctx.send("contest reset")
+
+    @contest.command(name="close")
+    @is_owner_or_moderator()
+    async def close_contest(self, ctx: commands.Context):
+        """close the contest"""
+        try:
+            with open("data/.contest_closed", 'x') as f:
+                pass
+        except OSError:
+            await ctx.send("contest already closed")
+            return
+        await ctx.send("contest closed")
 
     def set_default_permission(self, current_guild):
         overwrite_everyone = discord.PermissionOverwrite()
