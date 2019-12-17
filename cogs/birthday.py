@@ -1,6 +1,7 @@
 import discord
 from discord.utils import get, find
 from discord.ext import commands,tasks
+from typing import Optional
 from .utils.dataIO import DataIO
 import time
 
@@ -16,13 +17,15 @@ class Birthday(commands.Cog):
 
     @commands.has_permissions(manage_roles=True)
     @commands.command(aliases=['bday'])
-    async def birthday(self, ctx: commands.Context, member: discord.Member):
+    async def birthday(self, ctx: commands.Context, member: discord.Member, color: Optional[discord.Color]):
         """assigns the birthday role to the user and removes it after 24 hours"""
         bday_role = find(lambda r: "birthday" in r.name.lower(), ctx.guild.roles)
         if bday_role in member.roles:
             await ctx.send("user already has birthday role")
             return
         elif bday_role:
+            if color:
+                await bday_role.edit(color=color)
             await member.add_roles(bday_role)
             entry = {
                 "member": member.id,
