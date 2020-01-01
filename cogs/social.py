@@ -196,6 +196,38 @@ class Social(commands.Cog):
             fmt = '{0}\n{1}'
             await ctx.send(fmt.format(found_user.mention, random.choice(images)))
 
+    @commands.command(hidden=False, pass_context=True)
+    async def cry(self, ctx, *, user=None):
+        """
+            usage: .cry (at) user
+        """
+        mentioned_users = ctx.message.mentions
+        file_name = 'cry'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await ctx.send(random.choice(images))
+        else:
+            user = user.replace("\"", "")
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
+            fmt = '{0}\n{1}'
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
+
+    @commands.command(hidden=False, pass_context=True)
+    async def sleep(self, ctx, *, user=None):
+        """
+            usage: .sleep (at) user
+        """
+        mentioned_users = ctx.message.mentions
+        file_name = 'sleep'
+        images = await self.find_file(file_name)
+        if mentioned_users or not user:
+            await ctx.send(random.choice(images))
+        else:
+            user = user.replace("\"", "")
+            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
+            fmt = '{0}\n{1}'
+            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
+
     @commands.command(hidden=True, pass_context=True, aliases=["licc","lic","pero"])
     async def lick(self, ctx, *, user=None):
         mentioned_users = ctx.message.mentions
