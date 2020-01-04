@@ -119,7 +119,7 @@ class Distort(commands.Cog):
             filename = f"{link.name}{filetype}"
             await link.url.save(f"data/{filename}")
         elif isinstance(link, Member):
-            asset = ctx.author.avatar_url_as(format="png")
+            asset = link.avatar_url_as(format="png")
             filetype = ".png"
             filename = str(ctx.author.id) + filetype
             await asset.save(f"data/{ctx.author.id}{filetype}")
