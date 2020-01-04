@@ -97,6 +97,63 @@ class Distort(commands.Cog):
         os.remove(output_path_temp)
         return output_path_distort
 
+    @commands.command()
+    async def blur(self, ctx: commands.Context, intensity: Optional[int], link: Optional[Union[PartialEmoji, Member, str]]):
+        """
+        blur command applies radial blur to image
+        allowed intensity settings are between 1 and 15
+        """
+        if intensity is None or intensity < 1 or intensity > 15:
+            intensity = 5
+        if ctx.message.attachments:
+            url = str(ctx.message.attachments[0].url)
+            filetype = url[url.rfind('.') + 1:]
+            pos = url.rfind("/")
+            filename = url[pos + 1:]
+            if filetype.lower() not in self.allowed_file_extensions:
+                await ctx.send("not allowed filetype only images or gifs allowed")
+                return
+            await ctx.message.attachments[0].save(f"data/{filename}")
+        elif isinstance(link, PartialEmoji):
+            filetype = str(link.url)[str(link.url).rfind("."):]
+            filename = f"{link.name}{filetype}"
+            await link.url.save(f"data/{filename}")
+        elif isinstance(link, Member):
+            asset = ctx.author.avatar_url_as(format="png")
+            filetype = ".png"
+            filename = str(ctx.author.id) + filetype
+            await asset.save(f"data/{ctx.author.id}{filetype}")
+        else:
+            try:
+                async with self.session.get(url=link) as r:
+                    filetype = r.headers["Content-Type"].split("/")[1]
+                    filename = f"{uuid.uuid4()}.{filetype}"
+                    if filetype.lower() not in self.allowed_file_extensions:
+                        await ctx.send("not allowed filetype only images or gifs allowed")
+                        return
+                    if r.status == 200:
+                        with open(f"data/{filename}", "wb") as f:
+                            buffer = io.BytesIO(await r.read())
+                            f.write(buffer.read())
+            except aiohttp.InvalidURL:
+                await ctx.send(
+                    "this command only works with custom emojis, direct image links or usernames or mentions.")
+                return
+        output_path = await self.create_rad_blur(filename, filetype, intensity)
+        await ctx.send(file=File(output_path))
+        os.remove(output_path)
+
+    async def create_rad_blur(self, filename, filetype, intensity):
+        if not filetype.startswith("."):
+            filetype = "." + filetype
+        output_path_temp = os.path.join('data', filename)
+        output_path_blur = os.path.join('data', str(uuid.uuid4()) + filetype)
+        proc = await asyncio.create_subprocess_exec(
+            self.image_magick_command, output_path_temp, '-rotational-blur', str(intensity), output_path_blur
+        )
+        await proc.communicate()
+        os.remove(output_path_temp)
+        return output_path_blur
 
 def setup(bot: commands.Bot):
     bot.add_cog(Distort(bot))
