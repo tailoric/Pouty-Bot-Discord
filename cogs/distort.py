@@ -103,7 +103,11 @@ class Distort(commands.Cog):
         blur command applies radial blur to image
         allowed intensity settings are between 1 and 15
         """
-        if intensity is None or intensity < 1 or intensity > 15:
+        if intensity is None:
+            intensity = 5
+        elif intensity < 1:
+            intensity = 1
+        elif intensity > 15:
             intensity = 15
         if ctx.message.attachments:
             url = str(ctx.message.attachments[0].url)
