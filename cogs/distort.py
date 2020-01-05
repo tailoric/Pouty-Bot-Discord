@@ -104,7 +104,7 @@ class Distort(commands.Cog):
         allowed intensity settings are between 1 and 15
         """
         if intensity is None or intensity < 1 or intensity > 15:
-            intensity = 5
+            intensity = 15
         if ctx.message.attachments:
             url = str(ctx.message.attachments[0].url)
             filetype = url[url.rfind('.') + 1:]
