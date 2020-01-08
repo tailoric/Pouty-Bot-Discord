@@ -43,7 +43,7 @@ class ReadRules(commands.Cog):
                 await con.execute(query)
     async def add_new_memester(self, new_user):
         query = '''
-            INSERT INTO new_memesters VALUES ($1, $2)
+            INSERT INTO new_memesters VALUES ($1, $2) ON CONFLICT DO NOTHING 
         '''
         async with self.bot.db.acquire() as con:
             statement = await con.prepare(query)
