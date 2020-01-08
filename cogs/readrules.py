@@ -3,6 +3,8 @@ from discord.utils import get
 import discord
 import json
 import datetime
+import logging
+import traceback
 from random import choice
 import re
 from .utils.dataIO import DataIO
@@ -133,13 +135,17 @@ class ReadRules(commands.Cog):
     @tasks.loop(minutes=1)
     async def check_for_new_memester(self):
         rows = await self.fetch_new_memesters()
-        for row in rows:
-            if row["time_over"] < datetime.datetime.utcnow():
-                member = self.animemes_guild.get_member(row["user_id"])
-                if member:
+        try:
+            for row in rows:
+                if row["time_over"] < datetime.datetime.utcnow():
+                    member = self.animemes_guild.get_member(row["user_id"])
                     await member.add_roles(self.memester_role)
                     await member.remove_roles(self.new_memester)
                 await self.remove_user_from_new_list(row["user_id"])
+        except (discord.Forbidden, discord.HTTPException):
+            logger = logging.getLogger("PoutyBot")
+            logger.error(traceback.format_exc())
+
 
     @commands.Cog.listener(name="on_member_update")
     async def new_memester_assigned(self, before, after):
