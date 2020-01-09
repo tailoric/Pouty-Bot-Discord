@@ -141,11 +141,10 @@ class ReadRules(commands.Cog):
                     member = self.animemes_guild.get_member(row["user_id"])
                     await member.add_roles(self.memester_role)
                     await member.remove_roles(self.new_memester)
-                await self.remove_user_from_new_list(row["user_id"])
+                    await self.remove_user_from_new_list(row["user_id"])
         except (discord.Forbidden, discord.HTTPException):
             logger = logging.getLogger("PoutyBot")
             logger.error(traceback.format_exc())
-
 
     @commands.Cog.listener(name="on_member_update")
     async def new_memester_assigned(self, before, after):
