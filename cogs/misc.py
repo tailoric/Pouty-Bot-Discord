@@ -688,6 +688,7 @@ import json
 import random
 import re
 import typing
+import asyncio
 from emojipedia import Emojipedia
 from functools import partial
 import aiohttp
@@ -854,7 +855,16 @@ class Choose(commands.Cog):
         choice = random.choice(list_of_options)
         if not choice.strip("\""):
             choice = '\u200b'
-        await ctx.send(choice.strip("\""))
+        sent_message = await ctx.send(choice.strip("\""))
+        def check(del_mes):
+            return del_mes.id == ctx.message.id
+
+        try:
+            await self.bot.wait_for("message_delete", check=check, timeout=60.0)
+            await sent_message.delete()
+        except asyncio.TimeoutError:
+            pass
+
 
 class EightBall(commands.Cog):
     """let fate answer a yes or no question"""
