@@ -394,12 +394,6 @@ class Admin(commands.Cog):
                         to_remove.append(mute)
             for mute in to_remove:
                 await self.remove_user_from_mute_list(mute['user_id'])
-                if self.check_channel is not None:
-                    user = get(self.mute_role.guild.members, id=mute["user_id"])
-                    if user:
-                        await self.check_channel.send("User {0} unmuted".format(user.mention))
-                    else:
-                        await self.check_channel.send(f"User <@{mute['user_id']}> unmuted")
         except Exception as e: 
             self.error_log.exception('exception while handling unmutes:')
 
