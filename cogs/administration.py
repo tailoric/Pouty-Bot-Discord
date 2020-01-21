@@ -414,11 +414,55 @@ class Admin(commands.Cog):
         return unmuted_user_id
     async def add_mute_to_mute_list(self, member_id, timestamp):
         query = ("INSERT INTO mutes "
-                 "VALUES ($1,$2)")
+                 "VALUES ($1,$2) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2")
         async with self.bot.db.acquire() as con:
             stmt = await con.prepare(query)
             async with con.transaction():
                 await stmt.fetch(member_id, timestamp)
+
+    def convert_mute_length(self, amount, time_unit):
+        if amount == 1 and not time_unit.endswith("s"):
+            time_unit = time_unit + "s"
+
+        if time_unit not in self.units.keys():
+            return None, "incorrect time unit please choose days, hours, minutes or seconds"
+        if amount < 1:
+            return None, "amount needs to be at least 1"
+        return self.units[time_unit] * amount, None
+
+    @commands.command()
+    async def selfmute(self, ctx, amount:int, time_unit:str):
+        """
+        selfmute yourself for certain amount of time
+        """
+
+        length, error_msg = self.convert_mute_length(amount, time_unit)
+        if not length:
+            await ctx.send(error_msg)
+            return
+        if length > 7 * self.units["days"]:
+            question = await ctx.send(f"Are you sure you want to be muted for {(length/self.units['days']):.2f} days?\n"
+                                      f"answer with  Y[es] or N[o]")
+
+            def msg_check(message):
+                return message.author.id == ctx.author.id and message.channel.id == ctx.message.channel.id
+            try:
+                message = await self.bot.wait_for("message", check=msg_check, timeout=20.0)
+                if re.match(r"y(es)?", message.content.lower()):
+                    pass
+                else:
+                    await question.edit(content="self mute aborted")
+                    return
+            except asyncio.TimeoutError:
+                await question.edit(content="Timeout: mute aborted")
+                return
+
+        unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
+        await ctx.author.add_roles(self.mute_role)
+        await ctx.send("You have been muted")
+        await self.add_mute_to_mute_list(ctx.author.id, unmute_ts)
+        await self.check_channel.send(f"{ctx.author.name}#{ctx.author.discriminator} has muted themselves for "
+                                      f"{amount} {time_unit}\n{ctx.message.jump_url}")
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
@@ -429,15 +473,10 @@ class Admin(commands.Cog):
         example:
             .mute @Test-Dummy 5 hours
         """
-        if amount == 1 and not time_unit.endswith("s"):
-            time_unit = time_unit + "s"
-        if time_unit not in self.units.keys():
-            await ctx.send("incorrect time unit please choose days, hours, minutes or seconds")
+        length, error_msg = self.convert_mute_length(amount, time_unit)
+        if not length:
+            await ctx.send(error_msg)
             return
-        if amount < 1:
-            await ctx.send("amount needs to be at least 1")
-            return
-        length = self.units[time_unit] * amount
         unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
         mute_message = f"user {user.mention} was muted"
         await user.add_roles(self.mute_role)
