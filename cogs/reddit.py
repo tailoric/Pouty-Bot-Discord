@@ -162,7 +162,11 @@ class Reddit(commands.Cog):
                 difference = now - creation_time
                 subreddit = post_data['subreddit']
                 is_stickied = post_data['stickied']
+                removed_by_category = post_data['removed_by_category']
+
                 if not subreddit == "Animemes":
+                    return
+                if removed_by_category:
                     return
                 if difference.total_seconds() < 12 * 3600 and not is_stickied:
                     await after.delete()
@@ -196,7 +200,10 @@ class Reddit(commands.Cog):
                 difference = now - creation_time
                 subreddit = post_data['subreddit']
                 is_stickied = post_data['stickied']
+                removed_by_category = post_data['removed_by_category']
                 if not subreddit == "Animemes":
+                    return
+                if removed_by_category:
                     return
                 if difference.total_seconds() < 12 * 3600 and not is_stickied:
                     await message.delete()
