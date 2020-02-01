@@ -167,22 +167,22 @@ class ReadRules(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        if self.new_memester and self.new_memester not in after.roles:
+        if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
-        match_name = alphanumeric_pattern.match(after.name)
+        match_name = alphanumeric_pattern.match(after.name.lower())
         match_nickname = None
         if after.nick:
             match_nickname = alphanumeric_pattern.match(after.nick)
-        forbidden_match = forbidden_word_pattern.search(after.display_name)
+        forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
         old_name = after.display_name
         if not match_nickname and not match_name:
             await after.edit(nick="pingable_username")
         elif not match_name and not after.nick:
             await after.edit(nick="pingable_username")
         elif forbidden_match:
-            new_nick = forbidden_word_pattern.sub('*', after.display_name)
+            new_nick = forbidden_word_pattern.sub('*', after.display_name.lower())
             await after.edit(nick=new_nick)
         else:
             return
