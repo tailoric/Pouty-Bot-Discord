@@ -139,8 +139,9 @@ class ReadRules(commands.Cog):
             for row in rows:
                 if row["time_over"] < datetime.datetime.utcnow():
                     member = self.animemes_guild.get_member(row["user_id"])
-                    await member.add_roles(self.memester_role)
-                    await member.remove_roles(self.new_memester)
+                    if member:
+                        await member.add_roles(self.memester_role)
+                        await member.remove_roles(self.new_memester)
                     await self.remove_user_from_new_list(row["user_id"])
         except (discord.Forbidden, discord.HTTPException):
             logger = logging.getLogger("PoutyBot")
