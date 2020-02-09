@@ -75,6 +75,16 @@ class Reddit(commands.Cog):
         self.reddit_channel = ctx.channel
         await ctx.send(f"{ctx.channel.mention} set up as the reddit channel for announcements")
 
+    async def edit_embed_with_info(self, permalink, message):
+        post_obj = {"permalink": permalink}
+        comment = await self.get_stickied_comment(post_obj)
+        while not comment:
+            await asyncio.sleep(30)
+            comment = await self.get_stickied_comment(post_obj)
+        embed = message.embeds[0]
+        embed.description = comment["data"]["body"][:500]+"..."
+        await message.edit(embed=embed)
+
     @tasks.loop(minutes=1)
     async def check_reddit_for_pinned_threads(self):
         async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
@@ -87,17 +97,17 @@ class Reddit(commands.Cog):
                     for post in stickied_post:
                         post_creation = datetime.datetime.utcnow()
                         await self.insert_post(post["id"], post_creation)
-                        return
                 for post in stickied_post:
                     post_creation = datetime.datetime.utcnow()
                     if post["id"] not in [p["post_id"] for p in last_posts]:
                         embed = await self.build_embed_for_stickied_thread(post)
                         if embed:
-                            await self.reddit_channel.send(embed=embed)
+                            sent_message = await self.reddit_channel.send(embed=embed)
                             await self.insert_post(post["id"], post_creation)
+                            if embed.description == '\u200b':
+                                await self.edit_embed_with_info(post["permalink"], sent_message)
 
     async def get_stickied_comment(self, post):
-        await asyncio.sleep(180)
         async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
             if resp.status == 200:
                 json_data = await resp.json()
@@ -131,8 +141,10 @@ class Reddit(commands.Cog):
                         embed.set_thumbnail(url=sub_data["header_img"])
                     elif "image" in post["post_hint"]:
                         embed.set_image(url=post["url"])
-                    elif post["thumbnail"] is not "default":
+                    elif post["thumbnail"] != "default" and post["thumbnail"] != "spoiler":
                         embed.set_thumbnail(url=post["thumbnail"])
+                    else:
+                        embed.set_thumbnail(url=sub_data["header_img"])
 
                 embed.set_author(name=post["author"], url=f"https://reddit.com/user/{post['author']}")
                 embed.set_footer(icon_url=sub_data["icon_img"], text="Animemes")
