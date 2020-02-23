@@ -31,7 +31,7 @@ class CustomHelpCommand(DefaultHelpCommand):
         embed.description = cog.description if cog.description else discord.Embed.Empty
         filtered_commands = await self.filter_commands(cog.get_commands(), sort=True)
         for command in filtered_commands:
-            command_title = f"{command.name} [{', '.join(command.aliases)}]" if command.aliases\
+            command_title = f"{command.name} [{', '.join(command.aliases)}]" if command.aliases \
                 else f"{command.name}"
             embed.add_field(name=command_title, value=command.short_doc if command.short_doc else "\u200b")
         embed.set_footer(text="[] means aliases for the command. "
@@ -42,6 +42,7 @@ class CustomHelpCommand(DefaultHelpCommand):
         embed = discord.Embed()
         embed.title = f"{self.clean_prefix}{command.qualified_name} {command.signature}"
         embed.description = command.help if command.help else discord.Embed.Empty
+        embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if command.aliases:
             embed.add_field(name="aliases", value=", ".join(command.aliases), inline=True)
         if command.usage:
@@ -52,6 +53,7 @@ class CustomHelpCommand(DefaultHelpCommand):
         embed = discord.Embed()
         embed.title = f"{self.clean_prefix}{group.qualified_name} {group.signature}"
         embed.description = group.help if group.help else discord.Embed.Empty
+        embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if group.aliases:
             embed.add_field(name="aliases", value=", ".join(group.aliases), inline=False)
         if group.usage:
@@ -61,8 +63,6 @@ class CustomHelpCommand(DefaultHelpCommand):
                             .join([f"{command.qualified_name}: {command.short_doc}" for command in group.commands]),
                             inline=False)
         await self.get_destination().send(embed=embed)
-
-
 
 
 class Default(commands.Cog):
@@ -88,7 +88,6 @@ class Default(commands.Cog):
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.dm_logger.addHandler(handler)
 
-
     def cog_unload(self):
         self.bot.remove_listener(self.on_ready, 'on_ready')
         self.bot.remove_listener(self.on_command_error, "on_command_error")
@@ -101,7 +100,7 @@ class Default(commands.Cog):
         print(self.bot.user.name)
         print(self.bot.user.id)
         print(discord.utils.oauth_url(self.credentials['client-id']))
-        print('-'*8)
+        print('-' * 8)
         init_extensions = self.data_io.load_json("initial_cogs")
         for extension in init_extensions:
             try:
@@ -115,7 +114,6 @@ class Default(commands.Cog):
         if isinstance(message.channel, discord.DMChannel):
             user = message.author
             self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
-
 
     async def on_command_error(self, ctx, error):
         self.logger.error(error, exc_info=True)
@@ -135,19 +133,19 @@ class Default(commands.Cog):
         else:
             await ctx.send(error)
 
-
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
         if owner_cog:
             if checks.user_is_in_whitelist_server(self.bot, ctx.author):
                 return True
             current_guild = ctx.guild
-            guilds_with_disabled_command = [g["server"] for g in owner_cog.disabled_commands ]
+            guilds_with_disabled_command = [g["server"] for g in owner_cog.disabled_commands]
             if current_guild:
                 disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands
                                      if dc["server"] == current_guild.id]
                 if ctx.command.name in disabled_commands:
-                    raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+                    raise DisabledCommandException(
+                        f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
             else:
                 for guild_id in guilds_with_disabled_command:
                     guild = self.bot.get_guild(guild_id)
@@ -159,7 +157,8 @@ class Default(commands.Cog):
                     disabled_commands = [dc["command"] for dc in owner_cog.disabled_commands
                                          if dc["server"] == guild.id]
                     if ctx.command.name in disabled_commands:
-                        raise DisabledCommandException(f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+                        raise DisabledCommandException(
+                            f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
         return True
 
     async def check_for_black_list_user(self, ctx):
@@ -174,4 +173,3 @@ class Default(commands.Cog):
 
 def setup(bot: commands.Bot):
     bot.add_cog(Default(bot))
-
