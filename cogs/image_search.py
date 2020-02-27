@@ -247,7 +247,7 @@ class Search(commands.Cog):
     @commands.command()
     async def yt_version(self, ctx):
         await ctx.send(youtube_dl.version.__version__)
-    @commands.command()
+    @commands.command(aliases=["y"])
     async def youtube(self,  ctx,*, query: str):
         ytdl = youtube_dl.YoutubeDL({"quiet": True})
         info = ytdl.extract_info("ytsearch: " + query, download=False)
