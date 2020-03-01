@@ -8,6 +8,27 @@ from discord.ext.commands import DefaultHelpCommand
 import traceback
 
 
+def levenshtein_distance(user_input: str, command_name: str):
+    rows = len(user_input) + 1
+    cols = len(command_name) + 1
+    dist = [[0 for x in range(cols)] for x in range(rows)]
+    for i in range(1, rows):
+        dist[i][0] = i
+    for i in range(1, cols):
+        dist[0][i] = i
+
+    for col in range(1, cols):
+        for row in range(1, rows):
+            if user_input[row - 1] == command_name[col - 1]:
+                cost = 0
+            else:
+                cost = 1
+            dist[row][col] = min(dist[row-1][col] + 1,
+                                 dist[row][col-1] + 1,
+                                 dist[row-1][col-1] + cost)
+    return dist[-1][-1]
+
+
 class CustomHelpCommand(DefaultHelpCommand):
 
     async def send_bot_help(self, mapping):
@@ -24,6 +45,17 @@ class CustomHelpCommand(DefaultHelpCommand):
             entries.append(entry)
         help_page = paginator.FieldPages(self.context, entries=entries, per_page=1)
         await help_page.paginate()
+
+    async def command_not_found(self, string):
+        filtered_commands = await self.filter_commands(self.context.bot.commands, sort=True)
+        distances = []
+        for command in filtered_commands:
+            distance = levenshtein_distance(string, command.name)
+            distances.append({"name":command.name, "distance" : distance})
+        list_sorted = sorted(distances, key=lambda element: element["distance"])
+        same_dst_results = [c["name"] for c in list_sorted if c["distance"] == list_sorted[0]["distance"]]
+        return (f"No command called `{string}` found."
+                f" Maybe you meant one of the following command(s):\n`{same_dst_results}`")
 
     async def send_cog_help(self, cog):
         embed = discord.Embed()
