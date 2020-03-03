@@ -135,7 +135,7 @@ class Userinfo(commands.Cog):
                     from names
                     where user_id = $1
                  ) p
-                ORDER BY change_date  
+                ORDER BY change_date DESC
                 LIMIT 20
             ''')
             return await stmt.fetch(member.id)
@@ -149,7 +149,7 @@ class Userinfo(commands.Cog):
                     from nicknames
                     where user_id = $1
                  ) p
-                ORDER BY change_date 
+                ORDER BY change_date DESC
                 LIMIT 20
             ''')
             return await stmt.fetch(member.id)
