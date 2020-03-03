@@ -40,7 +40,12 @@ class Distort(commands.Cog):
                 return
             await message.attachments[0].save(f"data/{filename}")
         else:
-            if isinstance(link, PartialEmoji):
+            if link is None:
+                return await ctx.send(
+                    "Please provide either a direct link to an image, "
+                    "a custom emote or a user mention/user id or upload a picture"
+                )
+            elif isinstance(link, PartialEmoji):
                 filetype = str(link.url)[str(link.url).rfind("."):]
                 filename = f"{link.name}{filetype}"
                 await link.url.save(f"data/{filename}")
@@ -61,7 +66,9 @@ class Distort(commands.Cog):
                                 buffer = io.BytesIO(await r.read())
                                 f.write(buffer.read())
                 except aiohttp.InvalidURL:
-                    await ctx.send("this command only works with custom emojis, direct image links or usernames or mentions.")
+                    await ctx.send(
+                        "this command only works with custom emojis, direct image links or usernames or mentions."
+                    )
                     return
         async with ctx.typing():
             output_file = await self.spawn_magick(filename, f".{filetype}")
@@ -118,6 +125,11 @@ class Distort(commands.Cog):
                 await ctx.send("not allowed filetype only images or gifs allowed")
                 return
             await ctx.message.attachments[0].save(f"data/{filename}")
+        elif link is None:
+            return await ctx.send(
+                "Please provide either a direct link to an image, "
+                "a custom emote or a user mention/user id or upload a picture"
+            )
         elif isinstance(link, PartialEmoji):
             filetype = str(link.url)[str(link.url).rfind("."):]
             filename = f"{link.name}{filetype}"
