@@ -42,7 +42,9 @@ class Suggestions(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send(f"{ctx.author.mention} Timeout reached suggestion was not sent")
             return
-        data['body'] = message.content
+        data['body'] = (f"{message.content}\n"
+                        f"This suggestion was created by a user and sent by the bot:\n"
+                        f"{self.bot.user.name}#{self.bot.user.discriminator}")
         embed = discord.Embed(title=title, description=message.content)
         react_mes = await ctx.send(content="This will be the created issue on github, do you want to send?",
                                    embed=embed)
@@ -63,7 +65,12 @@ class Suggestions(commands.Cog):
         async with self.session.post(url='https://api.github.com/repos/tailoric/Pouty-Bot-Discord/issues',
                                      headers=headers, json=data) as resp:
             if resp.status == 201:
+                json_response = await resp.json()
                 await ctx.send("issue was created")
+                owner = self.bot.get_user(self.bot.owner_id)
+                default_issue_url = "https://github.com/tailoric/Pouty-Bot-Discord/issues"
+                await owner.send(f"a new issue was created by {ctx.author.mention}\n"
+                                 f"{json_response.get('html_url', default_issue_url)}")
             else:
                 await ctx.send(resp.status)
 
