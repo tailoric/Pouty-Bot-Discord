@@ -165,7 +165,8 @@ class Music(commands.Cog):
                 self.skip_votes[ctx.guild.id].clear()
                 await ctx.send('⏭ | Skip vote passed.')
             else:
-                await ctx.send(f"current skip vote [{skip_vote_number}/{number_of_users_in_voice}]")
+                await ctx.send(f"current skip vote: {number_of_users_in_voice//2 - skip_vote_number} more votes needed"
+                               f"for skip")
 
     @commands.command()
     @can_stop()
