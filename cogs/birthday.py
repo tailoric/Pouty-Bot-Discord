@@ -136,6 +136,8 @@ class Birthday(commands.Cog):
                     if member and guild and bday_roles:
                         await member.remove_roles(*bday_roles)
                 except (discord.errors.Forbidden, discord.errors.NotFound):
+                    logger = logging.getLogger("PoutyBot")
+                    logger.error(e)
                     to_remove.append(entry)
                 except discord.errors.HTTPException as e:
                     logger = logging.getLogger("PoutyBot")
