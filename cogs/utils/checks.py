@@ -42,17 +42,18 @@ def is_owner_or_moderator():
     return commands.check(lambda ctx: is_owner_or_moderator_check(ctx.message))
 
 
-def channel_only(*channels: int):
+def channel_only(*channels):
     def predicate(ctx):
-        if ctx.channel.id not in channels:
-            if ctx.guild:
-                channel_mentions= [f"<#{ch.id}>" for ch in ctx.guild.text_channels if ch.id in channels]
-                if not channel_mentions:
-                    raise commands.CheckFailure("You can't use the command on this server.")
-                raise commands.CheckFailure(f"Please use the command only in the following channels:\n"
-                                            f"{' '.join(channel_mentions)}")
-            raise commands.CheckFailure("Can't use  this command in DMs")
-        return True
+        if ctx.channel.id in channels or ctx.channel.name in channels:
+            return True
+        if ctx.guild:
+            channel_mentions= [f"<#{ch.id}>" for ch in ctx.guild.text_channels
+                               if ch.id in channels or ch.name in channels]
+            if not channel_mentions:
+                raise commands.CheckFailure("You can't use the command on this server.")
+            raise commands.CheckFailure(f"Please use the command only in the following channels:\n"
+                                        f"{' '.join(channel_mentions)}")
+        raise commands.CheckFailure("Can't use  this command in DMs")
     return commands.check(predicate)
 
 def user_is_in_whitelist_server(bot: commands.Bot, user: discord.User):
