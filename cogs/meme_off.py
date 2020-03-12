@@ -27,8 +27,10 @@ class MemeOff(commands.Cog):
         """
         meme_off_role = get(ctx.guild.roles, name="MEMEOFF")
         if meme_off_role:
+            await meme_off_role.edit(mentionable=True)
             await ctx.send(f"{meme_off_role.mention} new meme off will start soon react to this message to "
                            f"participate")
+            await meme_off_role.edit(mentionable=False)
 
     @checks.channel_only("memeoff")
     @meme_off.command(name="start")
