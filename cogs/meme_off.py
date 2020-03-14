@@ -58,11 +58,13 @@ class MemeOff(commands.Cog):
         cancel the current timer
         """
         self.timer_task.cancel()
+        self.timer_task = None
         await ctx.send("Timer was cancelled")
 
     async def timer(self, delay, ctx):
         await asyncio.sleep(delay)
         await ctx.send("Round has finished now.")
+        self.timer_task = None
 
 
 def setup(bot):
