@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord.utils import get
 from .utils import checks
 import asyncio
+from datetime import datetime, timedelta
 
 
 class MemeOff(commands.Cog):
@@ -9,6 +10,7 @@ class MemeOff(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.timer_task = None
+        self.timer_timestamp = None
 
     @commands.group(name="meme-off", aliases=["meme_off", "memeoff", "mo"])
     async def meme_off(self, ctx):
@@ -52,6 +54,16 @@ class MemeOff(commands.Cog):
         self.timer_task = self.bot.loop.create_task(self.timer(delay, ctx))
 
     @checks.channel_only("memeoff")
+    @meme_off.command(name="deadline", aliases=["dl"])
+    async def meme_off_deadline(self, ctx):
+        """ see how much time is left until the current deadline is over"""
+        if not self.timer_timestamp:
+            return await ctx.send("No timer set currently")
+        time_diff = self.timer_timestamp - datetime.utcnow()
+        minutes, seconds = divmod(time_diff.seconds, 60)
+        await ctx.send(f"{minutes} minutes and {seconds} seconds left")
+
+    @checks.channel_only("memeoff")
     @meme_off.command(name="cancel")
     async def meme_off_cancel(self, ctx):
         """
@@ -59,9 +71,11 @@ class MemeOff(commands.Cog):
         """
         self.timer_task.cancel()
         self.timer_task = None
+        self.timer_timestamp = None
         await ctx.send("Timer was cancelled")
 
     async def timer(self, delay, ctx):
+        self.timer_timestamp = datetime.utcnow() + timedelta(seconds=delay)
         await asyncio.sleep(delay)
         await ctx.send("Round has finished now.")
         self.timer_task = None
