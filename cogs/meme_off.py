@@ -79,6 +79,7 @@ class MemeOff(commands.Cog):
         await asyncio.sleep(delay)
         await ctx.send("Round has finished now.")
         self.timer_task = None
+        self.timer_timestamp = None
 
 
 def setup(bot):
