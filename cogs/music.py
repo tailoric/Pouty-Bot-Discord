@@ -350,7 +350,7 @@ class Music(commands.Cog):
         tracks = results['tracks'][:10]  # First 10 results
 
         o = (f"The first 10 results found via query `{original_query}`\n"
-                f"use `queue` or `play` followed of the number of the result to queue that song\n")
+                f"use `queue` or `play` followed by the number of the result to queue that song\n")
         for index, track in enumerate(tracks, start=1):
             track_title = track['info']['title']
             track_uri = track['info']['uri']
