@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord.utils import get
 from .utils import checks
 import asyncio
+import typing
 from datetime import datetime, timedelta
 
 
@@ -23,15 +24,18 @@ class MemeOff(commands.Cog):
     @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
     @checks.channel_only("memeoff")
     @meme_off.command(name="ping")
-    async def meme_off_ping(self, ctx):
+    async def meme_off_ping(self, ctx, *, announcement: typing.Optional[str]):
         """
         ping the meme-off role
         """
         meme_off_role = get(ctx.guild.roles, name="MEMEOFF")
+        message_to_send = (f"{meme_off_role.mention} new meme off will start soon react to this message to "
+                           f"participate")
+        if announcement:
+            message_to_send = f"{meme_off_role.mention} {announcement}"
         if meme_off_role:
             await meme_off_role.edit(mentionable=True)
-            await ctx.send(f"{meme_off_role.mention} new meme off will start soon react to this message to "
-                           f"participate")
+            await ctx.send(message_to_send)
             await meme_off_role.edit(mentionable=False)
 
     @checks.channel_only("memeoff")
