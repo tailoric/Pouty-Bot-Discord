@@ -1,6 +1,7 @@
 """
 This is an example cog that shows how you would make use of Lavalink.py.
-This example cog requires that you have python 3.6 or higher due to the f-strings.
+This example cog requires that you have python 3.6 or higher due to the
+f-strings.
 """
 import math
 import re
@@ -9,29 +10,45 @@ import discord
 import lavalink
 from discord.ext import commands
 from .utils import checks
+import asyncio
 
 url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
 
+
 def can_stop():
     def predicate(ctx):
+        my_voice = ctx.guild.me.voice.channel
         if not ctx.guild:
             raise commands.CheckFailure("Only usable within a server")
         if checks.is_owner_or_moderator_check(ctx.message):
             return True
         if ctx.guild.me.voice:
-            if len(ctx.guild.me.voice.channel.members) <= 2:
+            if len(my_voice.members) == 2 and ctx.author in my_voice.members:
                 return True
-            raise commands.CheckFailure("Can only stop when nobody or only one in voice channel with me")
+            if len(my_voice.members) == 1:
+                return True
+            raise commands.CheckFailure(
+                    "Can only stop when nobody or"
+                    "only one in voice channel with me"
+                    )
     return commands.check(predicate)
+
 
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-        if not hasattr(bot, 'lavalink'):  # This ensures the client isn't overwritten during cog reloads.
+        # This ensures the client isn't overwritten during cog reloads.
+        if not hasattr(bot, 'lavalink'):
             bot.lavalink = lavalink.Client(bot.user.id)
-            bot.lavalink.add_node('127.0.0.1', 2333, 'youshallnotpass', 'us', 'default-node')  # Host, Port, Password, Region, Name
-            bot.add_listener(bot.lavalink.voice_update_handler, 'on_socket_response')
+            # Host, Port, Password, Region, Name
+            bot.lavalink.add_node(
+                    '127.0.0.1',
+                    8800,
+                    'youshallnotpass',
+                    'us',
+                    'default-node')
+            bot.add_listener(bot.lavalink.voice_update_handler,
+                             'on_socket_response')
 
         bot.lavalink.add_event_hook(self.track_hook)
         self.skip_votes = {}
@@ -40,6 +57,7 @@ class Music(commands.Cog):
         if ctx.guild and ctx.guild.me.voice:
             return ctx.guild.me.voice.channel
         return None
+
     def cog_unload(self):
         self.bot.lavalink._event_hooks.clear()
 
@@ -49,11 +67,11 @@ class Music(commands.Cog):
         #  except it saves us repeating ourselves (and also a few lines).
 
         if guild_check:
+            # Ensure that the bot and command author
+            # share a mutual voicechannel.
             await self.ensure_voice(ctx)
-            #  Ensure that the bot and command author share a mutual voicechannel.
 
         return guild_check
-
 
     async def track_hook(self, event):
         guild_id = int(event.player.guild_id)
@@ -66,13 +84,17 @@ class Music(commands.Cog):
                 self.skip_votes[guild_id].clear()
             await self.bot.change_presence(activity=None)
         if isinstance(event, lavalink.events.TrackStartEvent):
-            await self.bot.change_presence(activity=discord.Game(name=event.player.current.title))
+            await self.bot.change_presence(
+                    activity=discord.Game(name=event.player.current.title)
+                    )
 
     async def connect_to(self, guild_id: int, channel_id: str):
-        """ Connects to the given voicechannel ID. A channel_id of `None` means disconnect. """
+        """ Connects to the given voicechannel ID.
+        A channel_id of `None` means disconnect. """
         ws = self.bot._connection._get_websocket(guild_id)
         await ws.voice_state(str(guild_id), channel_id)
-        # The above looks dirty, we could alternatively use `bot.shards[shard_id].ws` but that assumes
+        # The above looks dirty,
+        # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
 
     @commands.command(aliases=['p'])
@@ -99,11 +121,13 @@ class Music(commands.Cog):
                 player.add(requester=ctx.author.id, track=track)
 
             embed.title = 'Playlist Enqueued!'
-            embed.description = f'{results["playlistInfo"]["name"]} - {len(tracks)} tracks'
+            embed.description = (f'{results["playlistInfo"]["name"]}'
+                                 f'- {len(tracks)} tracks')
         else:
             track = results['tracks'][0]
             embed.title = 'Track Enqueued'
-            embed.description = f'[{track["info"]["title"]}]({track["info"]["uri"]})'
+            embed.description = (f'[{track["info"]["title"]}]'
+                                 f'({track["info"]["uri"]})')
             player.add(requester=ctx.author.id, track=track)
 
         await ctx.send(embed=embed)
@@ -120,12 +144,17 @@ class Music(commands.Cog):
         track_time = player.position + (seconds * 1000)
         await player.seek(track_time)
 
-        await ctx.send(f'Moved track to **{lavalink.utils.format_time(track_time)}**')
+        await ctx.send(
+                f'Moved track to **{lavalink.utils.format_time(track_time)}**'
+                )
 
     @commands.command(name="fskip", aliases=['forceskip'])
     @checks.is_owner_or_moderator()
     async def force_skip(self, ctx):
-        """can only be invoked by moderators, immediately skips the current song"""
+        """
+        can only be invoked by moderators,
+        immediately skips the current song
+        """
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
         if not player.is_playing:
@@ -137,14 +166,18 @@ class Music(commands.Cog):
 
     @commands.command()
     async def skip(self, ctx):
-        """ if invoked by requester skips the current song otherwise starts a skip vote, use again to remove skip vote"""
+        """
+        if invoked by requester skips the current song
+        otherwise starts a skip vote, use again to remove skip vote
+        """
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
         if not player.is_playing:
             return await ctx.send('Not playing.')
         current_voice = self.current_voice_channel(ctx)
 
-        if ctx.author.id == player.current.requester or len(current_voice.members) <= 2:
+        if (ctx.author.id == player.current.requester
+                or len(current_voice.members) <= 2):
             await player.skip()
             if ctx.guild.id in self.skip_votes.keys():
                 self.skip_votes[ctx.guild.id].clear()
@@ -166,7 +199,8 @@ class Music(commands.Cog):
                 await ctx.send('⏭ | Skip vote passed.')
             else:
                 await ctx.send(f"current skip vote: "
-                               f"{math.ceil(number_of_users_in_voice/2) - skip_vote_number} more votes needed "
+                               f"{math.ceil(number_of_users_in_voice/2) - skip_vote_number}"
+                               f"more vote(s) needed "
                                f"for skip")
 
     @commands.command()
@@ -299,9 +333,12 @@ class Music(commands.Cog):
 
     @commands.command(aliases=["search"])
     async def find(self, ctx, *, query):
-        """ Lists the first 10 search results from a given query. """
+        """ Lists the first 10 search results from a given query. 
+            also allows you to queue one of the results
+        """
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
+        original_query = query
         if not query.startswith('ytsearch:') and not query.startswith('scsearch:'):
             query = 'ytsearch:' + query
 
@@ -312,7 +349,8 @@ class Music(commands.Cog):
 
         tracks = results['tracks'][:10]  # First 10 results
 
-        o = ''
+        o = (f"The first 10 results found via query `{original_query}`\n"
+                f"use `queue` or `play` followed of the number of the result to queue that song\n")
         for index, track in enumerate(tracks, start=1):
             track_title = track['info']['title']
             track_uri = track['info']['uri']
@@ -320,6 +358,26 @@ class Music(commands.Cog):
 
         embed = discord.Embed(color=discord.Color.blurple(), description=o)
         await ctx.send(embed=embed)
+        def queue_check(message):
+
+            if not re.match(r"(q(uery)?|p(lay)?)", message.content):
+                return False
+            try:
+                get_message_numbers = ''.join(c for c in message.content if c.isdigit())
+                number = int(get_message_numbers)
+
+            except ValueError:
+                raise commands.CommandError("please choose a number between 1 and 10")
+            return (number >= 1 or number <= 10) and message.channel == ctx.channel and message.author == ctx.author
+        try:
+            msg = await ctx.bot.wait_for("message", check=queue_check, timeout=10.0)
+        except asyncio.TimeoutError:
+            return
+        get_message_numbers = ''.join(c for c in msg.content if c.isdigit())
+        result_number = int(get_message_numbers)
+        ctx.command = self.play
+        await self.cog_before_invoke(ctx)
+        await ctx.invoke(self.play, query=tracks[result_number-1]['info']['uri'])
 
     @commands.command(aliases=['dc'])
     @can_stop()
@@ -329,9 +387,6 @@ class Music(commands.Cog):
 
         if not player.is_connected:
             return await ctx.send('Not connected.')
-
-        if not ctx.author.voice or (player.is_connected and ctx.author.voice.channel.id != int(player.channel_id)):
-            return await ctx.send('You\'re not in my voicechannel!')
 
         player.queue.clear()
         await player.stop()
@@ -344,6 +399,8 @@ class Music(commands.Cog):
         # Create returns a player if one exists, otherwise creates.
 
         should_connect = ctx.command.name in ('play')  # Add commands that require joining voice to work.
+        if ctx.command.name in ('find', 'disconnect', 'now'):
+            return
 
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise commands.CommandInvokeError('Join a voicechannel first.')
