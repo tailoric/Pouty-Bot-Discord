@@ -67,7 +67,7 @@ class Roles(commands.Cog):
         except discord.Forbidden as fb:
             await ctx.send("Sorry I don't have the permission to give you that role")
 
-    @commands.command(name="amnot", pass_context=True)
+    @commands.command(name="amnot", aliases=["iamnot"])
     async def remove_role(self, ctx, role: RoleConverter):
         """removes a role from you"""
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
