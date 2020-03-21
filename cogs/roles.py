@@ -52,8 +52,9 @@ class Roles(commands.Cog):
         if role == settable_role and self.lockdown:
             await ctx.send("Server on lockdown due to high amount of people joining try again in a day or two")
             return
-        if role.position > settable_role.position and ctx.channel.name != "have-you-read-the-rules":
-            await ctx.send("can't give you that role")
+        if role.position > settable_role.position:
+            if ctx.channel.name != "have-you-read-the-rules":
+                await ctx.send("can't give you that role")
             return
         try:
             admin_cog = self.bot.get_cog("Admin")
