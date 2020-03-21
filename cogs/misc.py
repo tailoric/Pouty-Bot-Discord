@@ -694,6 +694,20 @@ from functools import partial
 import aiohttp
 
 
+class Misc(commands.Cog):
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @commands.command(name="ping")
+    async def check_ping(self, ctx):
+        latency = self.bot.latency 
+        if latency > 1.0:
+            seconds, milliseconds = divmod(latency * 1000, 1000)
+            return await ctx.send(f"My latency to discord is {int(seconds)} seconds and {int(milliseconds)}ms")
+        await ctx.send(f"My latency to discord is {int(latency * 1000)}ms")
+
+
 class RemindMe(commands.Cog):
     """Never forget anything anymore."""
 
@@ -1005,3 +1019,4 @@ def setup(bot):
     bot.add_cog(EightBall(bot))
     bot.add_cog(Emoji(bot))
     bot.add_cog(SCP(bot))
+    bot.add_cog(Misc(bot))

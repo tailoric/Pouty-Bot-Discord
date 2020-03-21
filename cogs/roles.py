@@ -89,7 +89,7 @@ class Roles(commands.Cog):
         pass
 
     @checks.is_owner_or_moderator()
-    @commands.command(name="ping", pass_context=True)
+    @commands.command(name="mention")
     async def roles_ping(self, ctx, role: RoleConverter):
         """
         ping the role by making it mentionable for the ping and remove
