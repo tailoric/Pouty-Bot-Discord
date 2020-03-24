@@ -8,6 +8,8 @@ import logging
 
 def has_birthday_role():
     async def predicate(ctx):
+        if not ctx.guild:
+            raise commands.CommandError("You can't use this command in a DM")
         bday_roles = [role for role in ctx.author.roles if "birthday" in role.name.lower()]
         if bday_roles:
             return True
