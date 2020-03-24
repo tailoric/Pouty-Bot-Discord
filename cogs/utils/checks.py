@@ -44,6 +44,8 @@ def is_owner_or_moderator():
 
 def channel_only(*channels):
     def predicate(ctx):
+        if not hasattr(ctx.guild, "guild"):
+            raise commands.CommandError("only usable in guilds")
         if ctx.channel.id in channels or ctx.channel.name in channels:
             return True
         if ctx.guild:

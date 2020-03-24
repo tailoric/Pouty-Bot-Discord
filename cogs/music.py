@@ -17,9 +17,11 @@ url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
 
 def can_stop():
     def predicate(ctx):
-        my_voice = ctx.guild.me.voice.channel
         if not ctx.guild:
             raise commands.CheckFailure("Only usable within a server")
+        if not ctx.guild.me.voice:
+            raise commands.CheckFailure("I am not in voice no need to stop")
+        my_voice = ctx.guild.me.voice.channel
         if checks.is_owner_or_moderator_check(ctx.message):
             return True
         if ctx.guild.me.voice:
@@ -43,7 +45,7 @@ class Music(commands.Cog):
             # Host, Port, Password, Region, Name
             bot.lavalink.add_node(
                     '127.0.0.1',
-                    8800,
+                    2333,
                     'youshallnotpass',
                     'us',
                     'default-node')
