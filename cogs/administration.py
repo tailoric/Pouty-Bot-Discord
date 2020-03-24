@@ -5,7 +5,6 @@ import os.path
 import json
 from .utils import checks, paginator
 from .utils.dataIO import DataIO
-import time
 from random import choice
 import logging
 import typing
@@ -13,8 +12,7 @@ from io import BytesIO
 import asyncio
 import re
 import datetime
-import asyncpg
-import traceback
+
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -136,20 +134,10 @@ class Admin(commands.Cog):
             if username is None or username.lower() in ban.user.name.lower():
                 list_of_matched_users.append(ban)
 
-        lines = []
-        def channel_mention_to_name(matchobj):
-            channel = ctx.guild.get_channel(int(matchobj.group(1)))
-            if channel:
-                return f"#{channel.name}"
-            else:
-                return "#invalid-channel"
-
+        entries = []
         for ban in list_of_matched_users:
-            reason = None
-            if ban.reason:
-                reason = re.sub(r'<#(\d+)>', channel_mention_to_name, ban.reason)
-            lines.append(f"{ban.user.name}#{ban.user.discriminator}: {reason}")
-        text_pages = paginator.TextPages(ctx, "\n".join(lines))
+            entries.append((f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"))
+        text_pages = paginator.FieldPages(ctx, entries=entries)
         await text_pages.paginate()
 
     @commands.has_permissions(manage_messages=True)
