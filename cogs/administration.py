@@ -455,8 +455,7 @@ class Admin(commands.Cog):
         await ctx.author.add_roles(self.mute_role)
         await ctx.send("You have been muted")
         await self.add_mute_to_mute_list(ctx.author.id, unmute_ts)
-        await self.check_channel.send(f"{ctx.author.name}#{ctx.author.discriminator} has muted themselves for "
-                                      f"{amount} {time_unit}\n{ctx.message.jump_url}")
+
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
