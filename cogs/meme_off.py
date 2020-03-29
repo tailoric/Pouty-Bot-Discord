@@ -111,7 +111,7 @@ class MemeOff(commands.Cog):
 
     @commands.dm_only()
     @meme_off.command("submit")
-    async def meme_off_submit(self, ctx):
+    async def meme_off_submit(self, ctx, link: typing.Optional[str]):
         """
         **ONLY IN DMs:** add a template to the random rotation, file needs to be attached for this command
         """
@@ -123,8 +123,16 @@ class MemeOff(commands.Cog):
             template_submission.add_template(ctx.message.attachments[0].url)
             self.submitted_templates[ctx.author.id] = template_submission
             await ctx.send("template successfully submitted")
+        elif link:
+            template_submission = self.submitted_templates.get(ctx.author.id, None)
+            if not template_submission:
+                template_submission = TemplateSubmission(ctx.author.id)
+
+            template_submission.add_template(link)
+            self.submitted_templates[ctx.author.id] = template_submission
+            await ctx.send("template successfully submitted")
         else:
-            return await ctx.send("You need to attach a file to your message")
+            return await ctx.send("You need to attach a file to your message or provide a link")
 
     @checks.channel_only("memeoff")
     @meme_off.command(name="template", aliases=["temp"])
