@@ -99,6 +99,16 @@ class Music(commands.Cog):
         # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
 
+    @commands.command()                                                                              
+    async def junbi_ok(self, ctx):                                                                   
+                                                                                                     
+        player = self.bot.lavalink.players.get(ctx.guild.id)                                         
+        results = await player.node.get_tracks("https://youtu.be/wWQPnhG0xHU")
+        player.add(requester=ctx.author.id, track=results["tracks"][0])                    
+        await ctx.send("junbi ok \N{OK Hand Sign}")                                                                
+        if not player.is_playing:                                                                    
+            await player.play()      
+
     @commands.command(aliases=['p'])
     async def play(self, ctx, *, query: str):
         """ Searches and plays a song from a given query. """
@@ -400,7 +410,7 @@ class Music(commands.Cog):
         player = self.bot.lavalink.players.create(ctx.guild.id, endpoint=str(ctx.guild.region))
         # Create returns a player if one exists, otherwise creates.
 
-        should_connect = ctx.command.name in ('play')  # Add commands that require joining voice to work.
+        should_connect = ctx.command.name in ('play', 'junbi_ok')  # Add commands that require joining voice to work.
         if ctx.command.name in ('find', 'disconnect', 'now'):
             return
 
