@@ -4,6 +4,28 @@ from .utils import checks
 import asyncio
 import typing
 from datetime import datetime, timedelta
+import random
+
+class TemplateSubmission():
+
+    def __init__(self, user_id):
+        self.user_id = user_id
+        self.templates = []
+
+    def add_template(self, template_link):
+        self.templates.append(template_link)
+
+    def get_template(self):
+        if self.templates:
+            choice = random.choice(self.templates)
+            self.templates.remove(choice)
+            return choice
+        return None
+
+    def __eq__(self, other):
+        if isinstance(other, TemplateSubmission):
+            return self.user_id == other.user_id
+        return false
 
 
 class MemeOff(commands.Cog):
@@ -12,6 +34,8 @@ class MemeOff(commands.Cog):
         self.bot = bot
         self.timer_task = None
         self.timer_timestamp = None
+        self.submitted_templates = {}
+        self.template_order = None
 
     @commands.group(name="meme-off", aliases=["meme_off", "memeoff", "mo"])
     async def meme_off(self, ctx):
@@ -85,6 +109,50 @@ class MemeOff(commands.Cog):
         self.timer_task = None
         self.timer_timestamp = None
 
+    @commands.dm_only()
+    @meme_off.command("submit")
+    async def meme_off_submit(self, ctx):
+        """
+        **ONLY IN DMs:** add a template to the random rotation, file needs to be attached for this command
+        """
+        if ctx.message.attachments:
+            template_submission = self.submitted_templates.get(ctx.author.id, None)
+            if not template_submission:
+                template_submission = TemplateSubmission(ctx.author.id)
+
+            template_submission.add_template(ctx.message.attachments[0].url)
+            self.submitted_templates[ctx.author.id] = template_submission
+            await ctx.send("template successfully submitted")
+        else:
+            return await ctx.send("You need to attach a file to your message")
+
+    @checks.channel_only("memeoff")
+    @meme_off.command(name="template", aliases=["temp"])
+    async def meme_off_template(self, ctx):
+        """get a random submission from the template rotation"""
+        if not self.template_order:
+            if not self.submitted_templates:
+                return await ctx.send("No templates submitted")
+            self.template_order = [u for u in self.submitted_templates.keys()]
+            random.shuffle(self.template_order)
+        submission = self.submitted_templates[self.template_order.pop()]
+        template = submission.get_template()
+        while not template:
+            if len(self.template_order) == 0:
+                break
+            submission = self.submitted_templates[self.template_order.pop()]
+            template = submission.get_template()
+        if not template:
+            return await ctx.send("no templates left")
+        await ctx.send(f"Template for this round from <@{submission.user_id}> is:\n{template}")
+
+    @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
+    @checks.channel_only("memeoff")
+    @meme_off.command(name="delete_templates", aliases=["deltemplates", "delTemplates", "delete"])
+    async def meme_off_templates_reset(self, ctx):
+        """ remove all template submissions"""
+        self.submitted_templates = {}
+        await ctx.send("all templates removed")
 
 def setup(bot):
     bot.add_cog(MemeOff(bot))
