@@ -9,6 +9,18 @@ import colorsys
 from .utils.converters import RoleConverter
 from .utils.checks import channel_only
 import typing
+import re
+
+class CustomRoleConverter(RoleConverter):
+    """
+    This converter is for removing
+    """
+    async def convert(self, ctx, argument):
+        if re.match(r"\d+", argument):
+            argument = int(argument)
+            return ctx.guild.get_role(argument)
+        argument = argument.strip('"')
+        return await super().convert(ctx, argument)
 
 class Roles(commands.Cog):
     """role managing commands"""
@@ -44,7 +56,7 @@ class Roles(commands.Cog):
             json.dump(self.settable_roles, file)
 
     @commands.command(name="iam")
-    async def assign_role(self, ctx, role: RoleConverter):
+    async def assign_role(self, ctx, * , role: CustomRoleConverter):
         """
         assigns you a role
         """
