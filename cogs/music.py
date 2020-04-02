@@ -313,7 +313,6 @@ class Music(commands.Cog):
         await ctx.send('🔀 | Shuffle ' + ('enabled' if player.shuffle else 'disabled'))
 
     @commands.command(aliases=['loop'])
-    @checks.is_owner_or_moderator()
     async def repeat(self, ctx):
         """ Repeats the current song until the command is invoked again or until a new song is queued. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
