@@ -750,7 +750,7 @@ class RemindMe(commands.Cog):
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : author.id, "FUTURE" : future, "TEXT" : text})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        await ctx.send("I will remind you of this in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
             json.dump(self.reminders, file_reminders)
 
@@ -782,7 +782,7 @@ class RemindMe(commands.Cog):
         future = int(time.time()+seconds)
         self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
         logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await ctx.send("I will remind you that in {} {}.".format(str(quantity), time_unit + s))
+        await ctx.send("I will remind you of this in {} {}.".format(str(quantity), time_unit + s))
         with open("data/remindme/reminders.json", "w") as file_reminders:
             json.dump(self.reminders, file_reminders)
 
