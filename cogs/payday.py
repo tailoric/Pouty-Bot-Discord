@@ -117,6 +117,10 @@ class Payday(commands.Cog):
         pages = []
         for idx, entry in enumerate(leaderboards):
             user = ctx.guild.get_member(entry.get("user_id"))
+            if not user:
+                user = await self.bot.fetch_user(entry.get("user_id"))
+                pages.append((f"**{idx+1}**. {user.name}#{user.discriminator}", f"{entry['money']:,}"))
+                continue
             pages.append((f"**{idx+1}**. {user.display_name}", f"{entry['money']:,}"))
 
         f_pages = paginator.FieldPages(ctx, entries=pages)
