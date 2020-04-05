@@ -125,11 +125,11 @@ class Distort(commands.Cog):
                 await ctx.send("not allowed filetype only images or gifs allowed")
                 return
             await ctx.message.attachments[0].save(f"data/{filename}")
-        elif link is None:
-            return await ctx.send(
-                "Please provide either a direct link to an image, "
-                "a custom emote or a user mention/user id or upload a picture"
-            )
+        elif link is None or link.lower() == "me":
+            asset = ctx.author.avatar_url_as(format="png")
+            filetype = ".png"
+            filename = str(ctx.author.id) + filetype
+            await asset.save(f"data/{ctx.author.id}{filetype}")
         elif isinstance(link, PartialEmoji):
             filetype = str(link.url)[str(link.url).rfind("."):]
             filename = f"{link.name}{filetype}"
@@ -155,9 +155,10 @@ class Distort(commands.Cog):
                 await ctx.send(
                     "this command only works with custom emojis, direct image links or usernames or mentions.")
                 return
-        output_path = await self.create_rad_blur(filename, filetype, intensity)
-        await ctx.send(file=File(output_path))
-        os.remove(output_path)
+        async with ctx.typing():
+            output_path = await self.create_rad_blur(filename, filetype, intensity)
+            await ctx.send(file=File(output_path))
+            os.remove(output_path)
 
     async def create_rad_blur(self, filename, filetype, intensity):
         if not filetype.startswith("."):
