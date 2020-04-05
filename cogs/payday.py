@@ -64,7 +64,7 @@ class Payday(commands.Cog):
         return await self.bot.db.fetch("SELECT * from payday order by money desc limit 10")
 
     @commands.command(name="payday", aliases=["pd"])
-    @checks.channel_only("bot-shenanigans", "test")
+    @checks.channel_only("bot-shenanigans", "test", 336912585960194048)
     @commands.cooldown(rate=1, per=3600, type=commands.BucketType.user)
     async def payday_command(self, ctx):
         """claim your salary once every hour or open a new account with start capital"""
