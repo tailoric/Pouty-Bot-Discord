@@ -5,16 +5,12 @@ f-strings.
 """
 import math
 import re
-from discord.ext import commands
-from .utils import checks
 
 import discord
 import lavalink
+from discord.ext import commands
+from .utils import checks
 import asyncio
-import aiohttp
-import typing
-from bs4 import BeautifulSoup
-import json
 
 url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
 
@@ -58,7 +54,6 @@ class Music(commands.Cog):
 
         bot.lavalink.add_event_hook(self.track_hook)
         self.skip_votes = {}
-        self.session = aiohttp.ClientSession()
 
     def current_voice_channel(self, ctx):
         if ctx.guild and ctx.guild.me.voice:
@@ -67,7 +62,6 @@ class Music(commands.Cog):
 
     def cog_unload(self):
         self.bot.lavalink._event_hooks.clear()
-        self.bot.loop.create_task(self.session.close())
 
     async def cog_before_invoke(self, ctx):
         guild_check = ctx.guild is not None
@@ -104,56 +98,6 @@ class Music(commands.Cog):
         # The above looks dirty,
         # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
-
-    async def get_lyrics_page(self, query):
-        params = {"q": query}
-        async with self.session.get("https://search.azlyrics.com/suggest.php", params=params) as resp:
-            if resp.status == 200:
-                data = await resp.text()
-                soup = BeautifulSoup(data, 'html.parser')
-                data = json.loads(soup.text)
-                first_result = next(iter(data.get("songs")), None)
-                if first_result:
-                    return first_result.get("url", None)
-            return None
-                
-    async def parse_lyrics(self, lyrics_page_url, title):
-        lyrics_page_url = f"https:{lyrics_page_url}" 
-        async with self.session.get(lyrics_page_url) as resp:
-            if resp.status != 200:
-                return None
-            soup = BeautifulSoup(await resp.text(), 'html.parser')
-            lyrics_text_container = soup.find(class_="col-xs-12 col-lg-8 text-center")
-            ringtone = lyrics_text_container.find(class_="ringtone")
-            lyrics_div = ringtone.find_next_sibling("div")
-            lyrics = list(lyrics_div.strings)
-            artist = ringtone.find_previous_sibling(class_="lyricsh").find("b").text.replace("Lyrics", '')
-            song_title = ringtone.find_next_sibling("b").text
-            desc = ''.join(lyrics)
-            desc = f"{desc[:2045]}..." if len(desc) > 2048 else desc
-            embed_title = f"{artist} - {song_title}"
-            return discord.Embed(title=embed_title, url=lyrics_page_url, description=desc)
-
-
-    @checks.channel_only("bot-shenanigans", "voice-chat", 336385641191309312, 336912585960194048, "misc", "misc-mansion")
-    @commands.command()
-    async def lyrics(self, ctx, *, query: typing.Optional[str]):
-        """
-        command for finding lyrics of the currently playing song or for a search query"
-        """
-        player = self.bot.lavalink.players.get(ctx.guild.id)
-        if not query and player and player.is_playing:
-            query = player.current.title
-        if not query and not player.is_playing:
-            return await ctx.send("please provide a query if I am not playing")
-        query = re.sub(r'\(?[lL]yrics\)?', '', query)
-        lyrics_page = await self.get_lyrics_page(query)
-        if not lyrics_page:
-            return await ctx.send(f"Found nothing with query: `{query}`")
-        the_lyrics = await self.parse_lyrics(lyrics_page, query)
-        if not the_lyrics:
-            return await ctx.send(f"Found nothing with query: `{query}`")
-        await ctx.send(embed=the_lyrics)
 
     @commands.command()                                                                              
     async def junbi_ok(self, ctx):                                                                   
@@ -369,7 +313,6 @@ class Music(commands.Cog):
         await ctx.send('🔀 | Shuffle ' + ('enabled' if player.shuffle else 'disabled'))
 
     @commands.command(aliases=['loop'])
-    @checks.is_owner_or_moderator()
     async def repeat(self, ctx):
         """ Repeats the current song until the command is invoked again or until a new song is queued. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -467,7 +410,7 @@ class Music(commands.Cog):
         # Create returns a player if one exists, otherwise creates.
 
         should_connect = ctx.command.name in ('play', 'junbi_ok')  # Add commands that require joining voice to work.
-        if ctx.command.name in ('find', 'disconnect', 'now', 'lyrics'):
+        if ctx.command.name in ('find', 'disconnect', 'now'):
             return
 
         if not ctx.author.voice or not ctx.author.voice.channel:
