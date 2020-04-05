@@ -162,6 +162,10 @@ class Default(commands.Cog):
                 await ctx.send_help(ctx.command)
         elif isinstance(error, commands.CommandInvokeError):
             await ctx.send(error.original)
+        elif isinstance(error, commands.CommandOnCooldown):
+            if hasattr(error, "handled"):
+                return
+            await ctx.send(error)
         else:
             await ctx.send(error)
 
