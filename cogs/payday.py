@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from .utils import checks, paginator
+from typing import Optional
 
 
 class Payday(commands.Cog):
@@ -99,14 +100,19 @@ class Payday(commands.Cog):
                        f"{receiver.mention} balance: {receiver_money:,}")
 
     @commands.command(aliases=["bal"])
-    async def balance(self, ctx):
+    async def balance(self, ctx, member: Optional[discord.Member]):
         """see your account balance"""
-        entry = await self.fetch_money(ctx.author.id)
-        if not entry:
-            await self.insert_new_user(ctx.author.id, self.start_amount)
-            return await ctx.send(f"New user with starting capital of {self.start_amount}")
-        balance = await self.fetch_money(ctx.author.id)
-        await ctx.send(f"Your account balance is {balance.get('money'):,}")
+        account_user = ctx.author
+        if member: 
+            account_user = member
+        entry = await self.fetch_money(account_user.id)
+        if not entry and account_user == ctx.author:
+            await self.insert_new_user(account_user.id, self.start_amount)
+            return await ctx.send(f"Registered a new user with starting capital of {self.start_amount}")
+        if not entry and account_user != ctx.author:
+            return await ctx.send("This user has no balance value yet")
+        balance = await self.fetch_money(account_user.id)
+        await ctx.send(f"**{account_user.display_name}'s** account balance is {balance.get('money'):,}")
         
 
 
