@@ -86,7 +86,7 @@ class Payday(commands.Cog):
             await ctx.send(f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec")
 
     @commands.command(name="transfer")
-    async def transfer_money(self, ctx, amount: int, receiver: discord.Member):
+    async def transfer_money(self, ctx, amount: int, *, receiver: discord.Member):
         """send money to someone"""
         entry = await self.fetch_money(receiver.id)
         if not entry:
@@ -100,7 +100,7 @@ class Payday(commands.Cog):
                        f"{receiver.mention} balance: {receiver_money:,}")
 
     @commands.command(aliases=["bal"])
-    async def balance(self, ctx, member: Optional[discord.Member]):
+    async def balance(self, ctx, *, member: Optional[discord.Member]):
         """see your account balance"""
         account_user = ctx.author
         if member: 
