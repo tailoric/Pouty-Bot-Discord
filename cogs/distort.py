@@ -125,17 +125,17 @@ class Distort(commands.Cog):
                 await ctx.send("not allowed filetype only images or gifs allowed")
                 return
             await ctx.message.attachments[0].save(f"data/{filename}")
-        elif link is None or link.lower() == "me":
-            asset = ctx.author.avatar_url_as(format="png")
-            filetype = ".png"
-            filename = str(ctx.author.id) + filetype
-            await asset.save(f"data/{ctx.author.id}{filetype}")
         elif isinstance(link, PartialEmoji):
             filetype = str(link.url)[str(link.url).rfind("."):]
             filename = f"{link.name}{filetype}"
             await link.url.save(f"data/{filename}")
         elif isinstance(link, Member):
             asset = link.avatar_url_as(format="png")
+            filetype = ".png"
+            filename = str(ctx.author.id) + filetype
+            await asset.save(f"data/{ctx.author.id}{filetype}")
+        elif link is None or link.lower() == "me":
+            asset = ctx.author.avatar_url_as(format="png")
             filetype = ".png"
             filename = str(ctx.author.id) + filetype
             await asset.save(f"data/{ctx.author.id}{filetype}")
