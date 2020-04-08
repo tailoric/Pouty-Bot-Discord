@@ -88,6 +88,8 @@ class Payday(commands.Cog):
     @commands.command(name="transfer")
     async def transfer_money(self, ctx, amount: int, *, receiver: discord.Member):
         """send money to someone"""
+        if amount <= 0:
+            return await ctx.send("invalid amount please only transfer more than 0.")
         entry = await self.fetch_money(receiver.id)
         if not entry:
             await self.insert_new_user(receiver.id, self.start_amount)
