@@ -477,6 +477,25 @@ class Admin(commands.Cog):
         await ctx.send("You are either not muted or your mute is not a selfmute")
 
     @commands.command()
+    @selfmute.command()
+    @commands.dm_only()
+    async def duration(self, ctx):
+        """
+        show how much time is left of your mutes
+        (also works with mod issued mutes).
+        """
+        mute = await self.get_mute_from_list(ctx.author.id)
+        if mute:
+            time_diff = mute["unmute_ts"] - datetime.datetime.utcnow()
+            days = f"{time_diff.days} days " if time_diff.days else ""
+            hours, remainder = divmod(time_diff.seconds, 3600)
+            minutes, remainder = divmod(remainder, 60)
+            seconds = int(remainder)
+            return await ctx.send(f"Your mute will last for {days}"
+                                  f"{hours}h {minutes}min {seconds}s.")
+        
+        await ctx.send("You are not muted.")
+
     @commands.has_permissions(manage_roles=True)
     async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
         """
