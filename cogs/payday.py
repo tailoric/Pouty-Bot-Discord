@@ -65,17 +65,23 @@ class Payday(commands.Cog):
         return await self.bot.db.fetch("SELECT * from payday order by money desc limit 10")
 
     @commands.command(name="payday", aliases=["pd"])
+    @commands.guild_only()
     @checks.channel_only("bot-shenanigans", "test", 336912585960194048)
     @commands.cooldown(rate=1, per=3600, type=commands.BucketType.user)
     async def payday_command(self, ctx):
         """claim your salary once every hour or open a new account with start capital"""
         member = ctx.author
         entry = await self.fetch_money(member.id)
+        salary = self.salary
+        is_boost = ctx.author in ctx.guild.premium_subscribers
+        if is_boost:
+            salary += 50
         if not entry:
             await self.insert_new_user(member.id, self.start_amount)
             return await ctx.send(f"New user with starting capital of {self.start_amount}")
-        new_balance = await self.add_money(member.id, self.salary)
-        await ctx.send(f"added {self.salary} to your account your balance is now {new_balance:,}")
+        new_balance = await self.add_money(member.id, salary)
+        boosto_bonus_message = " (with a boost loyalty bonus of 50)" if is_boost else ""
+        await ctx.send(f"added {salary} to your account your balance is now {new_balance:,}" + boosto_bonus_message)
 
     @payday_command.error
     async def payday_error(self, ctx, error):
