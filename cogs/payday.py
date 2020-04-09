@@ -119,8 +119,7 @@ class Payday(commands.Cog):
             return await ctx.send(f"Registered a new user with starting capital of {self.start_amount}")
         if not entry and account_user != ctx.author:
             return await ctx.send("This user has no balance value yet")
-        balance = await self.fetch_money(account_user.id)
-        await ctx.send(f"**{account_user.display_name}'s** account balance is {balance.get('money'):,}")
+        await ctx.send(f"**{account_user.display_name}'s** account balance is {entry.get('money'):,}")
         
 
 
