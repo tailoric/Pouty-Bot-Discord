@@ -399,7 +399,7 @@ class Admin(commands.Cog):
 
     async def add_mute_to_mute_list(self, member_id, timestamp, is_selfmute: bool=False):
         query = ("INSERT INTO mutes "
-                 "VALUES ($1,$2, $3) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2")
+                 "VALUES ($1,$2, $3) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2, selfmute = $3")
         async with self.bot.db.acquire() as con:
             stmt = await con.prepare(query)
             async with con.transaction():
@@ -428,10 +428,17 @@ class Admin(commands.Cog):
         selfmute yourself for certain amount of time
         """
 
+        mute = await self.get_mute_from_list(ctx.author.id)
+        if mute:
+            return await ctx.send("You are already muted use `.selfmute cancel` to cancel a selfmute")
         length, error_msg = self.convert_mute_length(amount, time_unit)
         if not length:
             await ctx.send(error_msg)
             return
+        if not isinstance(ctx.author, discord.Member):
+            ctx.author = self.mute_role.guild.get_member(ctx.author.id)
+        if not ctx.author:
+            return await ctx.send("you are not in a guild that has the mute role set up")
         if length > 7 * self.units["days"]:
             question = await ctx.send(f"Are you sure you want to be muted for {(length/self.units['days']):.2f} days?\n"
                                       f"answer with  Y[es] or N[o]")
