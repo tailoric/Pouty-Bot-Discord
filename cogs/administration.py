@@ -476,7 +476,6 @@ class Admin(commands.Cog):
             return await ctx.send("selfmute removed")
         await ctx.send("You are either not muted or your mute is not a selfmute")
 
-    @commands.command()
     @selfmute.command()
     @commands.dm_only()
     async def duration(self, ctx):
@@ -496,6 +495,7 @@ class Admin(commands.Cog):
         
         await ctx.send("You are not muted.")
 
+    @commands.group(invoke_without_command=True)
     @commands.has_permissions(manage_roles=True)
     async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
         """
@@ -516,6 +516,21 @@ class Admin(commands.Cog):
             mute_message = f"{mute_message} for the following reason:\n{reason}"
         await self.add_mute_to_mute_list(user.id, unmute_ts)
         await self.check_channel.send(mute_message)
+
+    @mute.command(name="cancel")
+    async def mute_cancel(self, ctx, user:discord.Member):
+        """
+        cancel a mute
+        """
+        member = ctx.author
+        mute = await self.get_mute_from_list(member.id)
+        if mute:
+            await self.remove_user_from_mute_list(member.id)
+            guild_member = self.mute_role.guild.get_member(member.id)
+            await guild_member.remove_roles(self.mute_role)
+            return await ctx.send("mute removed")
+        await ctx.send("User is not muted right now or at least is not in the database")
+
 
     @checks.is_owner_or_moderator()
     @commands.command(name="vmute")
