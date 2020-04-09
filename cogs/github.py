@@ -15,8 +15,9 @@ class Suggestions(commands.Cog):
     @commands.command(aliases=['suggest', 'suggestion'])
     @channel_only(191536772352573440, 336912585960194048, 208765039727869954, 390617633147453444)
     async def proposal(self, ctx, *, title):
-        """creates a track able issue on github so the bot creator can easily list and work with suggestions for the
-        bot"""
+        """creates a track able issue on github
+        so the bot creator can easily list and
+        work with suggestions for the bot"""
         headers = {
             'Accept': 'application/vnd.github.v3+json',
             'User-Agent' : 'PoutyBot Discord Issue Cog',

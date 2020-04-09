@@ -38,6 +38,7 @@ class MemeOff(commands.Cog):
         self.template_order = None
 
     @commands.group(name="meme-off", aliases=["meme_off", "memeoff", "mo"])
+    @checks.channel_only("memeoff")
     async def meme_off(self, ctx):
         """
         command suite for organizing and doing meme offs
@@ -46,7 +47,7 @@ class MemeOff(commands.Cog):
             await ctx.send_help(self.meme_off)
 
     @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="ping")
     async def meme_off_ping(self, ctx, *, announcement: typing.Optional[str]):
         """
@@ -62,7 +63,7 @@ class MemeOff(commands.Cog):
             await ctx.send(message_to_send)
             await meme_off_role.edit(mentionable=False)
 
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="start")
     async def meme_off_start(self, ctx, *, round_duration: str):
         """
@@ -81,7 +82,7 @@ class MemeOff(commands.Cog):
         await ctx.send(f"Timer set to {amount} {unit}(s)")
         self.timer_task = self.bot.loop.create_task(self.timer(delay, ctx))
 
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="deadline", aliases=["dl"])
     async def meme_off_deadline(self, ctx):
         """ see how much time is left until the current deadline is over"""
@@ -91,7 +92,7 @@ class MemeOff(commands.Cog):
         minutes, seconds = divmod(time_diff.seconds, 60)
         await ctx.send(f"{minutes} minutes and {seconds} seconds left")
 
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="cancel")
     async def meme_off_cancel(self, ctx):
         """
@@ -134,7 +135,7 @@ class MemeOff(commands.Cog):
         else:
             return await ctx.send("You need to attach a file to your message or provide a link")
 
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="template", aliases=["temp"])
     async def meme_off_template(self, ctx):
         """get a random submission from the template rotation"""
@@ -155,7 +156,7 @@ class MemeOff(commands.Cog):
         await ctx.send(f"Template for this round from <@{submission.user_id}> is:\n{template}")
 
     @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
-    @checks.channel_only("memeoff")
+    @commands.guild_only()
     @meme_off.command(name="delete_templates", aliases=["deltemplates", "delTemplates", "delete"])
     async def meme_off_templates_reset(self, ctx):
         """ remove all template submissions"""

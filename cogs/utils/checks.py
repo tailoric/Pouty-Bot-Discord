@@ -45,7 +45,7 @@ def is_owner_or_moderator():
 def channel_only(*channels):
     def predicate(ctx):
         if not ctx.guild:
-            raise commands.CommandError("only usable in guilds")
+            return True
         if ctx.channel.id in channels or ctx.channel.name in channels:
             return True
         if ctx.guild:

@@ -15,7 +15,7 @@ class Penis(commands.Cog):
 
     @commands.command(pass_context=True)
     @channel_only(*allowed_channels)
-    async def penis(self, ctx, members: commands.Greedy[discord.Member]):
+    async def penis(self, ctx, members: commands.Greedy[discord.User]):
         """accurately measure a user's penis size or compare the penis size of multiple users"""
         if not members:
             members = [ctx.author]
@@ -24,7 +24,7 @@ class Penis(commands.Cog):
         for member in members:
             random.seed(member.id)
             length = random.randint(0, 20)
-            length_list.append({"username": member.nick if member.nick else member.name, "length": length})
+            length_list.append({"username": member.display_name, "length": length})
         for entry in length_list:
             message_string += "**{0}'s size:**\n8{1}D\n".format(entry["username"], "=" * entry["length"])
         await ctx.send(message_string)
