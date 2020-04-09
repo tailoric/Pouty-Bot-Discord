@@ -111,9 +111,11 @@ class Admin(commands.Cog):
         query = ("CREATE TABLE IF NOT EXISTS mutes ("
                  "user_id BIGINT PRIMARY KEY,"
                  "unmute_ts TIMESTAMP )")
+        query_alter = ("ALTER TABLE mutes ADD COLUMN IF NOT EXISTS selfmute BOOLEAN DEFAULT FALSE")
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 await self.bot.db.execute(query)
+                await self.bot.db.execute(query_alter)
 
     async def create_voice_unmute_table(self):
         query = ("CREATE TABLE IF NOT EXISTS vmutes ("
@@ -394,13 +396,21 @@ class Admin(commands.Cog):
             async with con.transaction():
                 unmuted_user_id = await stmt.fetchval(member_id)
         return unmuted_user_id
-    async def add_mute_to_mute_list(self, member_id, timestamp):
+
+    async def add_mute_to_mute_list(self, member_id, timestamp, is_selfmute: bool=False):
         query = ("INSERT INTO mutes "
-                 "VALUES ($1,$2) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2")
+                 "VALUES ($1,$2, $3) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2")
         async with self.bot.db.acquire() as con:
             stmt = await con.prepare(query)
             async with con.transaction():
-                await stmt.fetch(member_id, timestamp)
+                await stmt.fetch(member_id, timestamp, is_selfmute)
+
+    async def get_mute_from_list(self, member_id):
+        query = ("SELECT * FROM mutes where user_id = $1")
+        async with self.bot.db.acquire() as con:
+            stmt = await con.prepare(query)
+            async with con.transaction():
+                return await stmt.fetchrow(member_id)
 
     def convert_mute_length(self, amount, time_unit):
         if amount == 1 and not time_unit.endswith("s"):
@@ -412,7 +422,7 @@ class Admin(commands.Cog):
             return None, "amount needs to be at least 1"
         return self.units[time_unit] * amount, None
 
-    @commands.command()
+    @commands.group(invoke_without_command=True)
     async def selfmute(self, ctx, amount:int, time_unit:str):
         """
         selfmute yourself for certain amount of time
@@ -442,8 +452,22 @@ class Admin(commands.Cog):
         unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
         await ctx.author.add_roles(self.mute_role)
         await ctx.send("You have been muted")
-        await self.add_mute_to_mute_list(ctx.author.id, unmute_ts)
+        await self.add_mute_to_mute_list(ctx.author.id, unmute_ts, True)
 
+    @selfmute.command()
+    @commands.dm_only()
+    async def cancel(self, ctx):
+        """
+        cancel a selfmute
+        """
+        member = ctx.author
+        mute = await self.get_mute_from_list(member.id)
+        if mute and mute["selfmute"]:
+            await self.remove_user_from_mute_list(member.id)
+            guild_member = self.mute_role.guild.get_member(member.id)
+            await guild_member.remove_roles(self.mute_role)
+            return await ctx.send("selfmute removed")
+        await ctx.send("You are either not muted or your mute is not a selfmute")
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
