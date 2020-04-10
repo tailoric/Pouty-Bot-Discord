@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import Embed
 from enum import Enum, auto
 from .utils import checks
 import random
@@ -64,8 +65,9 @@ class BlackJackGame():
 
     @property
     def dealer_value(self):
-        total = sum(c.value for c in self.dealer_hand)
-        if any(c.face == "A" for c in self.dealer_hand) and total <= 11:
+        dealer_stop = 1 if self.state == GameState.RUNNING else len(self.dealer_hand)
+        total = sum(c.value for c in self.dealer_hand[:dealer_stop])
+        if any(c.face == "A" for c in self.dealer_hand[:dealer_stop]) and total <= 11:
             total += 10
         return total
 
@@ -127,6 +129,30 @@ class BlackJackGame():
                            f" {', '.join([str(x) for x in self.dealer_hand])}"
                            f" total: {self.dealer_value}")
         return f"{dealer_hand}\n{player_hand}"
+
+    def build_embed(self, balance=None):
+        winner, is_blackjack = self.get_winner()
+        dealer_stop = 1 if self.state == GameState.RUNNING else len(self.dealer_hand)
+        player_name = self.player.display_name
+        player_hand = (f"{', '.join([str(x) for x in self.player_hand])}\ntotal: {self.player_value}")
+        dealer_hand = (f"{', '.join([str(x) for x in self.dealer_hand[:dealer_stop]])}\ntotal: {self.dealer_value}")
+        game_embed = Embed(color=self.player.color)
+        game_embed.set_author(name=player_name, icon_url=self.player.avatar_url_as(format="png"))
+        game_embed.add_field(name="Dealer's Hand", value=dealer_hand, inline=True)
+        game_embed.add_field(name=f"{player_name}'s Hand", value=player_hand, inline=True)
+        game_embed.add_field(name="Bet", value=f"{self.bet:,}", inline=False)
+        if balance:
+            game_embed.add_field(name="New Balance:", value=f"{balance:,}", inline=True)
+        if winner != "running":
+            if winner == "player":
+                winner = f"The Winner is **{player_name}**!"
+            elif winner == "dealer":
+                winner = "The Winner is **the dealer**!"
+            else:
+                winner = "Game is a **tie!**"
+            black_jack = "with a Blackjack! (1.5 times the payout)" if is_blackjack else ""
+            game_embed.title = f"{winner} {black_jack}"
+        return game_embed
 
 class BlackJack(commands.Cog):
     """
@@ -191,7 +217,7 @@ class BlackJack(commands.Cog):
             game.stand()
             await self.payout(ctx, game)
             return
-        return await ctx.send(game)
+        return await ctx.send(embed=game.build_embed())
 
     async def payout(self, ctx, game):
         self.games.remove(game)
@@ -212,8 +238,9 @@ class BlackJack(commands.Cog):
             winner = f"**Game is a tie!**"
             if self.payday:
                 balance = await self.payday.add_money(ctx.author.id, game.bet)
-        await ctx.send(f"{winner}\nnew balance: {balance:,}\n{game}")
+        await ctx.send(embed=game.build_embed(balance))
         del game
+    
 
     @blackjack_group.command(name="hit", aliases=["draw"])
     async def draw_card(self, ctx):
@@ -228,7 +255,7 @@ class BlackJack(commands.Cog):
             game.stand()
             await self.payout(ctx, game)
             return
-        return await ctx.send(game)
+        return await ctx.send(embed=game.build_embed())
 
     @blackjack_group.command(name="surrender", aliases=["fold"])
     async def surrender(self, ctx):
@@ -257,6 +284,7 @@ class BlackJack(commands.Cog):
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
         if not game:
             return await ctx.send("No game running start one with `.bj`")
+        game.state = GameState.DEALER_PHASE
         game.stand()
         await self.payout(ctx, game)
 
@@ -268,7 +296,7 @@ class BlackJack(commands.Cog):
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
         if not game:
             return await ctx.send("No game running start one with `.bj`")
-        await ctx.send(str(game)+f"\nbet: {game.bet}")
+        await ctx.send(embed=game.build_embed())
 
 
 def setup(bot):
