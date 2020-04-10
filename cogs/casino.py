@@ -137,6 +137,28 @@ class BlackJack(commands.Cog):
         self.payday = self.bot.get_cog("Payday")
         self.games = []
 
+    def cog_unload(self):
+        if not self.payday:
+            return
+        try:
+            for game in self.games:
+                self.bot.loop.create_task(self.payday.add_money(game.player.id, game.bet))
+                self.games.remove(game)
+                del game
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("PoutyBot")
+            logger.error("Exception while giving back blackjack bets", exc_info=1)
+            owner = self.bot.get_user(self.bot.owner_id)
+            pending_payouts = "Some BlackJack payouts are still pending\n"
+            for game in self.games:
+                pending_payouts += f"{game.player.mention}: {game.bet:,}"
+            self.bot.loop.create_task(owner.send(pending_payouts))
+
+    async def cog_before_invoke(self, ctx):
+        # try to ensure that payday is loaded everytime we invoke a command
+        self.payday = self.bot.get_cog("Payday")
+
     @commands.group(name="blackjack",invoke_without_command=True, aliases=["bj"])
     @checks.channel_only("test", "bot-shenanigans", 336912585960194048)    
     @commands.guild_only()
@@ -162,6 +184,8 @@ class BlackJack(commands.Cog):
         if game:
             return await ctx.send("You already started a game either hit or stand")
         game = BlackJackGame(ctx, ctx.author, bet)
+        if self.payday:
+            await self.payday.subtract_money(ctx.author.id, bet)
         self.games.append(game)
         if game.state == GameState.DEALER_PHASE:
             game.stand()
@@ -172,17 +196,22 @@ class BlackJack(commands.Cog):
     async def payout(self, ctx, game):
         self.games.remove(game)
         balance = 0
+        if not self.payday:
+            balance = game.bet
         winner, is_blackjack = game.get_winner()
         if winner == "dealer":
             winner = "**Dealer** wins!"
-            balance = await self.payday.subtract_money(ctx.author.id, game.bet)
+            if self.payday:
+                balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
         elif winner == "player":
             winner = f"**{game.player.display_name}** wins!" 
             multiplicator = 1.5 if is_blackjack else 1
-            balance = await self.payday.add_money(ctx.author.id, int(game.bet * multiplicator))
+            if self.payday:
+                balance = await self.payday.add_money(ctx.author.id, int(game.bet + game.bet * multiplicator))
         elif winner == "tie":
             winner = f"**Game is a tie!**"
-            balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
+            if self.payday:
+                balance = await self.payday.add_money(ctx.author.id, game.bet)
         await ctx.send(f"{winner}\nnew balance: {balance:,}\n{game}")
         del game
 
@@ -201,6 +230,25 @@ class BlackJack(commands.Cog):
             return
         return await ctx.send(game)
 
+    @blackjack_group.command(name="surrender", aliases=["fold"])
+    async def surrender(self, ctx):
+        """
+        If you don't like your initial hand you can discard the game and start new
+        only works if you haven't hit yet
+        """
+        game = next(iter(x for x in self.games if x.player == ctx.author), None)
+        if not game:
+            return await ctx.send("No game running start one with `.bj`")
+        if len(game.player_hand) > 2:
+            return await ctx.send("You already drew at least a card, you are now commited to this game")
+        if self.payday:
+            await self.payday.add_money(ctx.author.id, game.bet)
+            await ctx.send("You gave up on this game and got your bet back, better luck next time.")
+        else:
+            await ctx.send("No money was bet but this game still gets stopped, better luck next time.")
+        self.games.remove(game) 
+        del game
+
     @blackjack_group.command(name="stand", aliases=["stop"])
     async def stand(self, ctx):
         """
@@ -214,6 +262,9 @@ class BlackJack(commands.Cog):
 
     @blackjack_group.command(name="status")
     async def status(self, ctx):
+        """
+        gives you the status of the currently running game
+        """
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
         if not game:
             return await ctx.send("No game running start one with `.bj`")
