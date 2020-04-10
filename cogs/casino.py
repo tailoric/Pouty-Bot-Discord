@@ -186,8 +186,43 @@ class BlackJack(commands.Cog):
         # try to ensure that payday is loaded everytime we invoke a command
         self.payday = self.bot.get_cog("Payday")
 
+    def get_game(self, player):
+        """
+        helper function to get the currently running game of a player
+        """
+        game = next(iter(x for x in self.games if x.player == player), None)
+        if not game:
+            raise commands.CommandError("No game running start one with `.bj`")
+        return game
+
+    async def payout(self, ctx, game):
+        """
+        add or subtract the bet from the player's account
+        """
+        self.games.remove(game)
+        balance = 0
+        if not self.payday:
+            balance = game.bet
+        winner, is_blackjack = game.get_winner()
+        if winner == "dealer":
+            winner = "**Dealer** wins!"
+            if self.payday:
+                balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
+        elif winner == "player":
+            winner = f"**{game.player.display_name}** wins!" 
+            multiplicator = 1.5 if is_blackjack else 1
+            if self.payday:
+                balance = await self.payday.add_money(ctx.author.id, int(game.bet + game.bet * multiplicator))
+        elif winner == "tie":
+            winner = f"**Game is a tie!**"
+            if self.payday:
+                balance = await self.payday.add_money(ctx.author.id, game.bet)
+        await ctx.send(embed=game.build_embed(balance))
+        self.folds = [p for p in self.folds if p != game.player]
+        del game
+
     @commands.group(name="blackjack",invoke_without_command=True, aliases=["bj"])
-    @checks.channel_only("test", "bot-shenanigans", 336912585960194048)    
+    @checks.channel_only("test", "bot-shenanigans", 336912585960194048, 248987073124630528)    
     @commands.guild_only()
     async def blackjack_group(self, ctx, bet:int):
         """
@@ -220,28 +255,6 @@ class BlackJack(commands.Cog):
             return
         return await ctx.send(embed=game.build_embed())
 
-    async def payout(self, ctx, game):
-        self.games.remove(game)
-        balance = 0
-        if not self.payday:
-            balance = game.bet
-        winner, is_blackjack = game.get_winner()
-        if winner == "dealer":
-            winner = "**Dealer** wins!"
-            if self.payday:
-                balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
-        elif winner == "player":
-            winner = f"**{game.player.display_name}** wins!" 
-            multiplicator = 1.5 if is_blackjack else 1
-            if self.payday:
-                balance = await self.payday.add_money(ctx.author.id, int(game.bet + game.bet * multiplicator))
-        elif winner == "tie":
-            winner = f"**Game is a tie!**"
-            if self.payday:
-                balance = await self.payday.add_money(ctx.author.id, game.bet)
-        await ctx.send(embed=game.build_embed(balance))
-        self.folds = [p for p in self.folds if p != game.player]
-        del game
     
 
     @blackjack_group.command(name="hit", aliases=["draw"])
@@ -249,9 +262,7 @@ class BlackJack(commands.Cog):
         """
         draw a new card if you go over 21 you lose!
         """
-        game = next(iter(x for x in self.games if x.player == ctx.author), None)
-        if not game:
-            return await ctx.send("No game running start one with `.bj`")
+        game = self.get_game(ctx.author)
         game.player_draw()
         if game.state == GameState.DEALER_PHASE or game.state == GameState.GAME_OVER:
             game.stand()
@@ -265,9 +276,7 @@ class BlackJack(commands.Cog):
         If you don't like your initial hand you can discard the game and start new
         only works if you haven't hit yet. Also you pay 20% fee.
         """
-        game = next(iter(x for x in self.games if x.player == ctx.author), None)
-        if not game:
-            return await ctx.send("No game running start one with `.bj`")
+        game = self.get_game(ctx.author)
         if len([p for p in self.folds if p == game.player]) > 2:
             return await ctx.send("You already folded thrice, no more allowed finish at least this game!")
         if len(game.player_hand) > 2:
@@ -286,21 +295,39 @@ class BlackJack(commands.Cog):
         """
         stop drawing cards and let the dealer draw, game is over after this
         """
-        game = next(iter(x for x in self.games if x.player == ctx.author), None)
-        if not game:
-            return await ctx.send("No game running start one with `.bj`")
+        game = self.get_game(ctx.author)
         game.state = GameState.DEALER_PHASE
         game.stand()
         await self.payout(ctx, game)
+
+    @blackjack_group.command(name="double", aliases=["dd"])
+    async def double(self, ctx):
+        """
+        When holding 2 cards double your bet and draw only one more card before standing
+        """
+        game = self.get_game(ctx.author)       
+        if len(game.player_hand) > 2:
+            return await ctx.send("You can only double down when holding 2 cards")
+        if self.payday:
+            balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
+            if balance < game.bet:
+                return await ctx.send("You don't have enough money for doubling down.")
+            await self.payday.subtract_money(ctx.author.id, game.bet)
+            game.bet += game.bet
+        else:
+            game.bet *= 2
+        game.player_draw()
+        game.state = GameState.DEALER_PHASE
+        game.stand()
+        await self.payout(ctx, game)
+        
 
     @blackjack_group.command(name="status")
     async def status(self, ctx):
         """
         gives you the status of the currently running game
         """
-        game = next(iter(x for x in self.games if x.player == ctx.author), None)
-        if not game:
-            return await ctx.send("No game running start one with `.bj`")
+        game = self.get_game(ctx.author)
         await ctx.send(embed=game.build_embed())
 
 
