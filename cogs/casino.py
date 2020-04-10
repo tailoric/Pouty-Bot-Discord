@@ -162,6 +162,7 @@ class BlackJack(commands.Cog):
         self.bot = bot
         self.payday = self.bot.get_cog("Payday")
         self.games = []
+        self.folds = []
 
     def cog_unload(self):
         if not self.payday:
@@ -239,6 +240,7 @@ class BlackJack(commands.Cog):
             if self.payday:
                 balance = await self.payday.add_money(ctx.author.id, game.bet)
         await ctx.send(embed=game.build_embed(balance))
+        self.folds = [p for p in self.folds if p != game.player]
         del game
     
 
@@ -261,16 +263,19 @@ class BlackJack(commands.Cog):
     async def surrender(self, ctx):
         """
         If you don't like your initial hand you can discard the game and start new
-        only works if you haven't hit yet
+        only works if you haven't hit yet. Also you pay 20% fee.
         """
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
         if not game:
             return await ctx.send("No game running start one with `.bj`")
+        if len([p for p in self.folds if p == game.player]) > 2:
+            return await ctx.send("You already folded thrice, no more allowed finish at least this game!")
         if len(game.player_hand) > 2:
             return await ctx.send("You already drew at least a card, you are now commited to this game")
         if self.payday:
-            await self.payday.add_money(ctx.author.id, game.bet)
-            await ctx.send("You gave up on this game and got your bet back, better luck next time.")
+            await self.payday.add_money(ctx.author.id, int(game.bet * 0.8))
+            await ctx.send(f"You gave up on this game and got 80% ({int(game.bet * 0.8)}) of your bet back, better luck next time.")
+            self.folds.append(ctx.author)
         else:
             await ctx.send("No money was bet but this game still gets stopped, better luck next time.")
         self.games.remove(game) 
