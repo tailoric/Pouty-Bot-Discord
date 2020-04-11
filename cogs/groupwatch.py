@@ -49,7 +49,7 @@ class GroupWatch(commands.Cog):
             self.end_message = ctx.message
         async with ctx.typing():
             with open("data/groupwatch_chatlog.txt", "w+", encoding="utf-8") as f:
-                async for message in ctx.channel.history(after=self.start_message, before=self.end_message):
+                async for message in ctx.channel.history(after=self.start_message, before=self.end_message, limit=None):
                     attachments = f"\t[attachments:{', '.join([a.url for a in message.attachments])}]\n" if\
                             message.attachments else ""
                     time_and_author = f"{message.created_at.strftime('%Y-%m-%d %H:%M:%S %Z')} @{message.author}: "
@@ -62,7 +62,7 @@ class GroupWatch(commands.Cog):
                                 f"{attachments}")
                     elif attachments:
                         f.write(f"{time_and_author}\n{attachments}")
-                await ctx.channel.purge(after=self.start_message, before=self.end_message)
+                await ctx.channel.purge(after=self.start_message, before=self.end_message, limit=None)
                 f.seek(0)
                 chat_msg = f.read()
                 async with self.session.post(url=f"https://hastebin.com/documents", data=chat_msg) as resp:
