@@ -30,9 +30,10 @@ class Card():
 
 class BlackJackGame():
 
-    def __init__(self, ctx, player, bet):
+    def __init__(self, player, bet):
         self.player = player
-        self.ctx = ctx
+        self.message = None
+        self.displaying_help = False
         self.state = GameState.RUNNING
         self.bet = bet
         self.deck = self.generate_deck()
@@ -112,6 +113,7 @@ class BlackJackGame():
     def stand(self):
         if self.state == GameState.GAME_OVER:
             return
+        self.state = GameState.DEALER_PHASE
         while(self.dealer_value < 17):
             self.dealer_draw()
         self.state = GameState.GAME_OVER
@@ -130,7 +132,7 @@ class BlackJackGame():
                            f" total: {self.dealer_value}")
         return f"{dealer_hand}\n{player_hand}"
 
-    def build_embed(self, balance=None):
+    def build_embed(self, balance=None, buttons=None):
         winner, is_blackjack = self.get_winner()
         dealer_stop = 1 if self.state == GameState.RUNNING else len(self.dealer_hand)
         hidden_card = ", ?" if self.state == GameState.RUNNING else ""
@@ -144,6 +146,12 @@ class BlackJackGame():
         game_embed.add_field(name="Bet", value=f"{self.bet:,}", inline=False)
         if balance is not None:
             game_embed.add_field(name="New Balance:", value=f"{balance:,}", inline=True)
+        if buttons is not None:
+            description = ""
+            for name, emoji in buttons.items():
+                description += f"{name}:{emoji} | "
+            description = description[:-2]
+            game_embed.description = description
         if winner != "running":
             if winner == "player":
                 winner = f"The Winner is **{player_name}**!"
@@ -164,6 +172,12 @@ class BlackJack(commands.Cog):
         self.payday = self.bot.get_cog("Payday")
         self.games = []
         self.folds = []
+        self.reaction_buttons = {
+                "hit": "\N{REGIONAL INDICATOR SYMBOL LETTER H}",
+                "stand": "\N{REGIONAL INDICATOR SYMBOL LETTER S}",
+                "double": "\N{REGIONAL INDICATOR SYMBOL LETTER D}",
+                "fold": "\N{REGIONAL INDICATOR SYMBOL LETTER F}",
+                }
 
     def cog_unload(self):
         if not self.payday:
@@ -196,7 +210,7 @@ class BlackJack(commands.Cog):
             raise commands.CommandError("No game running start one with `.bj`")
         return game
 
-    async def payout(self, ctx, game):
+    async def payout(self, game, ctx=None):
         """
         add or subtract the bet from the player's account
         """
@@ -208,19 +222,95 @@ class BlackJack(commands.Cog):
         if winner == "dealer":
             winner = "**Dealer** wins!"
             if self.payday:
-                balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
+                balance = (await self.payday.fetch_money(game.player.id)).get("money")
         elif winner == "player":
             winner = f"**{game.player.display_name}** wins!" 
             multiplicator = 1.5 if is_blackjack else 1
             if self.payday:
-                balance = await self.payday.add_money(ctx.author.id, int(game.bet + game.bet * multiplicator))
+                balance = await self.payday.add_money(game.player.id, int(game.bet + game.bet * multiplicator))
         elif winner == "tie":
             winner = f"**Game is a tie!**"
             if self.payday:
-                balance = await self.payday.add_money(ctx.author.id, game.bet)
-        await ctx.send(embed=game.build_embed(balance))
+                balance = await self.payday.add_money(game.player.id, game.bet)
+        if game.message:
+            await game.message.edit(embed=game.build_embed(balance))
+            await game.message.clear_reactions()
+        else:
+            await ctx.send(embed=game.build_embed(balance))
         self.folds = [p for p in self.folds if p != game.player]
         del game
+
+    async def handle_hit(self, game):
+        game.player_draw()
+        if game.state == GameState.RUNNING:
+            self.bot.loop.create_task(game.message.clear_reaction(self.reaction_buttons["fold"]))
+            self.bot.loop.create_task(game.message.clear_reaction(self.reaction_buttons["double"]))
+            await game.message.edit(embed=game.build_embed(buttons=self.reaction_buttons))
+        elif game.state == GameState.DEALER_PHASE:
+            await game.stand()
+            await self.payout(game);
+        elif game.state == GameState.GAME_OVER:
+            await self.payout(game)
+
+    async def handle_double(self, game):
+        if self.payday:
+            balance = (await self.payday.fetch_money(game.player.id)).get("money")
+            if balance < game.bet:
+                embed = game.build_embed()
+                embed.description = "You don't have enough money for doubling down"
+                return await game.message.edit(embed=embed)
+            await self.payday.subtract_money(game.player.id, game.bet)
+            game.bet += game.bet
+        else:
+            game.bet *= 2
+        game.player_draw()
+        game.stand()
+        await self.payout(game)
+
+    async def handle_fold(self, game):
+        if len(game.player_hand) > 2:
+            embed = game.build_embed(buttons=self.reaction_buttons)
+            embed.description = "You can only double down when holding 2 cards"
+            await game.message.edit(embed=embed)
+            return
+        if len([p for p in self.folds if p == game.player]) > 2:
+            embed = game.build_embed(buttons=self.reaction_buttons)
+            embed.description = "You already folded thrice, no more allowed finish at least this game!"
+            await game.message.edit(embed=embed)
+            return 
+        if self.payday:
+            await self.payday.add_money(game.player.id, int(game.bet * 0.8))
+            await game.message.edit(content=f"You gave up on this game and got 80% ({int(game.bet * 0.8)}) of your bet back, better luck next time.", embed=None)
+            self.folds.append(game.player)
+        else:
+            await game.message.edit(content="No money was bet but this game still gets stopped, better luck next time.", embed=None)
+        self.games.remove(game) 
+        await game.message.clear_reactions()
+        del game
+
+    @commands.Cog.listener("on_reaction_add")
+    async def button_reaction(self, reaction, user):
+        try:
+            game = self.get_game(user)
+        except commands.CommandError:
+            return
+        if game.message.id != reaction.message.id:
+            return
+        if reaction.emoji not in self.reaction_buttons.values():
+            return
+        await game.message.remove_reaction(reaction.emoji, user)
+
+        if reaction.emoji == self.reaction_buttons["hit"]:
+            await self.handle_hit(game)
+        if reaction.emoji == self.reaction_buttons["stand"]:
+            game.stand()
+            await self.payout(game)
+        if len(game.player_hand) < 3:
+            if reaction.emoji == self.reaction_buttons["double"]:
+                await self.handle_double(game)
+            if reaction.emoji == self.reaction_buttons["fold"]:
+                await self.handle_fold(game)
+                return
 
     @commands.group(name="blackjack",invoke_without_command=True, aliases=["bj"])
     @checks.channel_only("test", "bot-shenanigans", 336912585960194048, 248987073124630528)    
@@ -233,6 +323,7 @@ class BlackJack(commands.Cog):
         If you win with a Blackjack you get 1.5 times of your bet as payout
         otherwise you get the bet as payout.
         """
+        balance = None
         if self.payday:
             balance = await self.payday.fetch_money(ctx.author.id)
             if not balance:
@@ -246,15 +337,22 @@ class BlackJack(commands.Cog):
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
         if game:
             return await ctx.send("You already started a game either hit or stand")
-        game = BlackJackGame(ctx, ctx.author, bet)
+        game = BlackJackGame(ctx.author, bet)
         if self.payday:
-            await self.payday.subtract_money(ctx.author.id, bet)
+            balance = await self.payday.subtract_money(ctx.author.id, bet)
         self.games.append(game)
         if game.state == GameState.DEALER_PHASE:
             game.stand()
-            await self.payout(ctx, game)
+            await self.payout(game, ctx=ctx)
             return
-        return await ctx.send(embed=game.build_embed())
+
+        game.message = await ctx.send(embed=game.build_embed(buttons=self.reaction_buttons))
+        for button in self.reaction_buttons.values():
+            if button == self.reaction_buttons["double"] and balance is not None and balance < game.bet:
+                continue
+            if button == self.reaction_buttons["fold"] and len([p for p in self.folds if p == game.player]) > 2:
+                continue
+            await game.message.add_reaction(button)
 
     
 
@@ -264,12 +362,7 @@ class BlackJack(commands.Cog):
         draw a new card if you go over 21 you lose!
         """
         game = self.get_game(ctx.author)
-        game.player_draw()
-        if game.state == GameState.DEALER_PHASE or game.state == GameState.GAME_OVER:
-            game.stand()
-            await self.payout(ctx, game)
-            return
-        return await ctx.send(embed=game.build_embed())
+        await self.handle_hit(game)
 
     @blackjack_group.command(name="surrender", aliases=["fold"])
     async def surrender(self, ctx):
@@ -278,18 +371,7 @@ class BlackJack(commands.Cog):
         only works if you haven't hit yet. Also you pay 20% fee.
         """
         game = self.get_game(ctx.author)
-        if len([p for p in self.folds if p == game.player]) > 2:
-            return await ctx.send("You already folded thrice, no more allowed finish at least this game!")
-        if len(game.player_hand) > 2:
-            return await ctx.send("You already drew at least a card, you are now commited to this game")
-        if self.payday:
-            await self.payday.add_money(ctx.author.id, int(game.bet * 0.8))
-            await ctx.send(f"You gave up on this game and got 80% ({int(game.bet * 0.8)}) of your bet back, better luck next time.")
-            self.folds.append(ctx.author)
-        else:
-            await ctx.send("No money was bet but this game still gets stopped, better luck next time.")
-        self.games.remove(game) 
-        del game
+        await self.handle_fold(game)
 
     @blackjack_group.command(name="stand", aliases=["stop"])
     async def stand(self, ctx):
@@ -297,9 +379,8 @@ class BlackJack(commands.Cog):
         stop drawing cards and let the dealer draw, game is over after this
         """
         game = self.get_game(ctx.author)
-        game.state = GameState.DEALER_PHASE
         game.stand()
-        await self.payout(ctx, game)
+        await self.payout(game)
 
     @blackjack_group.command(name="double", aliases=["dd"])
     async def double(self, ctx):
@@ -307,21 +388,7 @@ class BlackJack(commands.Cog):
         When holding 2 cards double your bet and draw only one more card before standing
         """
         game = self.get_game(ctx.author)       
-        if len(game.player_hand) > 2:
-            return await ctx.send("You can only double down when holding 2 cards")
-        if self.payday:
-            balance = (await self.payday.fetch_money(ctx.author.id)).get("money")
-            if balance < game.bet:
-                return await ctx.send("You don't have enough money for doubling down.")
-            await self.payday.subtract_money(ctx.author.id, game.bet)
-            game.bet += game.bet
-        else:
-            game.bet *= 2
-        game.player_draw()
-        game.state = GameState.DEALER_PHASE
-        game.stand()
-        await self.payout(ctx, game)
-        
+        await self.handle_double(game)
 
     @blackjack_group.command(name="status")
     async def status(self, ctx):
@@ -329,7 +396,7 @@ class BlackJack(commands.Cog):
         gives you the status of the currently running game
         """
         game = self.get_game(ctx.author)
-        await ctx.send(embed=game.build_embed())
+        await ctx.send(game.message.jump_url)
 
 
 def setup(bot):
