@@ -72,8 +72,7 @@ class Distort(commands.Cog):
                     return
         async with ctx.typing():
             output_file = await self.spawn_magick(filename, f".{filetype}")
-            await ctx.send(file=File(output_file))
-            os.remove(output_file)
+            await self.send_if_possible_and_delete(ctx, output_file)
 
     @distort.command(name="me")
     async def _me(self, ctx):
@@ -90,8 +89,7 @@ class Distort(commands.Cog):
             filename = f"{ctx.author.id}{filetype}"
             await asset.save(f"data/{filename}")
             output_path = await self.spawn_magick(filename=filename, filetype=filetype)
-            await ctx.send(file=File(output_path))
-            os.remove(output_path)
+            await self.send_if_possible_and_delete(ctx, output_path)
 
     async def spawn_magick(self, filename, filetype):
         output_path_temp = os.path.join('data', filename)
@@ -157,8 +155,7 @@ class Distort(commands.Cog):
                 return
         async with ctx.typing():
             output_path = await self.create_rad_blur(filename, filetype, intensity)
-            await ctx.send(file=File(output_path))
-            os.remove(output_path)
+            await self.send_if_possible_and_delete(ctx, output_path)
 
     async def create_rad_blur(self, filename, filetype, intensity):
         if not filetype.startswith("."):
@@ -171,6 +168,17 @@ class Distort(commands.Cog):
         await proc.communicate()
         os.remove(output_path_temp)
         return output_path_blur
+
+    async def send_if_possible_and_delete(self, ctx, file_path):
+        size = 8388608
+        if ctx.guild:
+            size = ctx.guild.filesize_limit
+        if os.path.getsize(file_path) < size:
+            await ctx.send(file=File(file_path))
+        else:
+            await ctx.send("Send failed. The generated file exceeds this discord servers filesize limit.")
+        os.remove(file_path)
+
 
 def setup(bot: commands.Bot):
     bot.add_cog(Distort(bot))
