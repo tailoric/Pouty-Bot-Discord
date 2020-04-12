@@ -339,7 +339,7 @@ class Admin(commands.Cog):
 
     @commands.command(name="ban")
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, member: SnowflakeUserConverter, *, reason: str):
+    async def ban(self, ctx, member: SnowflakeUserConverter, delete_message_days: typing.Optional[int] = 0, *, reason: str):
         try:
             if isinstance(member, discord.Member) and 191094827562041345 not in [role.id for role in member.roles]:
                 dm_message = "you have been banned for the following reasons:\n{}".format(reason)
@@ -351,7 +351,7 @@ class Admin(commands.Cog):
                 if 191094827562041345 in [role.id for role in member.roles]:
                     await ctx.send("I could never ban a dear senpai of mine <a:shinpanic:427749630445486081>")
                     return
-                await member.ban(delete_message_days=0, reason=reason[:512])
+                await member.ban(delete_message_days=delete_message_days, reason=reason[:512])
             else:
                 await ctx.guild.ban(user=member, delete_message_days=0, reason=reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
