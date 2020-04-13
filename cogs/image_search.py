@@ -17,6 +17,9 @@ import mimetypes
 import io
 import asyncio
 import typing
+import subprocess
+import importlib
+import logging
 
 
 class TraceMoe:
@@ -68,6 +71,7 @@ class Search(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.logger = logging.getLogger('PoutyBot')
         self.iqdb_session = aiohttp.ClientSession()
         self.dans_session = aiohttp.ClientSession()
         self.sauce_session = aiohttp.ClientSession()
@@ -247,12 +251,40 @@ class Search(commands.Cog):
     @commands.command()
     async def yt_version(self, ctx):
         await ctx.send(youtube_dl.version.__version__)
-    @commands.command(aliases=["y"])
+    @commands.command(aliases=["y",'yt'])
     async def youtube(self,  ctx,*, query: str):
-        ytdl = youtube_dl.YoutubeDL({"quiet": True})
-        info = ytdl.extract_info("ytsearch: " + query, download=False)
-        url = info["entries"][0]["webpage_url"]
-        await ctx.send(url)
+        try:
+            ytdl = youtube_dl.YoutubeDL({"quiet": True})
+            info = ytdl.extract_info("ytsearch: " + query, download=False)
+            url = info["entries"][0]["webpage_url"]
+            await ctx.send(url)
+        except (youtube_dl.utils.DownloadError, youtube_dl.utils.ExtractorError) as yt_error:
+            self.logger.error(yt_error, exc_info=1)
+            await ctx.send("Youtube dl seems to be outdated please call `update_ytdl`, "
+                           "if that doesn't fix the problem change your search or contact the bot owner")
+        except Exception as e:
+            await ctx.send(f"Command exited with error: ```\n{e}\n```")
+            self.logger.error(e, exc_info=1)
+
+    
+    @commands.command(name="update_ytdl")
+    async def update_ytdl(self, ctx):
+        async with ctx.typing():
+            try: 
+                proc = await asyncio.create_subprocess_exec(
+                        sys.executable, '-m', 'pip', 'install', '-U', 'youtube_dl'
+                        )
+                await proc.communicate()
+                await ctx.send("update completed")
+                keys = sys.modules.copy().keys()
+                for key in keys:
+                    if type(key) is str and key.startswith('youtube_dl'):
+                        del sys.modules[key]
+
+                self.bot.reload_extension('cogs.image_search')
+            except Exception as e:
+                self.logger.error(e, exc_info=1)
+                raise e
 
     @commands.command()
     async def google(self,  ctx, *, query: str):
