@@ -1,20 +1,225 @@
 import discord
 from discord.ext import commands
 import aiohttp
-class MyAnimeList(commands.Cog):
+from textwrap import shorten
+from datetime import timedelta
+from html.parser import HTMLParser
+
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.strict = False
+        self.convert_charrefs= True
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+        
+
+class AniSearch(commands.Cog):
     """Commands for searching myanimelist.net"""
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
         self.remaining_requests = None
+        self.colour_converter = commands.ColourConverter()
+
+    query = '''
+            query ($id: Int, $search: String, $type: MediaType, $sort: [MediaSort]) {
+              Media(id: $id, search: $search, type: $type, sort: $sort) {
+                id
+                idMal
+                title {
+                    userPreferred
+                }
+                description
+                episodes
+                chapters
+                volumes
+                status
+                format
+                averageScore
+                externalLinks{
+                    url
+                }
+                nextAiringEpisode {
+                    episode
+                    timeUntilAiring
+                }
+                coverImage {
+                    medium
+                    color
+                }
+              }
+            }
+            '''
+    
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
 
     async def jikan_call(self, endpoint: str, parameters: dict):
-        async with self.session.get(f"https://api.jikan.moe/v3/{endpoint}", params=parameters) as resp:
+        async with self.session.get(f"https://api.jikan.moe/v3/{endpoint}",
+                                    params=parameters) as resp:
             if resp.status == 200:
                 return await resp.json()
             else:
                 return {}
 
+    async def anilist_graphql_call(self, parameters: dict):
+        async with self.session.post("https://graphql.anilist.co",
+                                     json=parameters) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            else:
+                print(await resp.json())
+                return {}
+
+    @commands.group(name="anilist", invoke_without_command=True)
+    async def anilist(self, ctx, *, title):
+        if ctx.invoked_subcommand is None:
+            await ctx.invoke(self.anilist_anime, title=title)
+
+    @anilist.command(name="manga")
+    async def anilist_manga(self, ctx, *, title):
+        """
+        for searching manga via anilist 
+        """
+        variables = {
+            'search': title,
+            'type': 'MANGA',
+            'sort': ['SEARCH_MATCH', 'START_DATE_DESC', 'ID_DESC']
+        }
+        data = await self.anilist_graphql_call({'query': self.query,
+                                                'variables': variables})
+        if not data:
+            return await ctx.send("Nothing found try a different query")
+        embed = await self.build_anilist_manga_embed(ctx, data.get("data").get("Media"))
+        await ctx.send(embed=embed)
+
+    @anilist.command(name="anime")
+    async def anilist_anime(self, ctx, *, title):
+        """
+        for searching anime via anilist 
+        """
+        variables = {
+            'search': title,
+            'type': 'ANIME',
+            'sort': ['SEARCH_MATCH', 'START_DATE_DESC', 'ID_DESC']
+        }
+        data = await self.anilist_graphql_call({'query': self.query,
+                                                'variables': variables})
+        if not data:
+            return await ctx.send("Nothing found try a different query")
+        embed = await self.build_anilist_anime_embed(ctx, data.get("data").get("Media"))
+        await ctx.send(embed=embed)
+    @anilist.command(name="next", aliases=["episode"])
+    async def anilist_next_episode(self, ctx, *, title):
+        """
+        get a timer for the release of the next episode of an anime via anilist
+        """
+        query = '''
+                query ($id: Int,
+                       $search: String,
+                       $type: MediaType,
+                       $sort: [MediaSort]) {
+                  Media(id: $id, search: $search, type: $type, sort: $sort) {
+                    siteUrl
+                    title{
+                      userPreferred
+                    }
+                    nextAiringEpisode{
+                      timeUntilAiring
+                      episode
+                    }
+                    coverImage{
+                      color
+                    }
+                  }
+                }
+                '''
+        variables = {
+            'search': title,
+            'type': 'ANIME',
+            'sort': ['SEARCH_MATCH', 'START_DATE_DESC', 'ID_DESC']
+        }
+        data = await self.anilist_graphql_call({'query': query,
+                                                'variables': variables})
+        if not data:
+            return await ctx.send("Nothing found try a different query")
+        data = data.get("data").get("Media")
+        anime_title = data.get("title").get("userPreferred")
+        if not data.get("nextAiringEpisode"):
+            return await ctx.send(f"Anime **{anime_title}** is not airing. "
+                                   "Be sure you did search for the correct season.\n"
+                                   "Season title must match perfectly")
+        color = await self.colour_converter.convert(ctx, data.get("coverImage").get("color"))
+        episode = data.get("nextAiringEpisode").get("episode")
+        until_next = timedelta(seconds=data.get("nextAiringEpisode").get("timeUntilAiring"))
+        timer_str = (f"Episode {episode} of **{anime_title}** airs in:"
+                     f" {until_next}")
+        embed = discord.Embed(  url=data.get("siteUrl"),
+                                title=timer_str,
+                                color=color
+                                )
+        await ctx.send(embed=embed)
+
+    def remove_html_tags(self, text):
+        s = MLStripper()
+        s.feed(text)
+        return s.get_data()
+
+    async def build_anilist_anime_embed(self, ctx, data):
+        title = data.get("title", {}).get('userPreferred', None)
+        description = self.remove_html_tags(data.get("description"))
+        description = shorten(description, 500, placeholder="...")
+        embed_color = await self.colour_converter.convert(ctx,
+                                                     data.get("coverImage", {})
+                                                     .get("color"))
+        embed = discord.Embed(title=title,
+                              description=description,
+                              color=embed_color,
+                              url=f"https://anilist.co/anime/{data['id']}")
+        embed.set_thumbnail(url=data["coverImage"]["medium"])
+        episodes = data["episodes"] if data["episodes"] else "Unknown"
+        embed.add_field(name="Episodes", value=episodes)
+        embed.add_field(name="Status", value=data["status"].title())
+        embed.add_field(name="Type", value=data["format"])
+        embed.add_field(name="Score", value=f"{data['averageScore']}%")
+        if data.get("nextAiringEpisode"):
+            timer = timedelta(seconds=data["nextAiringEpisode"].get("timeUntilAiring"))
+            next_episode = data["nextAiringEpisode"].get("episode")
+            embed.add_field(name=f"until Episode {next_episode}:", value=f"{timer}")
+        if data.get("externalLinks"):
+            external_links = [l['url'] for l in data.get("externalLinks", [])[:3]]
+            embed.add_field(name="External Links", value='\n'.join(external_links), inline=False)
+        return embed
+
+    async def build_anilist_manga_embed(self, ctx, data):
+        colour_converter = commands.ColourConverter()
+        title = data.get("title", {}).get('userPreferred', None)
+        description = self.remove_html_tags(data.get("description"))
+        description = shorten(description, 500, placeholder="...")
+        embed_color = await colour_converter.convert(ctx,
+                                                     data.get("coverImage", {})
+                                                     .get("color"))
+        embed = discord.Embed(title=title,
+                              description=description,
+                              color=embed_color,
+                              url=f"https://anilist.co/manga/{data['id']}")
+        embed.set_thumbnail(url=data["coverImage"]["medium"])
+        chapters = data["chapters"] if data["chapters"] else "Unknown"
+        volumes = data["volumes"] if data["volumes"] else "Unknown"
+        embed.add_field(name="Chapters", value=chapters)
+        embed.add_field(name="Volumes", value=volumes)
+        if data.get("externalLinks"):
+            external_links = [l['url'] for l in data.get("externalLinks", [])[:3]]
+            embed.add_field(name="External Links", value='\n'.join(external_links), inline=False)
+        embed.add_field(name="Status", value=data["status"].title())
+        embed.add_field(name="Type", value=data["format"].title())
+        embed.add_field(name="Score", value=f"{data['averageScore']}%")
+        return embed
     @commands.cooldown(30,60,commands.BucketType.default)
     @commands.group(name="mal", invoke_without_command=True)
     async def mal_search(self, ctx, *, title):
@@ -77,4 +282,4 @@ class MyAnimeList(commands.Cog):
         return embed
 
 def setup(bot):
-    bot.add_cog(MyAnimeList(bot))
+    bot.add_cog(AniSearch(bot))
