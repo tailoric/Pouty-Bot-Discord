@@ -76,19 +76,22 @@ class Music(commands.Cog):
         return guild_check
 
     async def track_hook(self, event):
-        guild_id = int(event.player.guild_id)
         if isinstance(event, lavalink.events.QueueEndEvent):
             guild_id = int(event.player.guild_id)
             await self.connect_to(guild_id, None)
             # Disconnect from the channel -- there's nothing else to play.
         if isinstance(event, lavalink.events.TrackEndEvent):
-            if guild_id in self.skip_votes.keys():
+            if self.skip_votes and guild_id in self.skip_votes.keys():
                 self.skip_votes[guild_id].clear()
             await self.bot.change_presence(activity=None)
         if isinstance(event, lavalink.events.TrackStartEvent):
             await self.bot.change_presence(
                     activity=discord.Game(name=event.player.current.title)
                     )
+        if isinstance(event, lavalink.events.TrackExceptionEvent):
+            channel = event.player.fetch('channel')
+            await channel.send(f"Error while playing Track: **{event.track.title}**:\n"
+                               f"`{event.exception}`")
 
     async def connect_to(self, guild_id: int, channel_id: str):
         """ Connects to the given voicechannel ID.
@@ -148,10 +151,11 @@ class Music(commands.Cog):
             await player.play()
 
     @commands.command()
-    @checks.is_owner_or_moderator()
     async def seek(self, ctx, *, seconds: int):
         """ Seeks to a given position in a track. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
+        if ctx.author.id != player.current.requester:
+            return await ctx.send("Only requester can seek.")
 
         track_time = player.position + (seconds * 1000)
         await player.seek(track_time)
@@ -410,22 +414,31 @@ class Music(commands.Cog):
         # Create returns a player if one exists, otherwise creates.
 
         should_connect = ctx.command.name in ('play', 'junbi_ok')  # Add commands that require joining voice to work.
+
         if ctx.command.name in ('find', 'disconnect', 'now'):
             return
 
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise commands.CommandInvokeError('Join a voicechannel first.')
 
+        permissions = ctx.author.voice.channel.permissions_for(ctx.me)
+
+        if not permissions.connect or not permissions.speak:  # Check user limit too?
+            raise commands.CommandInvokeError('I need the `CONNECT` and `SPEAK` permissions.')
+
         if not player.is_connected:
             if not should_connect:
                 raise commands.CommandInvokeError('Not connected.')
 
-            permissions = ctx.author.voice.channel.permissions_for(ctx.me)
+            player.store('channel', ctx.channel)
+            await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
+        elif player.is_connected and not self.current_voice_channel(ctx):
+            self.bot.lavalink.players.remove(ctx.guild.id)
+            player = self.bot.lavalink.players.create(ctx.guild.id)
+            if not should_connect:
+                raise commands.CommandInvokeError('Not connected.')
 
-            if not permissions.connect or not permissions.speak:  # Check user limit too?
-                raise commands.CommandInvokeError('I need the `CONNECT` and `SPEAK` permissions.')
-
-            player.store('channel', ctx.channel.id)
+            player.store('channel', ctx.channel)
             await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
         else:
             if int(player.channel_id) != ctx.author.voice.channel.id:
