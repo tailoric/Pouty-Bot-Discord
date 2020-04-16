@@ -693,6 +693,10 @@ from emojipedia import Emojipedia
 from functools import partial
 import aiohttp
 
+from datetime import datetime, timedelta
+from .utils import paginator
+from textwrap import shorten
+
 
 class Misc(commands.Cog):
 
@@ -713,10 +717,107 @@ class RemindMe(commands.Cog):
 
     def __init__(self, bot : commands.Bot):
         self.bot = bot
-        with open("data/remindme/reminders.json", "r") as f:
-            self.reminders = json.load(f)
         self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
         self.check_reminders.start()
+        self.bot.loop.create_task(self.create_remindme_table())
+        self.bot.loop.create_task(self.load_and_delete_old_json_file( ))
+
+    async def load_and_delete_old_json_file(self):
+        if not os.path.exists('data/remindme/reminders.json'):
+            return
+        reminders = [] 
+        with open("data/remindme/reminders.json", "r") as f:
+            reminders = json.load(f)
+        for entry in reminders:
+            date = datetime.utcfromtimestamp(entry["FUTURE"])
+            user_id = entry["ID"]
+            channel_id = entry.get("CHANNEL", None)
+            text = entry.get("TEXT")
+            await self.insert_reminder(user_id, text, channel_id, date)
+        os.rename("data/remindme/reminders.json", "data/remindme/reminders.json.2")
+
+    async def create_remindme_table(self):
+        query = '''
+            CREATE TABLE IF NOT EXISTS reminders (
+                     r_id SERIAL PRIMARY KEY,
+                     user_id BIGINT,
+                     reminder TEXT,
+                     channel_id BIGINT,
+                     reminder_ts TIMESTAMP)
+        '''
+        await self.bot.db.execute(query)
+
+    async def all_reminders(self):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetch()
+    async def forget_user(self, user_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                DELETE from reminders
+                WHERE user_id = $1
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id)
+
+    async def fetch_reminders(self, user_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                WHERE user_id = $1
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetch(user_id)
+
+    async def fetch_reminder(self, r_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                WHERE r_id = $1
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetchrow(r_id)
+    async def remove_reminder(self, r_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                DELETE from reminders
+                WHERE r_id = $1
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(r_id)
+
+    async def insert_remindme(self, user_id, text, date):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                INSERT INTO reminders(user_id, reminder, reminder_ts)
+                VALUES
+                    ($1, $2, $3)
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id, text, date)
+
+    async def insert_reminder(self, user_id, text, channel_id, date):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                INSERT INTO reminders(user_id, reminder, channel_id, reminder_ts)
+                VALUES
+                    ($1, $2, $3, $4)
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id, text, channel_id,date)
 
     def cog_unload(self):
         self.check_reminders.cancel()
@@ -747,12 +848,9 @@ class RemindMe(commands.Cog):
         if seconds > 157788000:
             await ctx.send("Please use realistic time frames")
             return
-        future = int(time.time()+seconds)
-        self.reminders.append({"ID" : author.id, "FUTURE" : future, "TEXT" : text})
-        logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await ctx.send("I will remind you of this in {} {}.".format(str(quantity), time_unit + s))
-        with open("data/remindme/reminders.json", "w") as file_reminders:
-            json.dump(self.reminders, file_reminders)
+        timestamp = datetime.utcnow() + timedelta(seconds=seconds)
+        await self.insert_remindme(ctx.author.id, text, timestamp)
+        await ctx.send(f"I will DM you a reminder of this in {quantity} {time_unit}s")
 
     @commands.command()
     async def reminder(self, ctx, quantity: int, time_unit: str, *, text: commands.clean_content()):
@@ -772,73 +870,80 @@ class RemindMe(commands.Cog):
         if quantity < 1:
             await ctx.send("Quantity must not be 0 or negative.")
             return
-        if len(text) > 1960:
+        if len(text) > 1024:
             await ctx.send("Text is too long.")
             return
         seconds = self.units[time_unit] * quantity
         if seconds > 157788000:
             await ctx.send("Please use realistic time frames")
             return
-        future = int(time.time()+seconds)
-        self.reminders.append({"ID" : ctx.author.id, "FUTURE" : future, "TEXT" : text, "CHANNEL" : ctx.channel.id})
-        logger.info("{} ({}) set a reminder.".format(author.name, author.id))
-        await ctx.send("I will remind you of this in {} {}.".format(str(quantity), time_unit + s))
-        with open("data/remindme/reminders.json", "w") as file_reminders:
-            json.dump(self.reminders, file_reminders)
+        timestamp = datetime.utcnow() + timedelta(seconds=seconds)
+        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, timestamp)
+        await ctx.send(f"I will send a reminder in this channel in {quantity} {time_unit}s")
 
-    @commands.command(pass_context=True)
+    @commands.command()
+    async def rlist(self, ctx):
+        """lists all your reminders"""
+        reminders = await self.fetch_reminders(ctx.author.id)
+        if not reminders:
+            return await ctx.send("No reminders set!")
+        entries = []
+        for index, reminder in enumerate(reminders):
+            time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
+            entries.append((f"ID: **{reminder['r_id']}** in {time_until}",
+                            f"\n{shorten(reminder.get('reminder'), 100)}"))
+        pager = paginator.FieldPages(ctx, entries=entries, per_page=3)
+        await pager.paginate()
+    @commands.command()
+    async def rfetch(self, ctx, reminder_id:int):
+        reminder = await self.fetch_reminder(reminder_id)
+        time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
+        await ctx.send(f"reminder text: {reminder['reminder']}\n"
+                       f"in {time_until}")
+    
+    @commands.command()
+    async def forget(self, ctx, reminder_id: int):
+        """ use id from rlist to remove an entry"""
+        reminders = await self.fetch_reminders(ctx.author.id)
+        if not reminders:
+            return await ctx.send("No reminders set!")
+        await self.remove_reminder(reminder_id)
+        await ctx.send(f"reminder with id {reminder_id} deleted")
+
+    @commands.command()
     async def forgetme(self, ctx):
-        """Removes all your upcoming notifications"""
-        author = ctx.message.author
-        to_remove = []
-        for reminder in self.reminders:
-            if reminder["ID"] == author.id:
-                to_remove.append(reminder)
-        if not to_remove == []:
-            for reminder in to_remove:
-                self.reminders.remove(reminder)
-            with open("data/remindme/reminders.json", "w") as file_reminders:
-                json.dump(self.reminders, file_reminders)
-            await ctx.send("All your notifications have been removed.")
-        else:
-            await ctx.send("You don't have any upcoming notification.")
+        """ delete all reminders """
+        await self.forget_user(ctx.author.id)
+        await ctx.send("all reminders deleted.")
 
     @tasks.loop(seconds=5)
     async def check_reminders(self):
         to_remove = []
-        for reminder in self.reminders:
-            if reminder["FUTURE"] <= int(time.time()):
+        reminders = await self.all_reminders()
+        for reminder in reminders:
+            if reminder["reminder_ts"] <= datetime.utcnow():
                 try:
-                    user = self.bot.get_user(id=reminder["ID"])
-                    if "CHANNEL" in reminder:
-                        channel = self.bot.get_channel(reminder["CHANNEL"])
-                        the_reminder = reminder["TEXT"]
+                    user = self.bot.get_user(id=reminder["user_id"])
+                    if reminder.get("channel_id", None):
+                        channel = self.bot.get_channel(reminder["channel_id"])
+                        the_reminder = reminder["reminder"]
                         await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
                     else:
-                        await user.send("You asked me to remind you of this:\n{}".format(reminder["TEXT"]))
+                        await user.send("You asked me to remind you of this:\n{}".format(reminder["reminder"]))
+                    to_remove.append(reminder)
                 except (discord.errors.Forbidden, discord.errors.NotFound):
                     to_remove.append(reminder)
                 except discord.errors.HTTPException as e:
-                    logger.error(f"{e}: for reminder {reminder['ID']}, {reminder['TEXT']}")
+                    logger.error(f"{e}: for reminder {reminder['r_id']}, {reminder['reminder']}")
                 else:
                     to_remove.append(reminder)
         for reminder in to_remove:
-            self.reminders.remove(reminder)
-        if to_remove:
-            with open("data/remindme/reminders.json", "w") as file_reminders:
-                json.dump(self.reminders, file_reminders)
+            await self.remove_reminder(reminder['r_id'])
 
 def check_folders():
     if not os.path.exists("data/remindme"):
         print("Creating data/remindme folder...")
         os.makedirs("data/remindme")
-
-def check_files():
-    f = "data/remindme/reminders.json"
-    if not os.path.exists(f):
-        print("Creating empty reminders.json...")
-        with open(f, "w") as file_reminders:
-            file_reminders.write("[]")
 
 class Choose(commands.Cog):
     """chooses one option from a list of several"""
@@ -1006,7 +1111,6 @@ class SCP(commands.Cog):
 def setup(bot):
     global logger
     check_folders()
-    check_files()
     logger = logging.getLogger("remindme")
     if logger.level == 0: # Prevents the logger from being loaded again in case of module reload
         logger.setLevel(logging.INFO)
