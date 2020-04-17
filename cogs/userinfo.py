@@ -18,7 +18,7 @@ class Userinfo(commands.Cog):
         self.bot.loop.create_task(self.create_name_tables())
 
     @commands.command(pass_context=True)
-    async def userinfo(self,ctx, member: Member=None):
+    async def userinfo(self,ctx, *, member: Member=None):
         """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
