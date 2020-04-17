@@ -4,6 +4,7 @@ import aiohttp
 from textwrap import shorten
 from datetime import timedelta
 from html.parser import HTMLParser
+import logging
 
 
 class MLStripper(HTMLParser):
@@ -80,6 +81,11 @@ class AniSearch(commands.Cog):
     async def anilist(self, ctx, *, title):
         if ctx.invoked_subcommand is None:
             await ctx.invoke(self.anilist_anime, title=title)
+
+    @anilist.error
+    async def anilist_error(self, ctx, error):
+        logger = logging.getLogger("PoutyBot")
+        logger.error(error, exc_info=1)
 
     @anilist.command(name="manga")
     async def anilist_manga(self, ctx, *, title):
@@ -174,9 +180,12 @@ class AniSearch(commands.Cog):
         title = data.get("title", {}).get('userPreferred', None)
         description = self.remove_html_tags(data.get("description"))
         description = shorten(description, 500, placeholder="...")
-        embed_color = await self.colour_converter.convert(ctx,
-                                                     data.get("coverImage", {})
-                                                     .get("color"))
+        cover_image = data.get("coverImage", None)
+        embed_color = discord.Color.blurple()
+        if cover_image and cover_image.get("color"):
+            embed_color = await self.colour_converter.convert(ctx,
+                                                              cover_image
+                                                              .get("color", None))
         embed = discord.Embed(title=title,
                               description=description,
                               color=embed_color,
@@ -201,9 +210,11 @@ class AniSearch(commands.Cog):
         title = data.get("title", {}).get('userPreferred', None)
         description = self.remove_html_tags(data.get("description"))
         description = shorten(description, 500, placeholder="...")
-        embed_color = await colour_converter.convert(ctx,
-                                                     data.get("coverImage", {})
-                                                     .get("color"))
+        embed_color = discord.Color.blurple()
+        if cover_image and cover_image.get("color"):
+            embed_color = await self.colour_converter.convert(ctx,
+                                                              cover_image
+                                                              .get("color", None))
         embed = discord.Embed(title=title,
                               description=description,
                               color=embed_color,
