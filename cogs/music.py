@@ -247,7 +247,7 @@ class Music(commands.Cog):
         else:
             duration = lavalink.utils.format_time(player.current.duration)
         song = f'**[{player.current.title}]({player.current.uri})**\n({position}/{duration}) ' \
-               f'requested by **{requester.display_name}**'
+               f'requested by **{requester.display_name if requester else "?"}**'
 
         embed = discord.Embed(color=discord.Color.blurple(),
                               title='Now Playing', description=song)
@@ -269,8 +269,8 @@ class Music(commands.Cog):
 
         queue_list = ''
         for index, track in enumerate(player.queue[start:end], start=start):
-            requester = ctx.guild.get_member(track.requester).display_name
-            queue_list += f'`{index + 1}.` [**{track.title}**]({track.uri}) requested by **{requester}**\n'
+            requester = ctx.guild.get_member(track.requester)
+            queue_list += f'`{index + 1}.` [**{track.title}**]({track.uri}) requested by **{requester.display_name if requester else "?"}**\n'
 
         embed = discord.Embed(colour=discord.Color.blurple(),
                               description=f'**{len(player.queue)} tracks**\n\n{queue_list}')
