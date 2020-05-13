@@ -582,8 +582,8 @@ class Deathroll(commands.Cog):
         """
         Starts a game of deathroll
         Rules:
-        Players take turns and roll a dice for values between 1 and the betting amount (1st Round)
-        Next round the max roll amount is between 1 and the previous result
+        Players take turns and roll a dice for values between 1 and 10 times the betting amount (1st Round)
+        Next round the possible roll result is between 1 and the previous result
         This continues until someone rolls a 1. In that case the player rolling 1 loses.
         reactions: 
         * \N{SKULL} is for joining a game
