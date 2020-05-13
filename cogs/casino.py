@@ -518,8 +518,8 @@ class Deathroll(commands.Cog):
             await self.payout(game)
             start_pl_money = await self.payday.fetch_money(game.start_player.id)
             challenger_money = await self.payday.fetch_money(game.challenger.id)
-            embed.add_field(name=f"{game.start_player.mention}'s balance:", value=f"{start_pl_money['money']:,}")
-            embed.add_field(name=f"{game.challenger.mention}'s balance:", value=f"{challenger_money['money']:,}")
+            embed.add_field(name=f"{game.start_player.display_name}'s balance:", value=f"{start_pl_money['money']:,}")
+            embed.add_field(name=f"{game.challenger.display_name}'s balance:", value=f"{challenger_money['money']:,}")
         await game.message.edit(embed=embed)
         self.games.remove(game)
 
