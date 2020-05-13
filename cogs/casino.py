@@ -220,7 +220,7 @@ class BlackJack(commands.Cog):
         """
         helper function to get the currently running game of a player
         """
-        game = next(iter(x for x in self.games if x.player == player), None)
+        game = next(iter(x for x in self.games if x.start_player == player), None)
         if not game:
             raise commands.CommandError("No game running start one with `.bj`")
         return game
@@ -452,7 +452,7 @@ class DeathrollGame():
         self.current_player = self.start_player if self.current_player.id == self.challenger.id else self.challenger
 
     def __eq__(self, other):
-        return self.start_player == other.player
+        return self.start_player == other.start_player
 
     def __str__(self):
         if self.game_state == DeathrollStates.WAITING:
