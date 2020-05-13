@@ -4,6 +4,7 @@ from enum import Enum, auto
 from .utils import checks
 from typing import Optional
 import random
+import asyncio
 
 
 class CardColor(Enum):
@@ -430,6 +431,7 @@ class DeathrollGame():
         self.current_player = None
         self.message = None
         self.winner = None
+        self.timer = None
 
     def add_player(self, member):
         if self.challenger:
@@ -513,6 +515,10 @@ class Deathroll(commands.Cog):
     async def payout(self, game):
         await self.payday.add_money(game.winner.id, game.bet * 2)
 
+    async def notify_player(self, game):
+        await asyncio.sleep(30)
+        await game.message.channel.send(f"{game.current_player.mention} your turn to roll.")
+
     async def resolve_game(self,game):
         await game.message.clear_reactions()
         embed = game.message.embeds[0]
@@ -564,16 +570,21 @@ class Deathroll(commands.Cog):
             game.current_player = game.start_player
             embed.description = str(game)
             await game.message.edit(embed=embed)
+            game.timer = asyncio.create_task(self.notify_player(game))
             return
         if reaction.emoji == self.roll_reaction and game.game_state == DeathrollStates.PLAYING:
+            game.timer.cancel()
             game.roll(user)
             embed = game.message.embeds[0]
             embed.description = str(game)
             if game.game_state == DeathrollStates.GAME_OVER:
                 await self.resolve_game(game)
+            if game.game_state == DeathrollStates.PLAYING:
+                game.timer = asyncio.create_task(self.notify_player(game))
             await game.message.edit(embed=embed)
             return
         if reaction.emoji == self.resolve_reaction and game.game_state == DeathrollStates.PLAYING:
+            game.timer.cancel()
             while(game.game_state != DeathrollStates.GAME_OVER):
                 game.roll(game.current_player)
             await self.resolve_game(game)
@@ -593,6 +604,7 @@ class Deathroll(commands.Cog):
             await game.message.add_reaction(self.roll_reaction)
             await game.message.add_reaction(self.resolve_reaction)
             await game.message.edit(embed=embed)
+            game.timer = asyncio.create_task(self.notify_player(game))
             return 
         if reaction.emoji == self.reject_reaction and user.id == game.challenger.id and game.game_state != DeathrollStates.PLAYING:
             await game.message.channel.send(f"{game.challenger.display_name} rejected the match.")
