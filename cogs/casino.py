@@ -469,6 +469,30 @@ class Deathroll(commands.Cog):
         self.resolve_reaction = "\N{ROCKET}"
         self.payday = self.bot.get_cog("Payday")
 
+    def cog_unload(self):
+        if not self.payday:
+            return
+        try:
+            self.bot.loop.create_task(self.pay_back_all_games())
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("PoutyBot")
+            logger.error("Exception while giving back deathroll bets", exc_info=1)
+            owner = self.bot.get_user(self.bot.owner_id)
+            pending_payouts = "Some DeathRoll payouts are still pending\n"
+            for game in self.games:
+                pending_payouts += f"{game.start_player.mention}: {game.bet:,}\n"
+                pending_payouts += f"{game.challenger.mention}: {game.bet:,}\n"
+            self.bot.loop.create_task(owner.send(pending_payouts))
+
+    async def pay_back_all_games(self):
+        while len(self.games) > 0:
+            game =self.games.pop(0)
+            await self.payday.add_money(game.start_player.id, game.bet)
+            await self.payday.add_money(game.challenger.id, game.bet)
+            await game.message.clear_reactions()
+            del game
+
     def get_game(self, player):
         """
         helper function to get the currently running game of a player
