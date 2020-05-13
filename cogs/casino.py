@@ -420,10 +420,10 @@ class DeathrollStates(Enum):
 
 class DeathrollGame():
 
-    def __init__(self, player, roll_amount):
+    def __init__(self, player, bet):
         self.game_state = DeathrollStates.WAITING
-        self.bet = roll_amount
-        self.roll_amount = roll_amount
+        self.bet = bet
+        self.roll_amount = bet * 10
         self.start_player = player
         self.challenger = None
         self.current_player = None
