@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord import Embed, Member
 from enum import Enum, auto
 from .utils import checks
+from typing import Optional
 import random
 
 
@@ -467,6 +468,8 @@ class Deathroll(commands.Cog):
         self.join_reaction = "\N{SKULL}"
         self.roll_reaction = "\N{GAME DIE}"
         self.resolve_reaction = "\N{ROCKET}"
+        self.accept_reaction = "\N{WHITE HEAVY CHECK MARK}"
+        self.reject_reaction = "\N{NEGATIVE SQUARED CROSS MARK}"
         self.payday = self.bot.get_cog("Payday")
 
     def cog_unload(self):
@@ -536,6 +539,8 @@ class Deathroll(commands.Cog):
         if game.game_state == DeathrollStates.GAME_OVER:
             return
         await game.message.remove_reaction(reaction.emoji, user)
+        if game.game_state == DeathrollStates.PLAYING and user.id != game.start_player.id and user.id != game.challenger.id:
+            return
         if game.start_player.id == user.id and reaction.emoji not in (self.roll_reaction, self.resolve_reaction):
             return
         if reaction.emoji == self.join_reaction:
@@ -574,11 +579,34 @@ class Deathroll(commands.Cog):
             await self.resolve_game(game)
             await game.message.edit(embed=embed)
             return
+        if reaction.emoji == self.accept_reaction and user.id == game.challenger.id:
+            if self.payday:
+                try:
+                    await self.payday.subtract_money(game.challenger.id, game.bet)
+                except commands.CommandError as e:
+                    await ctx.send(f"{game.challenger.mention} {e}")
+            game.game_state = DeathrollStates.PLAYING
+            game.current_player = game.start_player
+            embed = game.message.embeds[0]
+            embed.description = str(game)
+            await game.message.clear_reactions()
+            await game.message.add_reaction(self.roll_reaction)
+            await game.message.add_reaction(self.resolve_reaction)
+            await game.message.edit(embed=embed)
+            return 
+        if reaction.emoji == self.reject_reaction and user.id == game.challenger.id and game.game_state != DeathrollStates.PLAYING:
+            await game.message.channel.send(f"{game.challenger.display_name} rejected the match.")
+            await game.message.delete()
+            if self.payday:
+                await self.payday.add_money(game.start_player.id, game.bet)
+            self.games.remove(game)
+            del game
+            return
 
 
 
     @commands.group(name="deathroll", aliases=['dr'], invoke_without_command=True)
-    async def deathroll(self, ctx, amount: int):
+    async def deathroll(self, ctx, amount: int, challenger: Optional[Member]):
         """
         Starts a game of deathroll
         Rules:
@@ -607,6 +635,21 @@ class Deathroll(commands.Cog):
                               color=ctx.author.colour)
             embed.add_field(name="Bet", value=game.bet)
             self.games.append(game)
+            if challenger:
+                if self.payday:
+                    money_challenger = await self.payday.fetch_money(challenger.id)
+                    if money_challenger['money'] < game.bet:
+                        await self.payday.add_money(ctx.author.id, game.bet)
+                        self.games.remove(game)
+                        del game
+                        return await ctx.send("The player you challenged has not enough money.")
+                game.add_player(challenger)
+                embed.description = f"{game.start_player.mention} challenged {game.challenger.mention} react with {self.accept_reaction} to accept or {self.reject_reaction} to reject"
+                message = await ctx.send(embed=embed)
+                game.message = message
+                await message.add_reaction(self.accept_reaction)
+                await message.add_reaction(self.reject_reaction)
+                return
             message = await ctx.send(embed=embed)
             game.message = message
             await message.add_reaction(self.join_reaction)
