@@ -507,7 +507,7 @@ class Deathroll(commands.Cog):
             raise commands.CommandError("No game running start one with `.dr`")
         return game
     def get_game_by_message(self, message):
-        game = next(iter(x for x in self.games if x.message not None and x.message.id == message.id), None)
+        game = next(iter(x for x in self.games if x.message is not None and x.message.id == message.id), None)
         if not game:
             raise commands.CommandError("No game running start one with `.dr`")
         return game
