@@ -590,6 +590,8 @@ class Deathroll(commands.Cog):
         * \N{GAME DIE} is for rolling the dice
         * \N{ROCKET} is for auto resolving the game
         """
+        if amount < 1: 
+            return await ctx.send("can't bet less than 1")
         try:
             game = self.get_game(ctx.author)
             return await ctx.send("Game is already running finish that one first.\n"
