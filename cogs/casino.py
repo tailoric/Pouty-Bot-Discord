@@ -1,11 +1,14 @@
 from discord.ext import commands
-from discord import Embed
+from discord import Embed, Member
 from enum import Enum, auto
 from .utils import checks
 import random
 
 
 class CardColor(Enum):
+    """
+    simple enum for getting emoji
+    """
     heart = "\N{WHITE HEART SUIT}"
     spade = "\N{WHITE SPADE SUIT}"
     diamond = "\N{WHITE DIAMOND SUIT}"
@@ -13,12 +16,20 @@ class CardColor(Enum):
 
 
 class GameState(Enum):
+    """
+    BlackJack Game states
+    """
     RUNNING = auto()
     DEALER_PHASE = auto()
     GAME_OVER = auto()
 
 
 class Card():
+    """
+    A card Object with card value (numerical)
+    color (or suit) 
+    and a face [eg number or A(ce), Q(ueen), J(ack), K(ing)]
+    """
     def __init__(self, value, color, face):
         self.value = value
         self.color = color
@@ -29,7 +40,9 @@ class Card():
 
 
 class BlackJackGame():
-
+    """
+    one game of blackjack
+    """
     def __init__(self, player, bet):
         self.player = player
         self.message = None
@@ -399,5 +412,198 @@ class BlackJack(commands.Cog):
         await ctx.send(game.message.jump_url)
 
 
+class DeathrollStates(Enum):
+    WAITING = auto()
+    PLAYING = auto()
+    GAME_OVER = auto()
+
+
+class DeathrollGame():
+
+    def __init__(self, player, roll_amount):
+        self.game_state = DeathrollStates.WAITING
+        self.bet = roll_amount
+        self.roll_amount = roll_amount
+        self.start_player = player
+        self.challenger = None
+        self.current_player = None
+        self.message = None
+        self.winner = None
+
+    def add_player(self, member):
+        if self.challenger:
+            return 
+        self.challenger = member
+        return member
+
+    def roll(self, player):
+        if self.current_player != player:
+            return
+        if self.game_state in (DeathrollStates.WAITING, DeathrollStates.GAME_OVER):
+            return
+        self.roll_amount = random.randint(1, self.roll_amount)
+        if self.roll_amount == 1:
+            self.winner = self.start_player if self.current_player.id == self.challenger.id else self.challenger
+            self.game_state = DeathrollStates.GAME_OVER
+            return
+        self.current_player = self.start_player if self.current_player.id == self.challenger.id else self.challenger
+
+    def __eq__(self, other):
+        return self.start_player == other.player
+
+    def __str__(self):
+        if self.game_state == DeathrollStates.WAITING:
+            return f"WAITING FOR PLAYERS\nREACT WITH \N{SKULL} TO JOIN"
+        if self.game_state == DeathrollStates.PLAYING:
+            return f"Game in progress:\nCurrent Player: **{self.current_player.mention}**\nCurrent Roll amount: {self.roll_amount}\N{GAME DIE}"
+        if self.game_state == DeathrollStates.GAME_OVER:
+            return f"GAME OVER!\nWINNER: **{self.winner.mention}**"
+
+class Deathroll(commands.Cog):
+
+    def __init__(self, bot):
+        self.bot = bot
+        self.games = []
+        self.join_reaction = "\N{SKULL}"
+        self.roll_reaction = "\N{GAME DIE}"
+        self.resolve_reaction = "\N{ROCKET}"
+        self.payday = self.bot.get_cog("Payday")
+
+    def get_game(self, player):
+        """
+        helper function to get the currently running game of a player
+        """
+        game = next(iter(x for x in self.games if x.start_player == player), None)
+        if not game:
+            raise commands.CommandError("No game running start one with `.dr`")
+        return game
+    def get_game_by_message(self, message):
+        game = next(iter(x for x in self.games if x.message.id == message.id), None)
+        if not game:
+            raise commands.CommandError("No game running start one with `.dr`")
+        return game
+
+    async def payout(self, game):
+        await self.payday.add_money(game.winner.id, game.bet * 2)
+
+    async def resolve_game(self,game):
+        await game.message.clear_reactions()
+        embed = game.message.embeds[0]
+        embed.description = str(game)
+        if self.payday:
+            await self.payout(game)
+            start_pl_money = await self.payday.fetch_money(game.start_player.id)
+            challenger_money = await self.payday.fetch_money(game.challenger.id)
+            embed.add_field(name=f"{game.start_player.mention}'s balance:", value=f"{start_pl_money['money']:,}")
+            embed.add_field(name=f"{game.challenger.mention}'s balance:", value=f"{challenger_money['money']:,}")
+        await game.message.edit(embed=embed)
+        self.games.remove(game)
+
+    @commands.Cog.listener("on_reaction_add")
+    async def button_reaction(self, reaction, user):
+        try:
+            game = self.get_game_by_message(reaction.message)
+        except commands.CommandError:
+            return
+        if user.id == self.bot.user.id:
+            return
+        if game.message.id != reaction.message.id:
+            return
+        if game.game_state == DeathrollStates.GAME_OVER:
+            return
+        await game.message.remove_reaction(reaction.emoji, user)
+        if game.start_player.id == user.id and reaction.emoji not in (self.roll_reaction, self.resolve_reaction):
+            return
+        if reaction.emoji == self.join_reaction:
+            if not game.add_player(user):
+                await game.message.channel.send("Game is already full")
+                return
+            if self.payday:
+                try:
+                    await self.payday.subtract_money(game.challenger.id, game.bet)
+                except commands.CommandError as e:
+                    await game.message.channel.send(f"{game.challenger.mention} {e}")
+                    game.challenger = None
+                    return
+            await game.message.clear_reactions()
+            await game.message.add_reaction(self.roll_reaction)
+            await game.message.add_reaction(self.resolve_reaction)
+            embed = game.message.embeds[0]
+            embed.add_field(name="Start Player:", value=f"{game.start_player.mention}")
+            embed.add_field(name="Challenger", value=f"{game.challenger.mention}")
+            game.game_state = DeathrollStates.PLAYING
+            game.current_player = game.start_player
+            embed.description = str(game)
+            await game.message.edit(embed=embed)
+            return
+        if reaction.emoji == self.roll_reaction and game.game_state == DeathrollStates.PLAYING:
+            game.roll(user)
+            embed = game.message.embeds[0]
+            embed.description = str(game)
+            if game.game_state == DeathrollStates.GAME_OVER:
+                await self.resolve_game(game)
+            await game.message.edit(embed=embed)
+            return
+        if reaction.emoji == self.resolve_reaction and game.game_state == DeathrollStates.PLAYING:
+            while(game.game_state != DeathrollStates.GAME_OVER):
+                game.roll(game.current_player)
+            await self.resolve_game(game)
+            await game.message.edit(embed=embed)
+            return
+
+
+
+    @commands.group(name="deathroll", aliases=['dr'], invoke_without_command=True)
+    async def deathroll(self, ctx, amount: int):
+        """
+        Starts a game of deathroll
+        Rules:
+        Players take turns and roll a dice for values between 1 and the betting amount (1st Round)
+        Next round the max roll amount is between 1 and the previous result
+        This continues until someone rolls a 1. In that case the player rolling 1 loses.
+        reactions: 
+        * \N{SKULL} is for joining a game
+        * \N{GAME DIE} is for rolling the dice
+        * \N{ROCKET} is for auto resolving the game
+        """
+        try:
+            game = self.get_game(ctx.author)
+            return await ctx.send("Game is already running finish that one first.\n"
+                                  f"{game.message.jump_url}")
+        except commands.CommandError as e:
+            if self.payday:
+                try:
+                    await self.payday.subtract_money(ctx.author.id, amount)
+                except commands.CommandError as cme:
+                    return await ctx.send(cme)
+            game = DeathrollGame(ctx.author, amount)
+            embed = Embed(title="\N{SKULL} Deathroll \N{SKULL}", description=str(game),
+                              color=ctx.author.colour)
+            embed.add_field(name="Bet", value=game.bet)
+            self.games.append(game)
+            message = await ctx.send(embed=embed)
+            game.message = message
+            await message.add_reaction(self.join_reaction)
+
+    @deathroll.command(name="cancel")
+    async def cancel(self, ctx):
+        """
+        cancel a game unless it already started.
+        """
+        try:
+            game = self.get_game(ctx.author)
+            if game.game_state == DeathrollStates.PLAYING:
+                return await ctx.send("You can't cancel a game that is already in progress!")
+            if self.payday:
+                await self.payday.add_money(ctx.author.id, game.bet)
+            self.games.remove(game)
+            await game.message.delete()
+            await ctx.send("Game was cancelled")
+            del game
+        except commands.CommandError as e:
+            return await ctx.send(e)
+
+
 def setup(bot):
     bot.add_cog(BlackJack(bot))
+    bot.add_cog(Deathroll(bot))
