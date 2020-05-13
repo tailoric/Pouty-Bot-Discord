@@ -587,6 +587,8 @@ class Deathroll(commands.Cog):
             game.timer.cancel()
             while(game.game_state != DeathrollStates.GAME_OVER):
                 game.roll(game.current_player)
+            embed = game.message.embeds[0]
+            embed.description = str(game)
             await self.resolve_game(game)
             await game.message.edit(embed=embed)
             return

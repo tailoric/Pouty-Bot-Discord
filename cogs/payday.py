@@ -45,10 +45,13 @@ class Payday(commands.Cog):
             async with connection.transaction():
                 money = await statement_get.fetchval(user_id)
                 money += amount
-                return await statement_set.fetchval(user_id, money)
+                new_amount = await statement_set.fetchval(user_id, money)
+                return new_amount
 
     async def subtract_money(self, user_id, amount):
         async with self.bot.db.acquire() as connection:
+            if amount < 0:
+                raise commands.CommandError("No negative amounts allowed")
             get_money = ("SELECT money from payday WHERE user_id = $1")
             set_money = ("UPDATE payday SET money = $2 WHERE user_id = $1 "
                          "RETURNING money")
