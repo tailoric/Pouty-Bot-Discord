@@ -90,8 +90,9 @@ class Music(commands.Cog):
                     )
         if isinstance(event, lavalink.events.TrackExceptionEvent):
             channel = event.player.fetch('channel')
-            await channel.send(f"Error while playing Track: **{event.track.title}**:\n"
-                               f"`{event.exception}`")
+            await channel.send(f"Error while playing Track: "
+                               f"**{event.track.title}**:"
+                               f"\n`{event.exception}`")
 
     async def connect_to(self, guild_id: int, channel_id: str):
         """ Connects to the given voicechannel ID.
@@ -102,17 +103,16 @@ class Music(commands.Cog):
         # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
 
-    @commands.command()                                                                              
-    async def junbi_ok(self, ctx):                                                                   
-                                                                                                     
-        player = self.bot.lavalink.players.get(ctx.guild.id)                                         
+    @commands.command()
+    async def junbi_ok(self, ctx):
+        player = self.bot.lavalink.players.get(ctx.guild.id)
         results = await player.node.get_tracks("https://youtu.be/wWQPnhG0xHU")
-        player.add(requester=ctx.author.id, track=results["tracks"][0])                    
-        await ctx.send("junbi ok \N{OK Hand Sign}")                                                                
-        if not player.is_playing:                                                                    
-            await player.play()      
+        player.add(requester=ctx.author.id, track=results["tracks"][0])
+        await ctx.send("junbi ok \N{OK Hand Sign}")
+        if not player.is_playing:
+            await player.play()
 
-    @commands.command(aliases=['p'])
+    @commands.group(aliases=['p'],invoke_without_command=True)
     async def play(self, ctx, *, query: str):
         """ Searches and plays a song from a given query. """
         player = self.bot.lavalink.players.get(ctx.guild.id)
@@ -150,6 +150,45 @@ class Music(commands.Cog):
         if not player.is_playing:
             await player.play()
 
+    @play.command("soundcloud", aliases=['sc'])
+    async def sc_play(self, ctx, *, query: str):
+        """
+        search and play songs from soundcloud
+        """
+        player = self.bot.lavalink.players.get(ctx.guild.id)
+
+        query = query.strip('<>')
+
+        if not url_rx.match(query):
+            query = f'scsearch:{query}'
+
+        results = await player.node.get_tracks(query)
+
+        if not results or not results['tracks']:
+            return await ctx.send('Nothing found!')
+
+        embed = discord.Embed(color=discord.Color.blurple())
+
+        if results['loadType'] == 'PLAYLIST_LOADED':
+            tracks = results['tracks']
+
+            for track in tracks:
+                player.add(requester=ctx.author.id, track=track)
+
+            embed.title = 'Playlist Enqueued!'
+            embed.description = (f'{results["playlistInfo"]["name"]}'
+                    f'- {len(tracks)} tracks')
+        else:
+            track = results['tracks'][0]
+            embed.title = 'Track Enqueued'
+            embed.description = (f'[{track["info"]["title"]}]'
+                    f'({track["info"]["uri"]})')
+            player.add(requester=ctx.author.id, track=track)
+
+        await ctx.send(embed=embed)
+
+        if not player.is_playing:
+            await player.play()
     @commands.command()
     async def seek(self, ctx, *, seconds: int):
         """ Seeks to a given position in a track. """
@@ -214,8 +253,10 @@ class Music(commands.Cog):
                 self.skip_votes[ctx.guild.id].clear()
                 await ctx.send('⏭ | Skip vote passed.')
             else:
+                votes_needed = \
+                    math.ceil(number_of_users_in_voice/2) - skip_vote_number
                 await ctx.send(f"current skip vote: "
-                               f"{math.ceil(number_of_users_in_voice/2) - skip_vote_number}"
+                               f"{votes_needed}"
                                f"more vote(s) needed "
                                f"for skip")
 
@@ -246,8 +287,10 @@ class Music(commands.Cog):
             duration = '🔴 LIVE'
         else:
             duration = lavalink.utils.format_time(player.current.duration)
-        song = f'**[{player.current.title}]({player.current.uri})**\n({position}/{duration}) ' \
-               f'requested by **{requester.display_name if requester else "?"}**'
+        song = (f'**[{player.current.title}]({player.current.uri})**\n'
+                f'({position}/{duration}) '
+                f'requested by '
+                f'**{requester.display_name if requester else "?"}**')
 
         embed = discord.Embed(color=discord.Color.blurple(),
                               title='Now Playing', description=song)
@@ -270,10 +313,14 @@ class Music(commands.Cog):
         queue_list = ''
         for index, track in enumerate(player.queue[start:end], start=start):
             requester = ctx.guild.get_member(track.requester)
-            queue_list += f'`{index + 1}.` [**{track.title}**]({track.uri}) requested by **{requester.display_name if requester else "?"}**\n'
+            requester_name = requester.display_name if requester else "?"
+            queue_list += (f'`{index + 1}.` [**{track.title}**]({track.uri}) '
+                           f'requested by '
+                           f'**{requester_name}**\n')
 
+        description = f'**{len(player.queue)} tracks**\n\n{queue_list}'
         embed = discord.Embed(colour=discord.Color.blurple(),
-                              description=f'**{len(player.queue)} tracks**\n\n{queue_list}')
+                              description=description)
         embed.set_footer(text=f'Viewing page {page}/{pages}')
         await ctx.send(embed=embed)
 
@@ -301,8 +348,8 @@ class Music(commands.Cog):
 
         if not volume:
             return await ctx.send(f'🔈 | {player.volume}%')
-
-        await player.set_volume(volume)  # Lavalink will automatically cap values between, or equal to 0-1000.
+        # Lavalink will automatically cap values between, or equal to 0-1000.
+        await player.set_volume(volume)
         await ctx.send(f'🔈 | Set to {player.volume}%')
 
     @commands.command()
@@ -314,11 +361,15 @@ class Music(commands.Cog):
             return await ctx.send('Nothing playing.')
 
         player.shuffle = not player.shuffle
-        await ctx.send('🔀 | Shuffle ' + ('enabled' if player.shuffle else 'disabled'))
+        await ctx.send(f'🔀 | Shuffle '
+                       f'{"enabled" if player.shuffle else "disabled"}')
 
     @commands.command(aliases=['loop'])
     async def repeat(self, ctx):
-        """ Repeats the current song until the command is invoked again or until a new song is queued. """
+        """
+        Repeats the current song until the command is invoked again
+        or until a new song is queued.
+        """
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
         if not player.is_playing:
@@ -346,10 +397,11 @@ class Music(commands.Cog):
 
 
 
-    @commands.command(aliases=["search"])
+    @commands.group(aliases=["search"], invoke_without_command=True)
     async def find(self, ctx, *, query):
-        """ Lists the first 10 search results from a given query. 
-            also allows you to queue one of the results
+        """ Lists the first 10 search results from a given query.
+            also allows you to queue one of the results (use p and the index number)
+            for example p 1 to play the first song in the results.
         """
         player = self.bot.lavalink.players.get(ctx.guild.id)
 
@@ -365,7 +417,55 @@ class Music(commands.Cog):
         tracks = results['tracks'][:10]  # First 10 results
 
         o = (f"The first 10 results found via query `{original_query}`\n"
-                f"use `queue` or `play` followed by the number of the result to queue that song\n")
+             f"use `queue` or `play` followed by the number of the result to queue that song\n")
+        for index, track in enumerate(tracks, start=1):
+            track_title = track['info']['title']
+            track_uri = track['info']['uri']
+            o += f'`{index}.` [{track_title}]({track_uri})\n'
+
+        embed = discord.Embed(color=discord.Color.blurple(), description=o)
+        await ctx.send(embed=embed)
+        def queue_check(message):
+
+            if not re.match(r"(q(uery)?|p(lay)?)", message.content):
+                return False
+            try:
+                get_message_numbers = ''.join(c for c in message.content if c.isdigit())
+                number = int(get_message_numbers)
+
+            except ValueError:
+                raise commands.CommandError("please choose a number between 1 and 10")
+            return (number >= 1 or number <= 10) and message.channel == ctx.channel and message.author == ctx.author
+        try:
+            msg = await ctx.bot.wait_for("message", check=queue_check, timeout=10.0)
+        except asyncio.TimeoutError:
+            return
+        get_message_numbers = ''.join(c for c in msg.content if c.isdigit())
+        result_number = int(get_message_numbers)
+        ctx.command = self.play
+        await self.cog_before_invoke(ctx)
+        await ctx.invoke(self.play, query=tracks[result_number-1]['info']['uri'])
+
+    @find.group(name="scsearch",aliases=["sc", "soundcloud"], invoke_without_command=True)
+    async def find_sc(self, ctx, *, query):
+        """ Lists the first 10 soundcloud search results from a given query.
+            also allows you to queue one of the results (use p and the index number)
+            for example p 1 to play the first song in the results.
+        """
+        player = self.bot.lavalink.players.get(ctx.guild.id)
+
+        original_query = query
+        query = 'scsearch:' + query
+
+        results = await player.node.get_tracks(query)
+
+        if not results or not results['tracks']:
+            return await ctx.send('Nothing found.')
+
+        tracks = results['tracks'][:10]  # First 10 results
+
+        o = (f"The first 10 results found via query `{original_query}`\n"
+             f"use `queue` or `play` followed by the number of the result to queue that song\n")
         for index, track in enumerate(tracks, start=1):
             track_title = track['info']['title']
             track_uri = track['info']['uri']
@@ -413,9 +513,9 @@ class Music(commands.Cog):
         player = self.bot.lavalink.players.create(ctx.guild.id, endpoint=str(ctx.guild.region))
         # Create returns a player if one exists, otherwise creates.
 
-        should_connect = ctx.command.name in ('play', 'junbi_ok')  # Add commands that require joining voice to work.
+        should_connect = ctx.command.name in ('play', 'junbi_ok','soundcloud')  # Add commands that require joining voice to work.
 
-        if ctx.command.name in ('find', 'disconnect', 'now'):
+        if ctx.command.name in ('find', 'scsearch', 'disconnect', 'now', 'queue'):
             return
 
         if not ctx.author.voice or not ctx.author.voice.channel:
