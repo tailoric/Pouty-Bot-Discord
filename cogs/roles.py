@@ -139,7 +139,6 @@ class Roles(commands.Cog):
         server = ctx.message.guild
         roles = server.roles
         embed = discord.Embed()
-        embed.set_thumbnail(url=server.icon_url)
         if not role:
             for role in roles:
                 if role.name == "@everyone":
