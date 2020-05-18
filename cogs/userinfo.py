@@ -106,25 +106,7 @@ class Userinfo(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
-    async def roleinfo(self, ctx, role=None):
-        """shows information about the server roles"""
-        role_converter = commands.RoleConverter()
-        server = ctx.message.guild
-        roles = server.roles
-        embed = Embed()
-        embed.set_thumbnail(url=server.icon_url)
-        if not role:
-            for role in roles:
-                if role.name == "@everyone":
-                    continue
-                member_with_role = [member for member in server.members if role in member.roles]
-                embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
-        else:
-            role = await role_converter.convert(ctx=ctx, argument=role)
-            member_with_role = [member for member in server.members if role in member.roles]
-            embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
-        await ctx.send(embed=embed)
+
 
     async def fetch_names(self, member):
         async with self.bot.db.acquire() as con:
