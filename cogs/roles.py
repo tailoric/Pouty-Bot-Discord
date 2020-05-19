@@ -122,7 +122,7 @@ class Roles(commands.Cog):
         gives you a list with assignable roles and description about these roles
         """
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
-        assignable_roles = [r for r in ctx.guild.roles if r.position < settable_role.position]
+        assignable_roles = [r for r in ctx.guild.roles if r.position <= settable_role.position]
         assignable_roles.remove(ctx.guild.default_role)
         fields = []
         for role in assignable_roles:
