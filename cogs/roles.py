@@ -157,7 +157,7 @@ class Roles(commands.Cog):
                 embed.description = description
         await ctx.send(embed=embed)
 
-    @checks.is_owner_or_moderator()
+    @commands.has_permissions(manage_roles=True)
     @commands.group(name="roles", pass_context=True)
     async def roles(self, ctx):
         """
