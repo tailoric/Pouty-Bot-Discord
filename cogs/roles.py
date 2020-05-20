@@ -6,19 +6,24 @@ import os
 import cogs.utils.checks as checks
 import random
 import colorsys
-from .utils.converters import RoleConverter
 from .utils.checks import channel_only
 from .utils.paginator import FieldPages
 import typing
 import re
 
-class CustomRoleConverter(RoleConverter):
+class CustomRoleConverter(commands.RoleConverter):
     """
     This converter is for removing
     """
     async def convert(self, ctx, argument):
         argument = argument.strip('"')
-        return await super().convert(ctx, argument)
+        for role in ctx.guild.roles:
+            if argument == role.name.lower():
+                return role
+        try:
+            return await super().convert(ctx, argument)
+        except commands.CommandError as e:
+            print(e)
 
 class Roles(commands.Cog):
     """role managing commands"""
@@ -79,7 +84,7 @@ class Roles(commands.Cog):
             json.dump(self.settable_roles, file)
 
     @commands.command(name="iam")
-    async def assign_role(self, ctx, * , role: discord.Role):
+    async def assign_role(self, ctx, * , role: CustomRoleConverter):
         """
         assigns you a role
         """
@@ -103,7 +108,7 @@ class Roles(commands.Cog):
             await ctx.send("Sorry I don't have the permission to give you that role")
 
     @commands.command(name="amnot", aliases=["iamnot"])
-    async def remove_role(self, ctx, *, role: discord.Role):
+    async def remove_role(self, ctx, *, role: CustomRoleConverter):
         """removes a role from you"""
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
         if role.position > settable_role.position:
@@ -134,7 +139,7 @@ class Roles(commands.Cog):
 
 
     @commands.command()
-    async def roleinfo(self, ctx, * ,role: typing.Optional[discord.Role]):
+    async def roleinfo(self, ctx, * ,role: typing.Optional[CustomRoleConverter]):
         """shows information about the server roles or a certain role"""
         server = ctx.message.guild
         roles = server.roles
@@ -164,7 +169,7 @@ class Roles(commands.Cog):
         pass
 
     @roles.command(name="description")
-    async def _role_description(self, ctx, role : discord.Role, *, description: str):
+    async def _role_description(self, ctx, role : CustomRoleConverter, *, description: str):
         """
         set the description of a certain role
         """
