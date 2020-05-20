@@ -20,10 +20,7 @@ class CustomRoleConverter(commands.RoleConverter):
         for role in ctx.guild.roles:
             if argument == role.name.lower():
                 return role
-        try:
-            return await super().convert(ctx, argument)
-        except commands.CommandError as e:
-            print(e)
+        return await super().convert(ctx, argument)
 
 class Roles(commands.Cog):
     """role managing commands"""
