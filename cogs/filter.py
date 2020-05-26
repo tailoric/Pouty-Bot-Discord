@@ -6,6 +6,8 @@ import re
 import os
 from aiohttp import ClientSession
 from .utils.checks import is_owner_or_moderator
+from .utils.paginator import FieldPages
+from typing import Union, Optional
 
 class Filter(commands.Cog):
     """
@@ -14,20 +16,29 @@ class Filter(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.filter_file_path = "data/filter.json"
+        self.filter_file_path = "config/tenor_giphy_filter.json"
         self.session = ClientSession()
         self.banned_tags = ['lolicon', 'shotacon']
 
         if os.path.exists(self.filter_file_path):
             with open(self.filter_file_path, "r") as filter_file:
                 try:
-                    settings = json.load(filter_file)
-                    self.allowed_channel = self.bot.get_channel(settings['channel_id'])
+                    self.settings = json.load(filter_file)
+                    self.blacklisted_channels = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("gif_filter_channel")]
+                    self.blacklisted_categories = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("gif_filter_category")]
                 except json.JSONDecodeError:
-                    self.allowed_channel = None
+                    self.settings = None
+                    self.blacklisted_channels = []
+                    self.blacklisted_categories = []
         else:
-            open(self.filter_file_path, 'w').close()
-            self.allowed_channel = None
+            with open(self.filter_file_path, 'w') as f:
+                self.settings = { 
+                        "gif_filter_channel": [], 
+                        "gif_filter_category": []
+                                }
+                json.dump(self.settings, f)
+            self.blacklisted_channels = []
+            self.blacklisted_categories = []
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -36,7 +47,7 @@ class Filter(commands.Cog):
     async def on_message(self, message):
         contains_giphy_or_tenor_link_regex = re.compile("https://(media\.)?(tenor|giphy)?.com/")
         match = contains_giphy_or_tenor_link_regex.match(message.content)
-        if match and not message.channel == self.allowed_channel:
+        if match and (message.channel in self.blacklisted_channels or message.channel.category in self.blacklisted_categories):
             await asyncio.sleep(1)
             await message.delete()
         contains_nhentai_link = re.compile(r"https?://nhentai\.net/g/(\d+)/")
@@ -55,11 +66,61 @@ class Filter(commands.Cog):
                             await admin_cog.check_channel.send(f"deleted nhentai link by {message.author.mention} "
                                                                 f"because it contained a banned tag: {tag['name']}")
 
+
+    @is_owner_or_moderator()
+    @commands.group(name="bltenor", aliases=["tenor", "giphy"])
+    async def tenor_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
+        """
+        add a channel or category to the blacklist
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        if not self.settings:
+            return await ctx.send("settings not loaded")
+        if isinstance(channel, discord.CategoryChannel):
+            self.blacklisted_categories.append(channel)
+            self.settings.get("gif_filter_category").append(channel.id)
+        elif isinstance(channel, discord.TextChannel):
+            self.blacklisted_channels.append(channel)
+            self.settings.get("gif_filter_channel").append(channel.id)
+        with open(self.filter_file_path, "w") as f:
+            json.dump(self.settings, f)
+        await ctx.send("channel added successfully")
+
+    @tenor_filter.command(name="delete")
+    async def tenor_filter_delete(self, ctx, channel: Union[discord.TextChannel, discord.CategoryChannel]):
+        """
+        remove a channel or category from the blacklist
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        if not self.settings:
+            return await ctx.send("settings not loaded")
+        if isinstance(channel, discord.CategoryChannel):
+            self.blacklisted_categories.remove(channel)
+            self.settings.get("gif_filter_category").remove(channel.id)
+        elif isinstance(channel, discord.TextChannel):
+            self.blacklisted_channels.remove(channel)
+            self.settings.get("gif_filter_channel").remove(channel.id)
+        with open(self.filter_file_path, "w") as f:
+            json.dump(self.settings, f)
+        await ctx.send("channel removed successfully")
+
+    @tenor_filter.command(name="list")
+    async def tenor_filter_list(self, ctx):
+        """
+        list all channels that have a giphy and tenor blacklist
+        """
+        entries = [(c.name, c.mention) for c in self.blacklisted_channels]
+        entries.extend((c.name, ','.join(channel.mention for channel in c.channels)) for c in self.blacklisted_categories)
+        paginator = FieldPages(ctx, entries=entries)
+        paginator.embed.title = "List of blacklisted channels"
+        await paginator.paginate()
+
     async def check_for_tags(self, message):
         matches = re.findall(r'\b\d{1,6}\b', message)
         if matches:
             for match in matches:
-                number = int(match)
                 data = await self.call_nhentai_api(number)
                 if data:
                     for tag in data['tags']:
@@ -87,9 +148,6 @@ class Filter(commands.Cog):
                     await reaction.message.channel.send(f"{reaction.message.author.mention} message deleted because it was an nhentai id with following tag: {tag} (Server rule 5)")
                     await admin_cog.check_channel.send(f"deleted message by {reaction.message.author.mention} "
                                                         f"because it contained a banned tag: {tag}")
-
-
-
 
     @is_owner_or_moderator()
     @commands.command(name="filter_exception", pass_context=True)
