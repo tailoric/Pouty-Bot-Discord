@@ -123,7 +123,7 @@ class Poll(commands.Cog):
         """
         create a single choice poll (at most 10 choices possible)
         example:
-        .poll "2 days" "this is option 1" "this is option 2"
+        .poll "This is the title" "2 days" "this is option 1" "this is option 2"
         """
         if ctx.invoked_subcommand:
             return
@@ -151,7 +151,7 @@ class Poll(commands.Cog):
         """
         create a multiple choice poll
         example:
-        .poll "2 days" "this is option 1" "this is option 2"
+        .poll multi "This is the title" "2 days" "this is option 1" "this is option 2"
         """
         if ctx.invoked_subcommand:
             return
