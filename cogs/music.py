@@ -99,6 +99,9 @@ class Music(commands.Cog):
         A channel_id of `None` means disconnect. """
         ws = self.bot._connection._get_websocket(guild_id)
         await ws.voice_state(str(guild_id), channel_id)
+        guild = self.bot.get_guild(guild_id)
+        me = guild.me
+        await me.edit(deafen=True)
         # The above looks dirty,
         # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
