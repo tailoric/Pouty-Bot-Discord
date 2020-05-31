@@ -119,7 +119,7 @@ class Poll(commands.Cog):
                 await statement.fetch(message_id)
 
     @commands.group(invoke_without_command=True)
-    async def poll(self, ctx, timer, *options):
+    async def poll(self, ctx, title, timer, *options):
         """
         create a single choice poll (at most 10 choices possible)
         example:
@@ -138,7 +138,7 @@ class Poll(commands.Cog):
             reactions.append(self.option_labels[index])
             description += f"{self.option_labels[index]}: {option}\n"
         embed = Embed(
-                    title="POLL",
+                    title=title,
                     description=description
                 )
         poll_msg = await ctx.send(embed=embed)
@@ -147,7 +147,7 @@ class Poll(commands.Cog):
         await self.insert_poll(poll_msg.id, poll_msg.channel.id, end_timestamp)
 
     @poll.command()
-    async def multi(self, ctx, timer, *options):
+    async def multi(self, ctx, title, timer, *options):
         """
         create a multiple choice poll
         example:
@@ -166,7 +166,7 @@ class Poll(commands.Cog):
             reactions.append(self.option_labels[index])
             description += f"{self.option_labels[index]}: {option}\n"
         embed = Embed(
-                    title="POLL",
+                    title=title,
                     description=description
                 )
         poll_msg = await ctx.send(embed=embed)
