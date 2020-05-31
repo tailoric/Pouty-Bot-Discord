@@ -91,7 +91,7 @@ class Poll(commands.Cog):
     async def fetch_poll(self, message_id):
         async with self.bot.db.acquire() as con:
             query = """
-                SELECT message_id, channel_id, end_ts, options, multi
+                SELECT message_id, channel_id, end_ts, multi
                 FROM polls
                 WHERE message_id = $1
             """
@@ -102,7 +102,7 @@ class Poll(commands.Cog):
     async def fetch_polls(self):
         async with self.bot.db.acquire() as con:
             query = """
-                SELECT message_id, channel_id, end_ts, options
+                SELECT message_id, channel_id, end_ts
                 FROM polls
             """
             statement = await con.prepare(query)
