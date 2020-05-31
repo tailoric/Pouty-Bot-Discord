@@ -75,6 +75,16 @@ class Music(commands.Cog):
 
         return guild_check
 
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        """
+        deafen yourself when joining a voice channel
+        """
+        if member.id != member.guild.me.id:
+            return
+        if not after.deaf:
+            await member.edit(deafen=True)
+
     async def track_hook(self, event):
         if isinstance(event, lavalink.events.QueueEndEvent):
             guild_id = int(event.player.guild_id)
@@ -99,9 +109,6 @@ class Music(commands.Cog):
         A channel_id of `None` means disconnect. """
         ws = self.bot._connection._get_websocket(guild_id)
         await ws.voice_state(str(guild_id), channel_id)
-        guild = self.bot.get_guild(guild_id)
-        me = guild.me
-        await me.edit(deafen=True)
         # The above looks dirty,
         # we could alternatively use `bot.shards[shard_id].ws` but that assumes
         # the bot instance is an AutoShardedBot.
