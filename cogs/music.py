@@ -80,9 +80,10 @@ class Music(commands.Cog):
         """
         deafen yourself when joining a voice channel
         """
-        if member.id != member.guild.me.id:
+        if member.id != member.guild.me.id or not after.channel:
             return
-        if not after.deaf:
+        my_perms = after.channel.permissions_for(member)
+        if not after.deaf and my_perms.deafen_members:
             await member.edit(deafen=True)
 
     async def track_hook(self, event):
