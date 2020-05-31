@@ -698,6 +698,8 @@ from .utils import paginator
 from textwrap import shorten
 
 
+timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
+
 class Misc(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
@@ -822,64 +824,65 @@ class RemindMe(commands.Cog):
     def cog_unload(self):
         self.check_reminders.cancel()
 
+    def parse_timer(self, timer):
+        match = timing_regex.match(timer)
+        if not match:
+            return None
+        if not any(match.groupdict().values()):
+            return None
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return datetime.utcnow() + delta
+
     @commands.command()
-    async def remindme(self, ctx,  quantity : int, time_unit : str, *, text : str):
+    async def remindme(self, ctx,  timer, *, text : str):
         """Sends you <text> when the time is up
 
         Accepts: minutes, hours, days, weeks, month
         Example:
-        [p]remindme 3 days Have sushi with Asu and JennJenn"""
-        time_unit = time_unit.lower()
+        `.remindme "3 days" Have sushi with Asu and JennJenn`
+        """
         author = ctx.message.author
-        s = ""
-        if time_unit.endswith("s"):
-            time_unit = time_unit[:-1]
-            s = "s"
-        if time_unit not in self.units:
-            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
-            return
-        if quantity < 1:
-            await ctx.send("Quantity must not be 0 or negative.")
-            return
+        end_timestamp = self.parse_timer(timer)
+        if not end_timestamp: 
+            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+        difference = end_timestamp - datetime.utcnow()
         if len(text) > 1960:
             await ctx.send("Text is too long.")
             return
-        seconds = self.units[time_unit] * quantity
-        if seconds > 157788000:
+        if  difference.seconds > 157788000:
             await ctx.send("Please use realistic time frames")
             return
-        timestamp = datetime.utcnow() + timedelta(seconds=seconds)
-        await self.insert_remindme(ctx.author.id, text, timestamp)
-        await ctx.send(f"I will DM you a reminder of this in {quantity} {time_unit}s")
+        await self.insert_remindme(ctx.author.id, text, end_timestamp)
+        await ctx.send(f"I will DM you a reminder of this in {difference}")
 
     @commands.command()
-    async def reminder(self, ctx, quantity: int, time_unit: str, *, text: commands.clean_content()):
+    async def reminder(self, ctx, timer, *, text: commands.clean_content()):
         """
         posts an open reminder later into the channel
         example: .reminder 1 minute turn off the stove
         """
-        time_unit = time_unit.lower()
         author = ctx.message.author
-        s = ""
-        if time_unit.endswith("s"):
-            time_unit = time_unit[:-1]
-            s = "s"
-        if time_unit not in self.units:
-            await ctx.send("Invalid time unit. Choose minutes/hours/days/weeks/month")
-            return
-        if quantity < 1:
-            await ctx.send("Quantity must not be 0 or negative.")
-            return
+        end_timestamp = self.parse_timer(timer)
+        if not end_timestamp: 
+            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+        difference = end_timestamp - datetime.utcnow()
         if len(text) > 1024:
             await ctx.send("Text is too long.")
             return
-        seconds = self.units[time_unit] * quantity
-        if seconds > 157788000:
+        if difference.seconds > 157788000:
             await ctx.send("Please use realistic time frames")
             return
-        timestamp = datetime.utcnow() + timedelta(seconds=seconds)
-        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, timestamp)
-        await ctx.send(f"I will send a reminder in this channel in {quantity} {time_unit}s")
+        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, end_timestamp)
+        await ctx.send(f"I will send a reminder in this channel in {difference}")
 
     @commands.command()
     async def rlist(self, ctx):
@@ -924,6 +927,9 @@ class RemindMe(commands.Cog):
             if reminder["reminder_ts"] <= datetime.utcnow():
                 try:
                     user = self.bot.get_user(id=reminder["user_id"])
+                    if not user:
+                        to_remove.append(reminder)
+                        continue
                     if reminder.get("channel_id", None):
                         channel = self.bot.get_channel(reminder["channel_id"])
                         the_reminder = reminder["reminder"]

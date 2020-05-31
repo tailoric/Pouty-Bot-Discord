@@ -11,8 +11,9 @@ import typing
 from io import BytesIO
 import asyncio
 import re
-import datetime
+from datetime import datetime, timedelta
 
+timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -79,6 +80,21 @@ class Admin(commands.Cog):
         self.bot.loop.create_task(self.create_voice_unmute_table())
         self.to_unmute = []
 
+    def parse_timer(self, timer):
+        match = timing_regex.match(timer)
+        if not match:
+            return None
+        if not any(match.groupdict().values()):
+            return None
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return datetime.utcnow() + delta
     async def get_voice_unmutes(self):
         query =("SELECT * FROM vmutes")
         async with self.bot.db.acquire() as con:
@@ -373,7 +389,7 @@ class Admin(commands.Cog):
         to_remove = []
         try:
             for mute in await self.mutes:
-                if mute["unmute_ts"] <= datetime.datetime.utcnow():
+                if mute["unmute_ts"] <= datetime.utcnow():
                     try:
                         user = get(self.mute_role.guild.members, id=mute["user_id"])
                         if user:
@@ -423,24 +439,25 @@ class Admin(commands.Cog):
         return self.units[time_unit] * amount, None
 
     @commands.group(invoke_without_command=True)
-    async def selfmute(self, ctx, amount:int, time_unit:str):
+    async def selfmute(self, ctx, *, timer):
         """
         selfmute yourself for certain amount of time
         """
 
         mute = await self.get_mute_from_list(ctx.author.id)
+        unmute_ts = self.parse_timer(timer)
+        if not unmute_ts: 
+            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+        difference = unmute_ts - datetime.utcnow()
         if mute:
             return await ctx.send("You are already muted use `.selfmute cancel` to cancel a selfmute")
-        length, error_msg = self.convert_mute_length(amount, time_unit)
-        if not length:
-            await ctx.send(error_msg)
-            return
         if not isinstance(ctx.author, discord.Member):
             ctx.author = self.mute_role.guild.get_member(ctx.author.id)
         if not ctx.author:
             return await ctx.send("you are not in a guild that has the mute role set up")
-        if length > 7 * self.units["days"]:
-            question = await ctx.send(f"Are you sure you want to be muted for {(length/self.units['days']):.2f} days?\n"
+        if difference.days > 6:
+            question = await ctx.send(f"Are you sure you want to be muted for {difference}?\n"
                                       f"answer with  Y[es] or N[o]")
 
             def msg_check(message):
@@ -456,7 +473,6 @@ class Admin(commands.Cog):
                 await question.edit(content="Timeout: mute aborted")
                 return
 
-        unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
         await ctx.author.add_roles(self.mute_role)
         await ctx.send("You have been muted")
         await self.add_mute_to_mute_list(ctx.author.id, unmute_ts, True)
@@ -485,7 +501,7 @@ class Admin(commands.Cog):
         """
         mute = await self.get_mute_from_list(ctx.author.id)
         if mute:
-            time_diff = mute["unmute_ts"] - datetime.datetime.utcnow()
+            time_diff = mute["unmute_ts"] - datetime.utcnow()
             days = f"{time_diff.days} days " if time_diff.days else ""
             hours, remainder = divmod(time_diff.seconds, 3600)
             minutes, remainder = divmod(remainder, 60)
@@ -508,7 +524,7 @@ class Admin(commands.Cog):
         if not length:
             await ctx.send(error_msg)
             return
-        unmute_ts = datetime.datetime.utcnow() + datetime.timedelta(seconds=length)
+        unmute_ts = datetime.utcnow() + timedelta(seconds=length)
         mute_message = f"user {user.mention} was muted"
         await user.add_roles(self.mute_role)
         await ctx.send(mute_message)
