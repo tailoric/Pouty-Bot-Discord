@@ -844,7 +844,7 @@ class RemindMe(commands.Cog):
     async def remindme(self, ctx,  timer, *, text : str):
         """Sends you <text> when the time is up
 
-        Accepts: minutes, hours, days, weeks, month
+        Accepts: seconds, minutes, hours, days
         Example:
         `.remindme "3 days" Have sushi with Asu and JennJenn`
         """
@@ -857,7 +857,7 @@ class RemindMe(commands.Cog):
         if len(text) > 1960:
             await ctx.send("Text is too long.")
             return
-        if  difference.seconds > 157788000:
+        if  difference.total_seconds() > 157788000:
             await ctx.send("Please use realistic time frames")
             return
         await self.insert_remindme(ctx.author.id, text, end_timestamp)
@@ -867,13 +867,13 @@ class RemindMe(commands.Cog):
     async def reminder(self, ctx, timer, *, text: commands.clean_content()):
         """
         posts an open reminder later into the channel
-        example: .reminder 1 minute turn off the stove
+        example: `.reminder "1 minute" turn off the stove`
         """
         author = ctx.message.author
         end_timestamp = self.parse_timer(timer)
         if not end_timestamp: 
             return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
-                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+                                  ".reminder 1h20m reminder in 1 hour and 20 minutes\n```")
         difference = end_timestamp - datetime.utcnow()
         if len(text) > 1024:
             await ctx.send("Text is too long.")
