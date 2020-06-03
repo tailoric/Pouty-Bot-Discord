@@ -96,7 +96,7 @@ class Roles(commands.Cog):
         try:
             admin_cog = self.bot.get_cog("Admin")
             if admin_cog:
-                if admin_cog.mute_role == role:
+                if hasattr(admin_cog, "mute_role") and admin_cog.mute_role == role:
                     return
             member = ctx.message.author
             await member.add_roles(role)
@@ -222,16 +222,12 @@ class Roles(commands.Cog):
             await ctx.send("Sorry I don't have the permission to remove that role")
 
     @commands.command(aliases=["color","colour"])
-    @channel_only(582894980436328449, 208765039727869954)
-    async def random_colors(self, ctx, hexcode : typing.Optional[str]):
-        if hexcode:
-            hexcode = hexcode.strip("#")
-            value = int(hexcode, 16)
-            color = discord.Colour(value)
-        else:
+    @channel_only(582894980436328449, 208765039727869954, 390617633147453444)
+    async def random_colors(self, ctx, hexcode : typing.Optional[discord.Color]):
+        if not hexcode:
             value = [int(x * 255) for x in colorsys.hls_to_rgb(random.random(), 0.8, 1.0)]
-            color = discord.Color.from_rgb(*value)
-        await ctx.send(embed=discord.Embed(color=color, description=str(color)))
+            hexcode = discord.Color.from_rgb(*value)
+        await ctx.send(embed=discord.Embed(color=hexcode, description=str(hexcode)))
 
 
 def setup(bot: commands.Bot):
