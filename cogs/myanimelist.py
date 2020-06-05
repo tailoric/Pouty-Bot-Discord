@@ -6,7 +6,6 @@ from datetime import timedelta
 from html.parser import HTMLParser
 import logging
 
-
 class MLStripper(HTMLParser):
     def __init__(self):
         self.reset()
@@ -211,6 +210,7 @@ class AniSearch(commands.Cog):
         description = self.remove_html_tags(data.get("description"))
         description = shorten(description, 500, placeholder="...")
         embed_color = discord.Color.blurple()
+        cover_image = data.get("coverImage", None)
         if cover_image and cover_image.get("color"):
             embed_color = await self.colour_converter.convert(ctx,
                                                               cover_image
