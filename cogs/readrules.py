@@ -7,6 +7,7 @@ import logging
 import traceback
 from random import choice
 import re
+import asyncio
 from .utils.dataIO import DataIO
 from cogs.default import CustomHelpCommand
 
@@ -75,7 +76,7 @@ class ReadRules(commands.Cog):
         self.bot.help_command.cog = self
         self.data_io = DataIO()
         self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
-        self.animemes_guild = self.bot.get_guild(187423852224053248)
+        self.animemes_guild = self.bot.get_guild(287695136840876032)
         self.memester_role = get(self.animemes_guild.roles, name="Memester")
         self.new_memester = get(self.animemes_guild.roles, name="New Memester")
         self.join_log = self.animemes_guild.get_channel(595585060909088774)
@@ -91,7 +92,7 @@ class ReadRules(commands.Cog):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
-        if channel.id != 366659034410909717:
+        if channel.id != 601692389052252170:
             return
         iam_memester_regex = re.compile(r'\.?i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
         if iam_memester_regex.match(message.clean_content):
@@ -146,6 +147,17 @@ class ReadRules(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             logger = logging.getLogger("PoutyBot")
             logger.error(traceback.format_exc())
+        except Exception as e: 
+            logger = logging.getLogger("PoutyBot")
+            logger.error("memester check was cancelled", exc_info=1)
+            owner = self.bot.get_user(self.bot.owner_id)
+            await owner.send(f"`check_for_new_memester` failed\n```\n{traceback.format_exc()}\n```")
+
+    @check_for_new_memester.after_loop
+    async def memester_check_error(self):
+        if self.check_for_new_memester.failed():
+            await asyncio.sleep(3600)
+            self.check_for_new_memester.restart()
 
     @commands.Cog.listener(name="on_member_update")
     async def new_memester_assigned(self, before, after):
@@ -168,6 +180,8 @@ class ReadRules(commands.Cog):
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
+            return
+        if before.display_name == after.display_name:
             return
         alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
