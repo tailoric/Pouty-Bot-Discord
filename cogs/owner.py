@@ -1,6 +1,7 @@
 from discord.ext import commands
 from discord import User
 from .utils import checks
+import traceback
 import json
 import subprocess
 import os
@@ -41,7 +42,7 @@ class Owner(commands.Cog):
             self.bot.load_extension('cogs.'+module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
-            await ctx.send('`{}: {}`'.format(type(e).__name__, e))
+            await ctx.send(f'```\n{traceback.format_exc()}\n```')
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
 
@@ -72,7 +73,7 @@ class Owner(commands.Cog):
                 await ctx.send('\N{THUMBS UP SIGN}')
             except Exception as inner_e:
                 await ctx.send('\N{THUMBS DOWN SIGN}')
-                await ctx.send('{}: {}'.format(type(e).__name__, e))
+                await ctx.send(f'```\n{traceback.format_exc()}\n```')
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
 
