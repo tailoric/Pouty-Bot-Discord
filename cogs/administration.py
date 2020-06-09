@@ -533,6 +533,7 @@ class Admin(commands.Cog):
         await self.add_mute_to_mute_list(user.id, unmute_ts)
         await self.check_channel.send(mute_message)
 
+    @commands.has_permissions(manage_roles=True)
     @mute.command(name="cancel")
     async def mute_cancel(self, ctx, user:discord.Member):
         """
