@@ -82,6 +82,8 @@ class Music(commands.Cog):
         """
         if member.id != member.guild.me.id or not after.channel:
             return
+        if member.id == member.guild.me.id and after.channel is None:
+            await self.bot.change_presence(activity=None)
         my_perms = after.channel.permissions_for(member)
         if not after.deaf and my_perms.deafen_members:
             await member.edit(deafen=True)
@@ -94,10 +96,9 @@ class Music(commands.Cog):
         if isinstance(event, lavalink.events.TrackEndEvent):
             if self.skip_votes and guild_id in self.skip_votes.keys():
                 self.skip_votes[guild_id].clear()
-            await self.bot.change_presence(activity=None)
         if isinstance(event, lavalink.events.TrackStartEvent):
             await self.bot.change_presence(
-                    activity=discord.Game(name=event.player.current.title)
+                    activity=discord.Activity(type=discord.ActivityType.listening, name=event.player.current.title)
                     )
         if isinstance(event, lavalink.events.TrackExceptionEvent):
             channel = event.player.fetch('channel')
