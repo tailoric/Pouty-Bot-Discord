@@ -80,10 +80,10 @@ class Music(commands.Cog):
         """
         deafen yourself when joining a voice channel
         """
-        if member.id != member.guild.me.id or not after.channel:
-            return
         if member.id == member.guild.me.id and after.channel is None:
             await self.bot.change_presence(activity=None)
+        if member.id != member.guild.me.id or not after.channel:
+            return
         my_perms = after.channel.permissions_for(member)
         if not after.deaf and my_perms.deafen_members:
             await member.edit(deafen=True)
