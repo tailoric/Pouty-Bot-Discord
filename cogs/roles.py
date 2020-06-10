@@ -18,7 +18,7 @@ class CustomRoleConverter(commands.RoleConverter):
     async def convert(self, ctx, argument):
         argument = argument.strip('"')
         for role in ctx.guild.roles:
-            if argument == role.name.lower():
+            if argument.lower() == role.name.lower():
                 return role
         return await super().convert(ctx, argument)
 
