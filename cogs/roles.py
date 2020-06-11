@@ -145,14 +145,12 @@ class Roles(commands.Cog):
             for role in roles:
                 if role.name == "@everyone":
                     continue
-                member_with_role = [member for member in server.members if role in member.roles]
-                embed.add_field(name=role.name, value="{} Member(s)".format(len(member_with_role)))
+                embed.add_field(name=role.name, value="{} Member(s)".format(len(role.members)))
         else:
             description = await self.fetch_role_description(role.id)
             embed.title = role.name
             embed.color = role.colour
-            member_with_role = [member for member in server.members if role in member.roles]
-            embed.add_field(name="Member Count", value="{} Member(s)".format(len(member_with_role)))
+            embed.add_field(name="Member Count", value="{} Member(s)".format(len(role.members)))
             if description:
                 embed.description = description
         await ctx.send(embed=embed)
