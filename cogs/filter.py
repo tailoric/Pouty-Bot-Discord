@@ -50,21 +50,23 @@ class Filter(commands.Cog):
         if match and (message.channel in self.blacklisted_channels or message.channel.category in self.blacklisted_categories):
             await asyncio.sleep(1)
             await message.delete()
-        contains_nhentai_link = re.compile(r"https?://nhentai\.net/g/(\d+)/")
+        contains_nhentai_link = re.compile(r"https?://nhentai\.net/g/(\d+)")
         matches = contains_nhentai_link.findall(message.content)
-        if matches:
-            for match in matches:
-                _id = int(match)
-                data = await self.call_nhentai_api(_id)
-                for tag in data['tags']:
-                    if tag['name'] in self.banned_tags:
-                        await message.delete()
-                        await message.channel.send(f"{message.author.mention} your link was deleted because it contained"
-                                                   f" a forbidden tag: {tag['name']} (Server Rule 5)")
-                        admin_cog = self.bot.get_cog("Admin")
-                        if admin_cog and admin_cog.check_channel:
-                            await admin_cog.check_channel.send(f"deleted nhentai link by {message.author.mention} "
-                                                                f"because it contained a banned tag: {tag['name']}")
+        for match in matches:
+            data = await self.call_nhentai_api(match)
+            if not data:
+                continue
+            tags = [t['name'] for t in data['tags']]
+            for tag in tags:
+                if tag not in self.banned_tags:
+                    continue
+                await message.delete()
+                await message.channel.send(f"{message.author.mention} your link was deleted because it contained"
+                                           f" a forbidden tag: {tag} (Server Rule 5)")
+                admin_cog = self.bot.get_cog("Admin")
+                if admin_cog and admin_cog.check_channel:
+                    await admin_cog.check_channel.send(f"deleted nhentai link by {message.author.mention} "
+                                                        f"because it contained a banned tag: {tag}")
 
 
     @is_owner_or_moderator()
@@ -119,16 +121,17 @@ class Filter(commands.Cog):
 
     async def check_for_tags(self, message):
         matches = re.findall(r'\b\d{1,6}\b', message)
-        if matches:
-            for match in matches:
-                data = await self.call_nhentai_api(number)
-                if data:
-                    for tag in data['tags']:
-                        if tag['name'] in self.banned_tags:
-                            return True, tag['name']
+        for match in matches:
+            data = await self.call_nhentai_api(match)
+            if not data:
+                continue
+            for tag in data['tags']:
+                if tag['name'] in self.banned_tags:
+                    return True, tag['name']
         return False, None
 
     async def call_nhentai_api(self, id: int):
+        
         url = f"https://nhentai.net/api/gallery/{id}"
         async with self.session.get(url) as response:
             if response.status == 200:
@@ -144,8 +147,8 @@ class Filter(commands.Cog):
             if check_true:
                 await reaction.message.delete()
                 admin_cog = self.bot.get_cog("Admin")
+                await reaction.message.channel.send(f"{reaction.message.author.mention} message deleted because it was an nhentai id with following tag: {tag} (Server rule 5)")
                 if admin_cog and admin_cog.check_channel:
-                    await reaction.message.channel.send(f"{reaction.message.author.mention} message deleted because it was an nhentai id with following tag: {tag} (Server rule 5)")
                     await admin_cog.check_channel.send(f"deleted message by {reaction.message.author.mention} "
                                                         f"because it contained a banned tag: {tag}")
 
