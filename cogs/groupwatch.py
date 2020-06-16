@@ -68,6 +68,8 @@ class GroupWatch(commands.Cog):
         """
         set the endpoint of the groupwatch and upload a text file of the chat log
         """ 
+        if not self.start_message:
+            return await ctx.send("No start message set, use `.gw start`")
         self.groupwatch_channel = ctx.channel
         self.groupwatch_role = find(lambda r: r.name == "Groupwatch", ctx.guild.roles)
         if not self.groupwatch_role:
@@ -82,11 +84,15 @@ class GroupWatch(commands.Cog):
             self.end_message = ctx.message
         async with ctx.typing():
             await self.generate_chatlog(ctx)
+        filename = self.title+".txt" if self.title else None
+        await ctx.send(file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
+        self.title = None
+        self.start_message = None
+        self.end_message = None
 
     async def generate_chatlog(self, ctx):
         with open("data/groupwatch_chatlog.txt", "w+", encoding="utf-8") as f:
             chat_message = await self.generate_file(ctx, f)
-            await self.upload_to_hastebin(ctx, chat_message)
 
     async def get_attachment_links(self, ctx, message):
         attachment_string_format = "\t[attachments: {}]\n" 
