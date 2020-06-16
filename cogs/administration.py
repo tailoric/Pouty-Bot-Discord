@@ -173,7 +173,7 @@ class Admin(commands.Cog):
         search through the ban list for the reason
         """
         bans = await ctx.guild.bans()
-        list_of_matched_entries = list(filter(lambda ban: reason is None or reason.lower() in ban.reason.lower(), bans))
+        list_of_matched_entries = list(filter(lambda ban: reason is None or (ban.reason and reason.lower() in ban.reason.lower()), bans))
         entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
         if len(entries) == 0:
