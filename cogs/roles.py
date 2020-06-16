@@ -156,7 +156,7 @@ class Roles(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.has_permissions(manage_roles=True)
-    @commands.group(name="roles", pass_context=True)
+    @commands.group(name="roles", pass_context=True, aliases=['role'])
     async def roles(self, ctx):
         """
         administrative commands for the roles
