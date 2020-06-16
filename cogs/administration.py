@@ -11,6 +11,7 @@ import typing
 from io import BytesIO
 import asyncio
 import re
+from fuzzywuzzy import fuzz
 from datetime import datetime, timedelta
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
@@ -140,23 +141,49 @@ class Admin(commands.Cog):
             async with conn.transaction():
                 await self.bot.db.execute(query)
 
+    async def send_ban_embed(self, ctx, ban):
+        embed = discord.Embed(title=f"{ban.user.name}#{ban.user.discriminator}", description=ban.reason)
+        embed.add_field(name="Mention", value=ban.user.mention)
+        embed.add_field(name="id", value=ban.user.id)
+        embed.set_thumbnail(url=ban.user.avatar_url)
+        await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.group(invoke_without_command=True)
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     async def banlist(self, ctx, *, username=None):
         """search for user in the ban list"""
         bans = await ctx.guild.bans()
-        list_of_matched_users = []
-        for ban in bans:
-            if username is None or username.lower() in ban.user.name.lower():
-                list_of_matched_users.append(ban)
+        list_of_matched_entries = list(filter(lambda ban: username is None or fuzz.partial_ratio(username.lower(), ban.user.name.lower()) > 80, bans))
+        entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
+        field_pages = paginator.FieldPages(ctx, entries=entries)
+        if len(entries) == 0:
+            await ctx.send("banlist search was empty")
+        elif len(entries) > 1:
+            await field_pages.paginate()
+        else:
+            ban = list_of_matched_entries[0]
+            await self.send_ban_embed(ctx, ban)
 
-        entries = []
-        for ban in list_of_matched_users:
-            entries.append((f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"))
-        text_pages = paginator.FieldPages(ctx, entries=entries)
-        await text_pages.paginate()
+    @commands.guild_only()
+    @banlist.command(name="reason")
+    @commands.has_permissions(ban_members=True)
+    async def banlist_reason(self, ctx, *, reason):
+        """
+        search through the ban list for the reason
+        """
+        bans = await ctx.guild.bans()
+        list_of_matched_entries = list(filter(lambda ban: reason is None or reason.lower() in ban.reason.lower(), bans))
+        entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
+        field_pages = paginator.FieldPages(ctx, entries=entries)
+        if len(entries) == 0:
+            await ctx.send("banlist reason search was empty")
+        elif len(entries) > 1:
+            await field_pages.paginate()
+        else:
+            ban = list_of_matched_entries[0]
+            await self.send_ban_embed(ctx, ban)
+
 
     @commands.has_permissions(manage_messages=True)
     @commands.group(name="cleanup")
