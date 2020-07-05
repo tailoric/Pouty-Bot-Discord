@@ -101,6 +101,10 @@ class GroupWatch(commands.Cog):
             return attachment_string_format.format(','.join(urls)) if urls else ""
         attachment_list = []
         for attach in message.attachments:
+            if attach.size > self.attachments_backlog.guild.filesize_limit:
+                attach.url += "(FILE TOO BIG)" 
+                attachment_list.append(attach)
+                continue
             img = io.BytesIO()
             await attach.save(img)
             reupload = await self.attachments_backlog.send(file=discord.File(img, filename=attach.filename))
