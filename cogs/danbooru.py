@@ -748,7 +748,8 @@ class Danbooru(commands.Cog):
         subscriber = ctx.message.author
         subscriptions_of_user = [sub for sub in self.scheduler.subscriptions if subscriber in sub.users]
         for subscription in subscriptions_of_user:
-            subscription.paused_users.remove(int(subscriber.id))
+            if int(subscriber.id) in subscription.paused_users:
+                subscription.paused_users.remove(int(subscriber.id))
             subscription.write_sub_to_file()
         await ctx.send("unpaused all of your subscriptions")
 
