@@ -79,10 +79,14 @@ class Helper:
             if response.status == 200:
                 json_dump = await response.json()
                 for image in json_dump:
-                    if image['has_large'] and image['file_ext'] == 'zip':
+                    if image.get('has_large', None) and image.get('file_ext', None) == 'zip':
                         image['file_url'] = self.build_url(url, image['large_file_url'])
-                    else:
+                    elif image.get('file_url', None):
                         image['file_url'] = self.build_url(url, image['file_url'])
+                    elif image.get('source', None):
+                        image['file_url'] = image.get('source')
+                    else:
+                        image['file_url'] = f"https://danbooru/donmai.us/posts/{image['id']}"
                 return json_dump
             else:
                 return None
@@ -228,7 +232,7 @@ class Scheduler:
                 message = ('Error during update Task: `{}`\n'
                            'during Sub: `{}`\n'
                            '```\n{}\n```'
-                           .format(repr(e),sub.tags_to_string(),traceback.print_exc()))
+                           .format(repr(e),sub.tags_to_string(),traceback.format_exc()))
                 await owner.send(message)
                 await asyncio.sleep(10)
                 continue
