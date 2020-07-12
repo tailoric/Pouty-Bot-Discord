@@ -653,7 +653,12 @@ class Deathroll(commands.Cog):
             if challenger:
                 if self.payday:
                     money_challenger = await self.payday.fetch_money(challenger.id)
-                    if money_challenger['money'] < game.bet:
+                    if not money_challenger:
+                        await self.payday.add_money(ctx.author.id, game.bet)
+                        self.games.remove(game)
+                        del game
+                        return await ctx.send("The player you challenged doesn't have an account they first need to start one with the `.payday` command")
+                    if not money_challenger or money_challenger['money'] < game.bet:
                         await self.payday.add_money(ctx.author.id, game.bet)
                         self.games.remove(game)
                         del game
