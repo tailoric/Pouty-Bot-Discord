@@ -76,7 +76,7 @@ class ReadRules(commands.Cog):
         self.bot.help_command.cog = self
         self.data_io = DataIO()
         self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
-        self.animemes_guild = self.bot.get_guild(287695136840876032)
+        self.animemes_guild = self.bot.get_guild(187423852224053248)
         self.memester_role = get(self.animemes_guild.roles, name="Memester")
         self.new_memester = get(self.animemes_guild.roles, name="New Memester")
         self.join_log = self.animemes_guild.get_channel(595585060909088774)
@@ -92,7 +92,7 @@ class ReadRules(commands.Cog):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
-        if channel.id != 601692389052252170:
+        if channel.id != 366659034410909717:
             return
         iam_memester_regex = re.compile(r'\.?i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
         if iam_memester_regex.match(message.clean_content):
