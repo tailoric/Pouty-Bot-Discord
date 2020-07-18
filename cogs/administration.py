@@ -554,7 +554,7 @@ class Admin(commands.Cog):
         unmute_ts = datetime.utcnow() + timedelta(seconds=length)
         mute_message = f"user {user.mention} was muted"
         await user.add_roles(self.mute_role)
-        await ctx.send(mute_message)
+        await ctx.send("https://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
         if reason:
             mute_message = f"{mute_message} for the following reason:\n{reason}"
         await self.add_mute_to_mute_list(user.id, unmute_ts)
