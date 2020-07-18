@@ -85,6 +85,8 @@ class Helper:
                         image['file_url'] = self.build_url(url, image['file_url'])
                     elif image.get('source', None):
                         image['file_url'] = image.get('source')
+                    elif image.get('is_deleted', False) or image.get('is_banned', False):
+                        image['file_url'] = None
                     else:
                         image['file_url'] = f"https://danbooru/donmai.us/posts/{image['id']}"
                 return json_dump
@@ -252,6 +254,8 @@ class Scheduler:
         if not images:
             return
         for image in images:
+            if not image['file_url']:
+                continue
             created = parser.parse(image['created_at'])
             if not sub.old_timestamp:
                 sub.old_timestamp = created
