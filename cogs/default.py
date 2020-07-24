@@ -36,7 +36,7 @@ class CustomHelpCommand(DefaultHelpCommand):
         for cog in mapping:
             entry = []
             filtered = await self.filter_commands(mapping.get(cog))
-            if cog is None or len(filtered) == 0 or cog.qualified_name is "Default":
+            if cog is None or len(filtered) == 0 or cog.qualified_name == "Default":
                 continue
             if cog.qualified_name:
                 entry.append(cog.qualified_name)
@@ -119,7 +119,20 @@ class Default(commands.Cog):
         handler = logging.FileHandler(filename='data/dms.log', encoding='utf-8', mode='a')
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.dm_logger.addHandler(handler)
+        self.bot.loop.create_task(self.load_cogs())
 
+    async def load_cogs(self):
+        if hasattr(self.bot, 'extensions_loaded'):
+            return
+        await self.bot.wait_for('ready')
+        init_extensions = self.data_io.load_json("initial_cogs")
+        for extension in init_extensions:
+            try:
+                self.bot.load_extension(extension)
+            except Exception as e:
+                print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
+                continue
+        self.bot.extensions_loaded = True
     def cog_unload(self):
         self.bot.remove_listener(self.on_ready, 'on_ready')
         self.bot.remove_listener(self.on_command_error, "on_command_error")
@@ -133,13 +146,6 @@ class Default(commands.Cog):
         print(self.bot.user.id)
         print(discord.utils.oauth_url(self.credentials['client-id']))
         print('-' * 8)
-        init_extensions = self.data_io.load_json("initial_cogs")
-        for extension in init_extensions:
-            try:
-                self.bot.load_extension(extension)
-            except Exception as e:
-                print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
-                continue
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -148,26 +154,37 @@ class Default(commands.Cog):
             self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
 
     async def on_command_error(self, ctx, error):
-        self.logger.error(error, exc_info=True)
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, BlackListedException):
             return
-        elif isinstance(error, DisabledCommandException):
+        if isinstance(error, commands.CommandOnCooldown):
+            return
+        if isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
-        elif isinstance(error, commands.BadArgument):
+        if isinstance(error, commands.BadArgument):
             await ctx.send(error)
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
+            return
         elif isinstance(error, commands.CommandInvokeError):
             await ctx.send(error.original)
-        elif isinstance(error, commands.CommandOnCooldown):
-            if hasattr(error, "handled"):
-                return
-            await ctx.send(error)
+            error_msg = ""
+            if hasattr(ctx.command, 'name'):
+                error_msg += f"{ctx.command.name} error:\n"
+            error_msg += f"{error}\n"
+            error_msg += f"message jump url: {ctx.message.jump_url}\n"
+            error_msg += f"message content: {ctx.message.content}\n"
+            self.logger.error(error_msg, exc_info=True)
         else:
-            await ctx.send(error)
+            error_msg = ""
+            if hasattr(ctx.command, 'name'):
+                error_msg += f"{ctx.command.name} error:\n"
+            error_msg += f"{error}\n"
+            error_msg += f"message jump url: {ctx.message.jump_url}\n"
+            error_msg += f"message content: {ctx.message.content}\n"
+            self.logger.error(error_msg, exc_info=True)
 
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
