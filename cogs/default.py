@@ -1,12 +1,15 @@
+from .utils import checks
+from .utils import paginator
+from .utils.dataIO import DataIO
+from .utils.exceptions import *
+from discord.ext.commands import DefaultHelpCommand
+from logging.handlers import RotatingFileHandler
 import discord
 import logging
-from .utils.exceptions import *
-from .utils import checks
-from .utils.dataIO import DataIO
-from .utils import paginator
-from discord.ext.commands import DefaultHelpCommand
 import traceback
 
+
+LOG_SIZE = 200 * 1024 * 1024
 
 def levenshtein_distance(user_input: str, command_name: str):
     rows = len(user_input) + 1
@@ -111,7 +114,12 @@ class Default(commands.Cog):
         self.data_io = DataIO()
         self.credentials = self.data_io.load_json("credentials")
         self.logger = logging.getLogger("PoutyBot")
-        handler = logging.FileHandler(filename='data/pouty.log', encoding='utf-8', mode='a')
+        handler = RotatingFileHandler(filename='data/pouty.log',
+                encoding='utf-8',
+                mode='a',
+                maxBytes=LOG_SIZE,
+                backupCount=2
+                )
         handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
         self.logger.addHandler(handler)
         self.dm_logger = logging.getLogger("DMLogger")
@@ -178,6 +186,7 @@ class Default(commands.Cog):
             error_msg += f"message content: {ctx.message.content}\n"
             self.logger.error(error_msg, exc_info=True)
         else:
+            await ctx.send(error)
             error_msg = ""
             if hasattr(ctx.command, 'name'):
                 error_msg += f"{ctx.command.name} error:\n"
