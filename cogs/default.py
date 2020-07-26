@@ -114,19 +114,25 @@ class Default(commands.Cog):
         self.data_io = DataIO()
         self.credentials = self.data_io.load_json("credentials")
         self.logger = logging.getLogger("PoutyBot")
-        handler = RotatingFileHandler(filename='data/pouty.log',
-                encoding='utf-8',
-                mode='a',
-                maxBytes=LOG_SIZE,
-                backupCount=2
-                )
-        handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-        self.logger.addHandler(handler)
+        if not len(self.logger.handlers) > 0:
+            handler = RotatingFileHandler(filename='data/pouty.log',
+                    encoding='utf-8',
+                    mode='a',
+                    maxBytes=LOG_SIZE,
+                    backupCount=2
+                    )
+            handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+            self.logger.addHandler(handler)
         self.dm_logger = logging.getLogger("DMLogger")
-        self.dm_logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(filename='data/dms.log', encoding='utf-8', mode='a')
-        handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-        self.dm_logger.addHandler(handler)
+        if not len(self.dm_logger.handlers) > 0:
+            self.dm_logger.setLevel(logging.INFO)
+            handler = RotatingFileHandler(filename='data/dms.log',
+                    encoding='utf-8',
+                    mode='a', 
+                    maxBytes=LOG_SIZE,
+                    backupCount=2)
+            handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+            self.dm_logger.addHandler(handler)
         self.bot.loop.create_task(self.load_cogs())
 
     async def load_cogs(self):
@@ -141,6 +147,7 @@ class Default(commands.Cog):
                 print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
                 continue
         self.bot.extensions_loaded = True
+
     def cog_unload(self):
         self.bot.remove_listener(self.on_ready, 'on_ready')
         self.bot.remove_listener(self.on_command_error, "on_command_error")
