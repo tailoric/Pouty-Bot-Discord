@@ -552,7 +552,7 @@ class Admin(commands.Cog):
             await ctx.send(error_msg)
             return
         unmute_ts = datetime.utcnow() + timedelta(seconds=length)
-        mute_message = f"user {user.mention} was muted"
+        mute_message = f"user {user.mention} was muted ({amount} {time_unit})"
         await user.add_roles(self.mute_role)
         await ctx.send(f"{user.mention}\nhttps://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
         if reason:
