@@ -87,25 +87,30 @@ class Reddit(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def check_reddit_for_pinned_threads(self):
-        async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
-                                    headers=self.headers) as resp:
-            if resp.status == 200:
-                resp_data = await resp.json()
-                stickied_post = [post['data'] for post in resp_data["data"]["children"] if post['data']["stickied"]]
-                last_posts = await self.fetch_last_stickied_entries()
-                if not last_posts:
+        try:
+            async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
+                                        headers=self.headers) as resp:
+                if resp.status == 200:
+                    resp_data = await resp.json()
+                    stickied_post = [post['data'] for post in resp_data["data"]["children"] if post['data']["stickied"]]
+                    last_posts = await self.fetch_last_stickied_entries()
+                    if not last_posts:
+                        for post in stickied_post:
+                            post_creation = datetime.datetime.utcnow()
+                            await self.insert_post(post["id"], post_creation)
                     for post in stickied_post:
                         post_creation = datetime.datetime.utcnow()
-                        await self.insert_post(post["id"], post_creation)
-                for post in stickied_post:
-                    post_creation = datetime.datetime.utcnow()
-                    if post["id"] not in [p["post_id"] for p in last_posts]:
-                        embed = await self.build_embed_for_stickied_thread(post)
-                        if embed:
-                            sent_message = await self.reddit_channel.send(embed=embed)
-                            await self.insert_post(post["id"], post_creation)
-                            if embed.description == '\u200b':
-                                await self.edit_embed_with_info(post["permalink"], sent_message)
+                        if post["id"] not in [p["post_id"] for p in last_posts]:
+                            embed = await self.build_embed_for_stickied_thread(post)
+                            if embed:
+                                sent_message = await self.reddit_channel.send(embed=embed)
+                                await self.insert_post(post["id"], post_creation)
+                                if embed.description == '\u200b':
+                                    await self.edit_embed_with_info(post["permalink"], sent_message)
+        except Exception as e:
+            logger = logging.getLogger("PoutyBot")
+            logger.error(traceback.format_exc())
+
 
     async def get_stickied_comment(self, post):
         async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
