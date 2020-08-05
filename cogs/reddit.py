@@ -153,6 +153,8 @@ class Reddit(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+        if "subreddit-discussion" in after.channel.name.lower() or 522729174780084225 == after.channel.id:
+            return
         contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)",
                                                 re.MULTILINE)
         match = contains_reddit_link_regex.search(after.content)
@@ -190,6 +192,8 @@ class Reddit(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        if "subreddit-discussion" in message.channel.name.lower() or 522729174780084225 == message.channel.id:
+            return
         contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)",
                                                 re.MULTILINE)
         match = contains_reddit_link_regex.search(message.content)
