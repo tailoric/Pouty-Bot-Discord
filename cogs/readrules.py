@@ -203,6 +203,10 @@ class ReadRules(commands.Cog):
         if self.checkers_channel:
             await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
 
+    @commands.command(name="adduser")
+    async def add_user(self, ctx, user: discord.Member):
+        await user.add_roles(self.new_memester)
+        await self.join_log.send(f"{user.mention} joined the server.")
 
 
 def setup(bot: commands.Bot):
