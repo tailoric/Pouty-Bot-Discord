@@ -144,6 +144,8 @@ class ReadRules(commands.Cog):
                         await member.add_roles(self.memester_role)
                         await member.remove_roles(self.new_memester)
                     await self.remove_user_from_new_list(row["user_id"])
+        except (discord.NotFound):
+            await self.remove_user_from_new_list(row["user_id"])
         except (discord.Forbidden, discord.HTTPException):
             logger = logging.getLogger("PoutyBot")
             logger.error(traceback.format_exc())
