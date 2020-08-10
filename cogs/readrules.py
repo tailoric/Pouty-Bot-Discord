@@ -9,6 +9,7 @@ from random import choice
 import re
 import asyncio
 from .utils.dataIO import DataIO
+from .utils.checks import is_owner_or_moderator
 from cogs.default import CustomHelpCommand
 
 class AnimemesHelpFormat(CustomHelpCommand):
@@ -80,25 +81,74 @@ class ReadRules(commands.Cog):
         self.memester_role = self.animemes_guild.get_role(189594836687519744)
         self.new_memester = self.animemes_guild.get_role(653273427435847702)
         self.join_log = self.animemes_guild.get_channel(595585060909088774)
+        self.rules_channel = self.animemes_guild.get_channel(366659034410909717)
+        self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
         self.bot.loop.create_task(self.init_database())
         self.check_for_new_memester.start()
+        self.limit_reset.start()
+        self.join_limit = 20
+        self.join_counter = 0
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
         self.check_for_new_memester.stop()
+        self.limit_reset.cancel()
+
+
+    @tasks.loop(hours=24)
+    async def limit_reset(self):
+        self.join_counter = 0
+        default_role = self.animemes_guild.default_role
+        overwrite = self.rules_channel.overwrites_for(default_role)
+        overwrite.send_messages = True
+        await self.rules_channel.set_permissions(default_role, overwrite=overwrite)
+
+    @is_owner_or_moderator()
+    @commands.command(name="join_info", aliases=["ji", "joininfo"])
+    async def get_join_info(self, ctx):
+        """
+        get info about how many people have joined and what the limit is
+        """
+        await ctx.send(f"{self.join_counter} users have joined today and the limit is {self.join_limit}")
+
+    @is_owner_or_moderator()
+    @commands.command(name="join_limit", aliases=["jl"])
+    async def set_join_limit(self, ctx, limit: int):
+        """
+        set the join limit for this server if no limit is wanted set it to a negative number
+        """
+        self.join_limit = limit
+        if self.join_limit < 0:
+            self.limit_reset.cancel()
+        elif self.join_limit > 0 and not self.limit_reset.is_running():
+            self.limit_reset.start()
+        await ctx.send(f"limit set to {self.join_limit}")
+
 
     @commands.Cog.listener()
     async def on_message(self, message):
         channel = message.channel
         if message.author.id == self.bot.user.id or not message.guild:
             return
-        if channel.id != 366659034410909717:
+        if channel.id != self.rules_channel.id:
             return
         iam_memester_regex = re.compile(r'\.?i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
         if iam_memester_regex.match(message.clean_content):
             await message.author.add_roles(self.new_memester)
             await message.delete()
             await self.join_log.send(f"{message.author.mention} joined the server.")
+            self.join_counter += 1
+            if self.join_counter >= self.join_limit and self.join_limit > 0:
+                default_role = message.guild.default_role
+                overwrite = message.channel.overwrites_for(default_role)
+                overwrite.send_messages = False
+                await self.rules_channel.set_permissions(default_role, overwrite=overwrite)
+                time_diff = self.limit_reset.next_iteration - datetime.datetime.now(datetime.timezone.utc) 
+                if self.lockdown_channel:
+                    def is_previous_lockdown_message(m):
+                        return "daily join limit was exceeded try again in" in m.content
+                    await self.lockdown_channel.purge(limit=5, check=is_previous_lockdown_message)
+                    await self.lockdown_channel.send(f"daily join limit was exceeded try again in {round(time_diff.seconds / 3600)} hours")
             return
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
