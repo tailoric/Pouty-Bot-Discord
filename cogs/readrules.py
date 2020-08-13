@@ -177,7 +177,11 @@ class ReadRules(commands.Cog):
         start the join timer either now or in x hours
         """
         self.limit_reset.cancel()
-        await asyncio.sleep(when * 3600)
+        if when > 0:
+            await ctx.send(f"join timer will start in {when} hours")
+            await asyncio.sleep(when * 3600)
+        else:
+            await ctx.send("join timer started")
         self.limit_reset.start()
 
     @is_owner_or_moderator()
