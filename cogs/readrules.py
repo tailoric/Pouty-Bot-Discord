@@ -85,9 +85,14 @@ class ReadRules(commands.Cog):
         self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
         self.bot.loop.create_task(self.init_database())
         self.check_for_new_memester.start()
-        self.limit_reset.start()
-        self.join_limit = 20
         self.join_counter = 0
+        self.join_limit = 5
+        self.join_timer = 6
+        with open("config/join_limit_settings.json") as f:
+            settings = json.load(f)
+            self.join_limit = settings["join_limit"]
+            self.join_timer = settings["join_timer"]
+        self.limit_reset.change_interval(hours=self.join_timer)
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
@@ -95,7 +100,7 @@ class ReadRules(commands.Cog):
         self.limit_reset.cancel()
 
 
-    @tasks.loop(hours=24)
+    @tasks.loop(hours=0)
     async def limit_reset(self):
         self.join_counter = 0
         default_role = self.animemes_guild.default_role
@@ -109,21 +114,76 @@ class ReadRules(commands.Cog):
         """
         get info about how many people have joined and what the limit is
         """
-        await ctx.send(f"{self.join_counter} users have joined today and the limit is {self.join_limit}")
+        time_diff = None
+        time_info = ""
+        if self.limit_reset.is_running():
+            time_diff = self.limit_reset.next_iteration - datetime.datetime.now(datetime.timezone.utc) 
+            hours, minutes = divmod(time_diff.seconds, 3600)
+            minutes, seconds = divmod(minutes, 60)
+            time_info = (f"next iteration in {hours} hours and {minutes} minutes")
+        await ctx.send(f"{self.join_counter} users have joined and the limit is {self.join_limit}\n"
+                f"Task running: {self.limit_reset.is_running()} with a cooldown of {self.join_timer} hours {time_info}")
+
 
     @is_owner_or_moderator()
     @commands.command(name="join_limit", aliases=["jl"])
     async def set_join_limit(self, ctx, limit: int):
         """
-        set the join limit for this server if no limit is wanted set it to a negative number
+        set the join limit for this server
         """
+        if self.join_limit < 1:
+            return await ctx.send("please choose a positive number bigger than 0")
         self.join_limit = limit
-        if self.join_limit < 0:
-            self.limit_reset.cancel()
-        elif self.join_limit > 0 and not self.limit_reset.is_running():
-            self.limit_reset.start()
         await ctx.send(f"limit set to {self.join_limit}")
+        with open("config/join_limit_settings.json", "w") as f:
+            settings = {}
+            settings["join_limit"] = self.join_limit
+            settings["join_timer"] = self.join_timer
+            json.dump(settings, f)
 
+    @is_owner_or_moderator()
+    @commands.command(name="join_timer", aliases=["jt", "jset", "jchange"])
+    async def set_join_timer(self, ctx, hours: int, when: int = 0):
+        """
+        set a new join timer and also set in how many hours the task should start
+        example:
+        `.jt 6 8` which will make the task start every 6 hours after waiting 8 hours first
+        """
+        self.join_timer = hours
+        was_running = self.limit_reset.is_running()
+        self.limit_reset.cancel()
+        self.limit_reset.change_interval(hours=hours)
+        with open("config/join_limit_settings.json", "w") as f:
+            settings = {}
+            settings["join_limit"] = self.join_limit
+            settings["join_timer"] = self.join_timer
+            json.dump(settings, f)
+        response = f"join timer cooldown changed to {hours} hours"
+        if when > 0 :
+            response += f" and will start running in {when} hours"
+        await ctx.send(response)
+        if was_running:
+            def is_previous_lockdown_message(m):
+                return "join limit was exceeded try again in" in m.content
+            await self.lockdown_channel.purge(limit=5, check=is_previous_lockdown_message)
+            await self.lockdown_channel.send(f"current join limit was exceeded try again in {when} hours")
+            await asyncio.sleep(when * 3600)
+            self.limit_reset.start()
+
+    @is_owner_or_moderator()
+    @commands.command(name="join_timer_start", aliases=["jstart"])
+    async def start_join_timer(self, ctx, when: int = 0):
+        """
+        start the join timer either now or in x hours
+        """
+        self.limit_reset.cancel()
+        await asyncio.sleep(when * 3600)
+        self.limit_reset.start()
+
+    @is_owner_or_moderator()
+    @commands.command(name="join_timer_stop", aliases=["jstop"])
+    async def stop_join_timer(self, ctx):
+        self.limit_reset.cancel()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -148,7 +208,7 @@ class ReadRules(commands.Cog):
                     def is_previous_lockdown_message(m):
                         return "daily join limit was exceeded try again in" in m.content
                     await self.lockdown_channel.purge(limit=5, check=is_previous_lockdown_message)
-                    await self.lockdown_channel.send(f"daily join limit was exceeded try again in {round(time_diff.seconds / 3600)} hours")
+                    await self.lockdown_channel.send(f"current join limit was exceeded try again in {round(time_diff.seconds / 3600)} hours")
             return
         content = message.content.lower()
         with open("data/rules_channel_phrases.json") as f:
