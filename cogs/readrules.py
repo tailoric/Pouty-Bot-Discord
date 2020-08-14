@@ -165,7 +165,7 @@ class ReadRules(commands.Cog):
         if was_running:
             def is_previous_lockdown_message(m):
                 return "join limit was exceeded try again in" in m.content
-            await self.lockdown_channel.purge(limit=5, check=is_previous_lockdown_message)
+            await self.lockdown_channel.purge(limit=100, check=is_previous_lockdown_message)
             await self.lockdown_channel.send(f"current join limit was exceeded try again in {when} hours")
             await asyncio.sleep(when * 3600)
             self.limit_reset.start()
