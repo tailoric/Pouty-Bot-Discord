@@ -210,7 +210,7 @@ class ReadRules(commands.Cog):
                 time_diff = self.limit_reset.next_iteration - datetime.datetime.now(datetime.timezone.utc) 
                 if self.lockdown_channel:
                     def is_previous_lockdown_message(m):
-                        return "daily join limit was exceeded try again in" in m.content
+                        return "join limit was exceeded try again in" in m.content
                     await self.lockdown_channel.purge(limit=100, check=is_previous_lockdown_message)
                     await self.lockdown_channel.send(f"current join limit was exceeded try again in {round(time_diff.seconds / 3600)} hours")
             return
