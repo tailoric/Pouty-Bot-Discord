@@ -7,9 +7,15 @@ import discord
 from datetime import datetime,timedelta
 import time
 import re
-from typing import Union
+from typing import Union, Optional
 import json
 
+class CustomMemberOrUserConverter(commands.MemberConverter):
+    async def convert(self, ctx, argument):
+        try:
+            return await super().convert(ctx, argument)
+        except (commands.CommandError, commands.BadArgument):
+            return await ctx.bot.fetch_user(argument)
 
 class Userinfo(commands.Cog):
     """show infos about the current or other users"""
@@ -18,28 +24,39 @@ class Userinfo(commands.Cog):
         self.bot.loop.create_task(self.create_name_tables())
 
     @commands.command(pass_context=True)
-    async def userinfo(self,ctx, *, member: Member=None):
+    async def userinfo(self,ctx, *, member: Optional[CustomMemberOrUserConverter]):
         """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
-        join_date = member.joined_at
+        time_fmt = "%d %b %Y %H:%M"
         created_at = member.created_at
+        created_number_of_days_diff = (datetime.utcnow() - created_at).days
+        avatar_url = member.default_avatar_url
+        if member.avatar_url:
+            avatar_url = member.avatar_url
+        if isinstance(member, discord.User):
+            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, member.avatar_url))
+            embed.add_field(name="Joined Discord on",
+                            value="{}\n({} days ago)".format(member.created_at.strftime(time_fmt),
+                                                             created_number_of_days_diff))
+            embed.add_field(name="Mention", value=member.mention)
+            embed.add_field(name="ID", value=member.id)
+            embed.set_thumbnail(url=avatar_url)
+            return await ctx.send(embed=embed)
+        join_date = member.joined_at
         user_color = member.color
         user_roles = member.roles.copy()
-        server = ctx.message.guild
         if member.nick:
             nick = member.nick
         else:
             nick = member.name
-        time_fmt = "%d %b %Y %H:%M"
         joined_number_of_days_diff = (datetime.utcnow() - join_date).days
-        created_number_of_days_diff = (datetime.utcnow() - created_at).days
-        member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
+        member_number = 1
+        if ctx.guild:
+            server = ctx.message.guild
+            member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
         embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar_url), color=user_color)
-        if member.avatar_url:
-            embed.set_thumbnail(url=member.avatar_url)
-        else:
-            embed.set_thumbnail(url=member.default_avatar_url)
+        embed.set_thumbnail(url=avatar_url)
         embed.add_field(name="Joined Discord on",
                         value="{}\n({} days ago)".format(member.created_at.strftime(time_fmt),
                                                         created_number_of_days_diff),
