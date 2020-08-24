@@ -79,6 +79,7 @@ class Admin(commands.Cog):
         ]
         self.bot.loop.create_task(self.create_mute_database())
         self.bot.loop.create_task(self.create_voice_unmute_table())
+        self.bot.loop.create_task(self.create_personal_ban_image_db())
         self.to_unmute = []
 
     def parse_timer(self, timer):
@@ -114,6 +115,49 @@ class Admin(commands.Cog):
             statement = await con.prepare(query)
             async with con.transaction():
                 await statement.fetch(member_id)
+
+    async def create_personal_ban_image_db(self):
+        query = ("""
+        CREATE TABLE IF NOT EXISTS ban_images (
+            img_id SERIAL PRIMARY KEY ,
+            user_id BIGINT,
+            image_link TEXT)
+        """)
+        async with self.bot.db.acquire() as con:
+            async with con.transaction():
+                await self.bot.db.execute(query)
+
+    async def add_ban_image(self, user_id, link):
+        query = """
+        INSERT INTO ban_images (user_id, image_link) VALUES ($1, $2)
+        """
+        async with self.bot.db.acquire() as con:
+            statement = await con.prepare(query)
+            async with con.transaction():
+                return await statement.fetch(user_id, link)
+
+    async def fetch_ban_images(self, user_id):
+        query = """
+        SELECT img_id, user_id, image_link as link
+        FROM ban_images
+        WHERE user_id = $1
+        """
+        async with self.bot.db.acquire() as con:
+            statement = await con.prepare(query)
+            async with con.transaction():
+                return await statement.fetch(user_id)
+
+    async def remove_ban_image(self, user_id, img_id):
+        query = """
+        DELETE FROM ban_images
+        WHERE img_id = $1
+        AND user_id = $2
+        RETURNING image_link
+        """
+        async with self.bot.db.acquire() as con:
+            statement = await con.prepare(query)
+            async with con.transaction():
+                return await statement.fetch(img_id, user_id)
 
     @property
     async def mutes(self):
@@ -400,13 +444,62 @@ class Admin(commands.Cog):
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
             message = "banned {} for the following reason:\n{}".format(mention, reason)
             await self.check_channel.send(message)
-            await ctx.send(self.get_ban_image())
+            await ctx.send(await self.get_ban_image(ctx.author.id))
         except discord.Forbidden:
             await ctx.send("I don't have the permission to ban this user.")
         except discord.HTTPException as httpex:
             await ctx.send(f"HTTP Error {httpex.status}: {httpex.text}")
 
-    def get_ban_image(self):
+    @commands.group(name="banimg", aliases=["pban", "pb", "set_ban_image"])
+    @commands.has_permissions(ban_members=True)
+    async def ban_images(self, ctx):
+        """
+        commands for setting or deleting personalized ban images
+        """
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help(self.ban_images)
+
+    @ban_images.command(name="add")
+    async def ban_images_add(self, ctx, link: typing.Optional[str]):
+        """
+        add a new personalized ban image
+        """
+        ban_image_link = link
+        if not link and not ctx.message.attachments:
+            return await ctx.send("Attach an image to the message or provide a link")
+        if not link:
+            ban_image_link = ctx.message.attachments[0].url
+        await self.add_ban_image(ctx.author.id, ban_image_link)
+        await ctx.send("ban image added")
+
+    @ban_images.command(name="list")
+    async def ban_images_list(self, ctx):
+        """
+        list ban images 
+        """
+        ban_images = await self.fetch_ban_images(ctx.author.id)
+        if not ban_images:
+            return await ctx.send("No ban images set")
+
+        entries = [(f"id: {img['img_id']}", img['link']) for img in ban_images]
+        field_pages = paginator.FieldPages(ctx, entries=entries)
+        await field_pages.paginate()
+
+    @ban_images.command(name="remove", aliases=["delete", "del", "rm"])
+    async def ban_images_remove(self, ctx, img_id:int):
+        """
+        remove personalized ban image by providing the database id (use `.banimg list` for finding it)
+        """
+        remove_img = await self.remove_ban_image(ctx.author.id, img_id)
+        if remove_img:
+            await ctx.send(f"image with link <{remove_img[0]['image_link']}> removed")
+        else:
+            await ctx.send("ban image not found")
+
+    async def get_ban_image(self, user_id):
+        personal_images = await self.fetch_ban_images(user_id)
+        if personal_images:
+            return choice([img["link"] for img in personal_images])
         data_io = DataIO()
         ban_images = data_io.load_json("ban_images")
         return choice(ban_images)
