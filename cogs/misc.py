@@ -981,14 +981,19 @@ class Choose(commands.Cog):
         if not choice.strip("\""):
             choice = '\u200b'
         sent_message = await ctx.send(choice.strip("\""))
-        def check(del_mes):
+        def check_del(del_mes,):
             return del_mes.id == ctx.message.id
+        def check_edit(before, after):
+            return after.id == ctx.message.id
 
-        try:
-            await self.bot.wait_for("message_delete", check=check, timeout=60.0)
+        done, pending = await asyncio.wait([
+            self.bot.wait_for("message_delete", check=check_del),
+            self.bot.wait_for("message_edit", check=check_edit)],
+            return_when=asyncio.FIRST_COMPLETED, timeout=60.0)
+        if done:
             await sent_message.delete()
-        except asyncio.TimeoutError:
-            pass
+        for  future in pending:
+            future.cancel()
 
 
 class EightBall(commands.Cog):
