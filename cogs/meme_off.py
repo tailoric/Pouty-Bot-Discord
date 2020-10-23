@@ -90,7 +90,19 @@ class MemeOff(commands.Cog):
             return await ctx.send("No timer set currently")
         time_diff = self.timer_timestamp - datetime.utcnow()
         minutes, seconds = divmod(time_diff.seconds, 60)
-        await ctx.send(f"{minutes} minutes and {seconds} seconds left")
+        hours, minutes = divmod(minutes, 60)
+        days = time_diff.days
+        message = ""
+        if days:
+            message += f"{days} day{'s' if days > 1 else ''} "
+        if hours:
+            message += f"{hours} hour{'s' if hours > 1 else ''} "
+        if minutes:
+            message += f"{minutes} minute{'s' if minutes > 1 else ''} "
+        if seconds:
+            message += f"and {seconds} second{'s' if seconds > 1 else ''} "
+        message += "left"
+        await ctx.send(message)
 
     @commands.guild_only()
     @meme_off.command(name="cancel")
