@@ -56,7 +56,7 @@ class TraceMoe:
             return base64.b64encode(image_save.getvalue()).decode('ascii')
         elif im_size > max_size:
             divisor = im_size / max_size
-            new_width = int(image.size[0] // divisor)
+            new_width = int(image.size[0] // 2)
             wpercent = (new_width / float(image.size[0]))
             new_height = int(float(image.size[1]) * float(wpercent))
             img = image.resize((new_width, new_height), Image.ANTIALIAS)

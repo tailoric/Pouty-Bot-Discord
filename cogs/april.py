@@ -10,7 +10,7 @@ class April(commands.Cog):
         self.bot = bot
         self.bucket = commands.CooldownMapping.from_cooldown(
                 1,
-                60,
+                60 * 15,
                 commands.BucketType.channel)
 
     async def uwuify_name(self, username: str):

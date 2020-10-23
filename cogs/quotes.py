@@ -5,6 +5,7 @@ import discord
 from .utils.paginator import TextPages
 from typing import Optional
 from random import randint, choice
+from .utils.checks import channel_only
 
 class Quotes(commands.Cog):
     """Save and get random quotes provided and added by the users"""
@@ -56,6 +57,7 @@ class Quotes(commands.Cog):
                 return await stmt.fetch(member_id)
 
     @commands.command(usage="**quoted text** - user, 20XX (for adding quote)\n.quote [number] (for specific quote)\n.quote (for random quote)")
+    @channel_only(208765039727869954,191536772352573440,336912585960194048,336378555300577281)
     async def quote(self, ctx, number: Optional[int], *, quote: Optional[commands.clean_content]):
         """add a quote by writing it down or get a random or specific quote """
         quotes = await self.fetch_quotes()
@@ -73,6 +75,9 @@ class Quotes(commands.Cog):
             quote = choice(quotes)
             await ctx.send(f"{quote['number']}) {quote['text']}")
         else:
+            if not ctx.guild or ctx.guild.id != 336378555300577281:
+                await ctx.send("Adding quotes not possible anymore")            
+                return
             if number:
                 quote = str(number) + quote
             new_quote_number = await self.add_quote(quote, ctx.author.id)
