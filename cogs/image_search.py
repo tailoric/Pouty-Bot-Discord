@@ -1,5 +1,4 @@
 from email.mime import base
-
 from discord.ext import commands
 import discord
 import aiohttp
@@ -20,6 +19,35 @@ import typing
 import subprocess
 import importlib
 import logging
+
+
+class SauceNaoResult:
+    def __init__(self, result):
+        self.header = result['header']
+        self.data = result['data']
+        self.similarity = float(self.header.get('similarity'))
+        self.source_url = self.data.get('ext_urls')[0]
+        self.title = self.data.get('source')
+        self.thumbnail = self.header.get('thumbnail')
+        self.est_time = None
+        self.is_anime = False
+        self.is_manga = False
+        if self.header['index_id'] == 37:
+            self.is_manga = True
+            self.chapter = self.data.get('part')
+            self.chapter = self.chapter[self.chapter.find('Chapter')+8:]
+            self.artist = self.data.get('artist')
+            self.author = self.data.get('author')
+        elif self.header['index_id'] == 21:
+            self.is_anime = True
+            self.est_time = self.data.get('est_time')
+            self.episode = self.data.get('part')
+            self.year = self.data.get('year')
+            self.year = self.data.get('year')
+        else:
+            self.source_url = self.data.get('source')
+            if self.source_url is None:
+                self.title = self.data.get('ext_urls')[0]
 
 
 class TraceMoe:
@@ -202,18 +230,33 @@ class Search(commands.Cog):
                 similarity = link if link is not None else similarity
             else:
                 url = link
-            async with self.sauce_session.get('http://saucenao.com/search.php?url={}'.format(url)) as response:
+            search_url = 'http://saucenao.com/search.php'.format(url)
+            saucenao_url = 'http://saucenao.com/search.php'
+            params = {
+                    'url': url,
+                    'output_type': 2,
+                    'hide': 2
+                    }
+            async with self.sauce_session.get(url=saucenao_url, params=params) as response:
                 source = None
                 if response.status == 200:
-                    soup = BeautifulSoup(await response.text(), 'html.parser')
-                    for result in soup.select('.resulttablecontent'):
-                        if float(similarity) > float(result.select('.resultsimilarityinfo')[0].contents[0][:-1]):
+                    for result in (await response.json())['results']:
+                        if float(similarity) > float(result['header']['similarity']):
                             break
                         else:
-                            if result.select('a'):
-                                source = result.select('a')[0]['href']
-                                await ctx.send('<{}>'.format(source))
-                                return
+                            sn_result = SauceNaoResult(result)
+                            embed = discord.Embed(title=sn_result.title, description=f"Source found via [saucenao]({search_url})")
+                            embed.url = sn_result.source_url
+                            embed.set_thumbnail(url=sn_result.thumbnail)
+                            if sn_result.is_anime:
+                                embed.add_field(name="Episode", value=sn_result.episode)
+                                embed.add_field(name="Est. Time", value=sn_result.est_time)
+                                embed.add_field(name="Year", value=sn_result.year)
+                            if sn_result.is_manga:
+                                embed.add_field(name="Chapter", value=sn_result.chapter)
+                                embed.add_field(name="Author", value=sn_result.author)
+                                embed.add_field(name="Artist", value=sn_result.artist)
+                            return await ctx.send(embed=embed)
                     if source is None:
                         await ctx.send('No source over the similarity threshold')
 
