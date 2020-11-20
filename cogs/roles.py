@@ -10,6 +10,7 @@ from .utils.checks import channel_only
 from .utils.paginator import FieldPages
 import typing
 import re
+from random import randint
 
 class CustomRoleConverter(commands.RoleConverter):
     """
@@ -114,6 +115,9 @@ class Roles(commands.Cog):
         try:
             member = ctx.message.author
             await member.remove_roles(role)
+            chance = randint(0,100)
+            if chance >= 90 and "horny" in role.name.lower():
+                await ctx.send("https://youtu.be/rlhRQiVeQPY")
             await ctx.send("removed your role: %s " % role.name)
         except discord.Forbidden as fb:
             await ctx.send("You either don't have that role or I am not allowed to remove it")
