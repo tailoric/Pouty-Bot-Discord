@@ -15,6 +15,7 @@ from fuzzywuzzy import fuzz
 from datetime import datetime, timedelta
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
+mention_regex = re.compile('(<@!?)?(\d{17,})>?')
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -201,7 +202,11 @@ class Admin(commands.Cog):
     async def banlist(self, ctx, *, username=None):
         """search for user in the ban list"""
         bans = await ctx.guild.bans()
-        list_of_matched_entries = list(filter(lambda ban: username is None or fuzz.partial_ratio(username.lower(), ban.user.name.lower()) > 80, bans))
+        match = mention_regex.match(username)
+        if match and match.group(2):
+            list_of_matched_entries = list(filter(lambda ban: int(match.group(2)) == ban.user.id, bans))
+        else:
+            list_of_matched_entries = list(filter(lambda ban: username is None or fuzz.partial_ratio(username.lower(), ban.user.name.lower()) > 80, bans))
         entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
         if len(entries) == 0:
