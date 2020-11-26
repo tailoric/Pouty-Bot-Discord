@@ -31,7 +31,10 @@ class SnowflakeUserConverter(commands.MemberConverter):
             pattern = re.compile('(<@!?)?(\d{17,})>?')
             match = pattern.match(argument)
             if match and match.group(2):
-                return discord.Object(int(match.group(2)))
+                try:
+                    return await ctx.bot.fetch_user(int(match.group(2)))
+                except (discord.Forbidden, discord.HTTPException):
+                    return discord.Object(int(match.group(2)))
             raise commands.BadArgument("Please provide a user mention or a user id when user already left the server")
 
 
@@ -442,8 +445,12 @@ class Admin(commands.Cog):
             else:
                 await ctx.guild.ban(user=member, delete_message_days=0, reason=reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
-            message = "banned {} for the following reason:\n{}".format(mention, reason)
-            await self.check_channel.send(message)
+            embed = discord.Embed(title="Ban", description=f"**{mention} banned for the following reason:**\n{reason}")
+            embed.add_field(name="Username", value=member.name)
+            embed.add_field(name="User-ID", value=member.id)
+            embed.add_field(name="By Moderator", value=ctx.author.mention)
+            embed.add_field(name="Ban message", value=f"[jump url]({ctx.message.jump_url})", inline=False)
+            await self.check_channel.send(embed=embed)
             await ctx.send(await self.get_ban_image(ctx.author.id))
         except discord.Forbidden:
             await ctx.send("I don't have the permission to ban this user.")
