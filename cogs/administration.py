@@ -446,7 +446,8 @@ class Admin(commands.Cog):
                 await ctx.guild.ban(user=member, delete_message_days=0, reason=reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
             embed = discord.Embed(title="Ban", description=f"**{mention} banned for the following reason:**\n{reason}")
-            embed.add_field(name="Username", value=member.name)
+            if hasattr(member, 'name'):
+                embed.add_field(name="Username", value=member.name)
             embed.add_field(name="User-ID", value=member.id)
             embed.add_field(name="By Moderator", value=ctx.author.mention)
             embed.add_field(name="Ban message", value=f"[jump url]({ctx.message.jump_url})", inline=False)
