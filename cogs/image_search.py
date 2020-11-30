@@ -172,6 +172,7 @@ class Search(commands.Cog):
                 url = link
             else:
                 url = file[0]['proxy_url']
+            url = url.strip("<>|")
             async with self.iqdb_session.post(url='https://iqdb.org', data={'url': url}) as response:
                 if response.status == 200:
                     soup = BeautifulSoup(await response.text(), 'html.parser')
@@ -230,8 +231,9 @@ class Search(commands.Cog):
                 similarity = link if link is not None else similarity
             else:
                 url = link
-            search_url = 'http://saucenao.com/search.php'.format(url)
-            saucenao_url = 'http://saucenao.com/search.php'
+            url = url.strip("<>|")
+            saucenao_url = 'https://saucenao.com/search.php'
+            search_url = '{}?url={}'.format(saucenao_url,url)
             params = {
                     'url': url,
                     'output_type': 2,
@@ -341,7 +343,7 @@ class Search(commands.Cog):
         await ctx.send("<https://lmgtfy.com/?q={}>".format(search))
 
     @commands.command(name="trace", aliases=["whatanime", "find_anime"])
-    @commands.cooldown(rate=1,per=60,type=commands.BucketType.user)
+    @commands.cooldown(rate=2,per=60,type=commands.BucketType.user)
     async def trace_moe(self, ctx, similarity: typing.Optional[int] = 85,link: typing.Optional[str] = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
@@ -353,6 +355,7 @@ class Search(commands.Cog):
             await ctx.send("please add an image link or invoke with an image attached")
             return
         image_link = link if link is not None else ctx.message.attachments[0].url
+        image_link = image_link.strip("<>|")
         image = await TraceMoe.get_frame(image_link, self.sauce_session)
         if image:
             im = Image.open(image)
@@ -380,6 +383,11 @@ class Search(commands.Cog):
             await ctx.send("Could not detect filetype, be sure to use actual media files"
                            "\n(for imgur please use the .gif instead of gifv)")
 
+
+    @trace_moe.error
+    async def trace_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(error)
 
     def build_embed_for_trace_moe(self, first_result):
         embed = discord.Embed(colour=discord.Colour(0xa4815f),
