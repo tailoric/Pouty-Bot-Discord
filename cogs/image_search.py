@@ -171,7 +171,7 @@ class Search(commands.Cog):
             if link:
                 url = link
             else:
-                url = file[0]['proxy_url']
+                url = file[0].url
             url = url.strip("<>|")
             async with self.iqdb_session.post(url='https://iqdb.org', data={'url': url}) as response:
                 if response.status == 200:
@@ -192,7 +192,7 @@ class Search(commands.Cog):
                             danbooru_found = True
                             danbooru = 'http:'+source
                             characters, artist, franchise, source_url = await self._danbooru_api(ctx, danbooru)
-                            embed = discord.Embed(colour=discord.Colour(0xa4815f), description="Source found via [iqdb](https://iqdb.org/)")
+                            embed = discord.Embed(colour=discord.Colour(0xa4815f), description=f"Source found via [iqdb](https://iqdb.org/?url={url})")
 
                             embed.set_thumbnail(url=url)
 
