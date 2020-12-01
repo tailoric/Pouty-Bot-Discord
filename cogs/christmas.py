@@ -54,6 +54,19 @@ class Christmas(commands.Cog):
         return role_red, role_green
 
     @checks.channel_only(191536772352573440, 390617633147453444)
+    @commands.command(name="grinch")
+    async def leave_christmas_role(self, ctx):
+        """
+        remove your christmas role
+        """
+        christmas_role = next(filter(lambda r: r == self.green_role or r == self.red_role, ctx.author.roles), None)
+        if christmas_role:
+            await ctx.author.remove_roles(christmas_role)
+            await ctx.send("removed your christmas role")
+        else:
+            await ctx.send("You don't have any christmas roles")
+    
+    @checks.channel_only(191536772352573440, 390617633147453444)
     @commands.command(name="padoru")
     async def join_padoru(self, ctx):
         """
