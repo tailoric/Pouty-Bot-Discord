@@ -162,7 +162,7 @@ class Search(commands.Cog):
     def _tag_to_title(self, tag):
         return tag.replace(' ', '\n').replace('_', ' ').title()
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def iqdb(self, ctx, link=None):
         """Search IQDB for source of an image on danbooru
         if no danbooru link is found it returns the best match
@@ -220,7 +220,7 @@ class Search(commands.Cog):
                     if not danbooru_found:
                         await ctx.send('<{}>'.format(best_match))
 
-    @commands.command(pass_context=True)
+    @commands.command(aliases=["source","saucenao"])
     async def sauce(self, ctx, link=None, similarity=80):
         """
        reverse image search via saucenao
@@ -270,7 +270,7 @@ class Search(commands.Cog):
                     if source is None:
                         await ctx.send('No source over the similarity threshold')
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def tineye(self, ctx, link=None):
         """
         reverse image search using tineye
