@@ -49,6 +49,12 @@ class SauceNaoResult:
             if self.source_url is None:
                 self.title = self.data.get('ext_urls')[0]
 
+    def get(self, property_name, default=u'\u200b'):
+        attribute = getattr(self, property_name)
+        if attribute:
+            return attribute
+        else:
+            return default
 
 class TraceMoe:
 
@@ -248,16 +254,18 @@ class Search(commands.Cog):
                         else:
                             sn_result = SauceNaoResult(result)
                             embed = discord.Embed(title=sn_result.title, description=f"Source found via [saucenao]({search_url})")
-                            embed.url = sn_result.source_url
-                            embed.set_thumbnail(url=sn_result.thumbnail)
+                            if sn_result.source_url:
+                                embed.url = sn_result.source_url
+                            if sn_result.thumbnail:
+                                embed.set_thumbnail(url=sn_result.thumbnail)
                             if sn_result.is_anime:
-                                embed.add_field(name="Episode", value=sn_result.episode)
-                                embed.add_field(name="Est. Time", value=sn_result.est_time)
-                                embed.add_field(name="Year", value=sn_result.year)
+                                embed.add_field(name="Episode", value=sn_result.get('episode'))
+                                embed.add_field(name="Est. Time", value=sn_result.get('est_time'))
+                                embed.add_field(name="Year", value=sn_result.get('year'))
                             if sn_result.is_manga:
-                                embed.add_field(name="Chapter", value=sn_result.chapter)
-                                embed.add_field(name="Author", value=sn_result.author)
-                                embed.add_field(name="Artist", value=sn_result.artist)
+                                embed.add_field(name="Chapter", value=sn_result.get('chapter'))
+                                embed.add_field(name="Author", value=sn_result.get('author'))
+                                embed.add_field(name="Artist", value=sn_result.get('artist'))
                             return await ctx.send(embed=embed)
                     if source is None:
                         await ctx.send('No source over the similarity threshold')
