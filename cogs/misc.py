@@ -1,5 +1,5 @@
 """
-this cog is provided by
+this cog is partially provided by
 https://github.com/Twentysix26/26-Cogs/tree/master/remindme
 which has the following license:
 
@@ -848,7 +848,6 @@ class RemindMe(commands.Cog):
         Example:
         `.remindme "3 days" Have sushi with Asu and JennJenn`
         """
-        author = ctx.message.author
         end_timestamp = self.parse_timer(timer)
         if not end_timestamp: 
             return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
@@ -869,7 +868,6 @@ class RemindMe(commands.Cog):
         posts an open reminder later into the channel
         example: `.reminder "1 minute" turn off the stove`
         """
-        author = ctx.message.author
         end_timestamp = self.parse_timer(timer)
         if not end_timestamp: 
             return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
@@ -1045,18 +1043,34 @@ class Emoji(commands.Cog):
     get image link of unicode emoji or a custom emote
     """
     def __init__(self, bot: commands.Bot):
+        self.custom_emote_regex = re.compile(r"<(?P<animated>a)?:(?P<name>\w+):(?P<id>\d+)>")
         self.bot = bot
 
     @commands.command()
-    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], emoji=None):
+    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], message: typing.Optional[discord.Message], emoji=None):
         """
-        displays a custom emote as an image in chat
+        displays a custom emote as an image in chat or 
+        try to find custom emote from a provided message link
         """
         if emote:
             embed = discord.Embed(title=emote.name, url=str(emote.url))
             embed.set_image(url=emote.url)
             await ctx.send(embed=embed)
             return
+        if message:
+            match = re.search(self.custom_emote_regex, message.content)
+            if match and match.group("id"):
+                emote_url = f"https://cdn.discordapp.com/emojis/{match.group('id')}"
+                if match.group("animated"):
+                    emote_url += ".gif"
+                else:
+                    emote_url += ".png"
+                embed = discord.Embed(title=match.group("name"), url=emote_url)
+                embed.set_image(url=emote_url)
+                return await ctx.send(embed=embed)
+            else:
+                await ctx.send("could not find a custom emote in the provided message")
+                return
         if emoji:
             to_run = partial(Emojipedia.search, emoji)
             try:
