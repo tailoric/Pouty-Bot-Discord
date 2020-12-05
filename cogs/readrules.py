@@ -247,6 +247,17 @@ class ReadRules(commands.Cog):
                 await channel.send(choice(phrases["channel"]))
                 return
 
+    async def fetch_member_via_api(self, user_id):
+        """
+        for fetching the user via the api if the member may not be in the cache
+        """
+        try:
+            return await self.animemes_guild.fetch_member(user_id)
+        except Exception as e:
+            logger = logging.getLogger("PoutyBot")
+            logger.warning(f"Could not fetch user with user id {user_id}")
+            return None
+
     @tasks.loop(minutes=1)
     async def check_for_new_memester(self):
         rows = await self.fetch_new_memesters()
@@ -254,6 +265,8 @@ class ReadRules(commands.Cog):
             for row in rows:
                 if row["time_over"] < datetime.datetime.utcnow():
                     member = self.animemes_guild.get_member(row["user_id"])
+                    if member is None:
+                        member = await self.fetch_member_via_api(row["user_id"])
                     if member:
                         await member.add_roles(self.memester_role)
                         await member.remove_roles(self.new_memester)
@@ -267,7 +280,13 @@ class ReadRules(commands.Cog):
             logger = logging.getLogger("PoutyBot")
             logger.error("memester check was cancelled", exc_info=1)
             owner = self.bot.get_user(self.bot.owner_id)
-            await owner.send(f"`check_for_new_memester` failed\n```\n{traceback.format_exc()}\n```")
+            lines = traceback.format_exc().splitlines()
+            paginator = commands.Paginator()
+            paginator.add_line("check_for_new_memester failed")
+            for line in lines:
+                paginator.add_line(line)
+            for page in paginator.pages:
+                await owner.send(page)
 
     @check_for_new_memester.after_loop
     async def memester_check_error(self):
