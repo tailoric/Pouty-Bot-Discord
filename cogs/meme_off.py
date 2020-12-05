@@ -154,6 +154,8 @@ class MemeOff(commands.Cog):
             self.bot.submitted_templates[ctx.author.id] = template_submission
             await ctx.send("template successfully submitted")
         elif link:
+            if not link.startswith("http"):
+                return await ctx.send("please provide a link")
             template_submission = self.bot.submitted_templates.get(ctx.author.id, None)
             if not template_submission:
                 template_submission = TemplateSubmission(ctx.author.id)
@@ -177,14 +179,20 @@ class MemeOff(commands.Cog):
             random.shuffle(self.template_order)
         submission = self.bot.submitted_templates[self.template_order.pop()]
         template = submission.get_template()
+        if template and not template.startswith("http"):
+            template = None
         while not template:
             if len(self.template_order) == 0:
                 break
             submission = self.bot.submitted_templates[self.template_order.pop()]
             template = submission.get_template()
+            if not template.startswith("http"):
+                template = None
         if not template:
             return await ctx.send("no templates left")
-        self.bot.pinned_template = await ctx.send(f"Template for this round from <@{submission.user_id}> is:\n{template}")
+        embed = discord.Embed(title="Meme Off Template", description=f"Template for this round from <@{submission.user_id}> is", url=template)
+        embed.set_image(url=template)
+        self.bot.pinned_template = await ctx.send(embed=embed)
         await self.bot.pinned_template.pin()
         self.bot.pinned_by = ctx.author
 
