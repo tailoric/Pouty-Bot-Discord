@@ -36,25 +36,37 @@ class Owner(commands.Cog):
     #
     @commands.command(hidden=True)
     @checks.is_owner_or_moderator()
-    async def load(self, ctx, *, module: str):
+    async def load(self, ctx, module: str, with_prefix=True):
         """Loads a module"""
         try:
-            self.bot.load_extension('cogs.'+module)
+            if with_prefix:
+                self.bot.load_extension('cogs.'+module)
+            else:
+                self.bot.load_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
-            await ctx.send(f'```\n{traceback.format_exc()}\n```')
+            paginator = commands.Paginator()
+            trace = traceback.format_exc()
+            trace = trace.split("\n")
+            for line in trace:
+                paginator.add_line(line)
+            for page in paginator.pages:
+                await ctx.send(page)
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
 
     @commands.command(hidden=True)
     @checks.is_owner_or_moderator()
-    async def unload(self, ctx, *, module:str):
+    async def unload(self, ctx, module:str, with_prefix=True):
         """Unloads a module"""
         if module == "owner" or module == "default":
             await ctx.send("This cog cannot be unloaded")
             return
         try:
-            self.bot.unload_extension('cogs.'+module)
+            if with_prefix:
+                self.bot.unload_extension('cogs.'+module)
+            else:
+                self.bot.unload_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
             await ctx.send('`{}: {}`'.format(type(e).__name__, e))
@@ -63,17 +75,27 @@ class Owner(commands.Cog):
 
     @commands.command(name='reload', hidden=True)
     @checks.is_owner_or_moderator()
-    async def _reload(self, ctx, *, module : str):
+    async def _reload(self, ctx, module : str, with_prefix=True):
         """Reloads a module."""
         try:
-            self.bot.reload_extension('cogs.'+module)
+            if with_prefix:
+                self.bot.reload_extension('cogs.'+module)
+            else:
+                self.bot.reload_extension(module)
         except Exception as e:
             try:
                 self.bot.load_extension('cogs.'+module)
                 await ctx.send('\N{THUMBS UP SIGN}')
             except Exception as inner_e:
                 await ctx.send('\N{THUMBS DOWN SIGN}')
-                await ctx.send(f'```\n{traceback.format_exc()}\n```')
+
+                paginator = commands.Paginator()
+                trace = traceback.format_exc()
+                trace = trace.split("\n")
+                for line in trace:
+                    paginator.add_line(line)
+                for page in paginator.pages:
+                    await ctx.send(page)
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
 
