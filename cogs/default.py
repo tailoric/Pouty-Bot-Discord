@@ -95,7 +95,7 @@ class CustomHelpCommand(DefaultHelpCommand):
             embed.add_field(name="usage", value=group.usage, inline=False)
         if group.commands:
             embed.add_field(name="Commands", value=f"\n"
-                            .join([f"{command.qualified_name}: {command.short_doc}" for command in group.commands]),
+                            .join([f"`{self.clean_prefix}{command.qualified_name}`: {command.short_doc}" for command in group.commands]),
                             inline=False)
         await self.get_destination().send(embed=embed)
 
