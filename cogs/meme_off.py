@@ -186,7 +186,7 @@ class MemeOff(commands.Cog):
                 break
             submission = self.bot.submitted_templates[self.template_order.pop()]
             template = submission.get_template()
-            if not template.startswith("http"):
+            if template and not template.startswith("http"):
                 template = None
         if not template:
             return await ctx.send("no templates left")
