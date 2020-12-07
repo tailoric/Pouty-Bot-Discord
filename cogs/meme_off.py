@@ -89,8 +89,11 @@ class MemeOff(commands.Cog):
             round_duration = round_duration[:-1]
         time_units = {"hour": 3600, "minute": 60, "second": 1}
         amount, unit = round_duration.split(" ")
+        amount = int(amount)
         if amount < 0: 
             return await ctx.send("Only positive values allowed")
+        if amount * time_units[unit] > 604800:
+            return await ctx.send("Number too the countdown can go for 7 days max")
         if unit not in time_units.keys():
             return await ctx.send(f"No valid time unit the only available units are:\n{', '.join(time_units.keys())}")
         delay = int(amount) * time_units[unit]
