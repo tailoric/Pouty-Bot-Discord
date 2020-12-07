@@ -199,7 +199,7 @@ class FriendCodes(commands.Cog):
         await ctx.send("code removed")
 
     @friend_codes.group(name="grand_order", aliases=["go"], invoke_without_command=True)
-    async def grand_order_code(self, ctx, grand_order: GrandOrderCode):
+    async def grand_order_code(self, ctx, *,grand_order: GrandOrderCode):
         """
         for adding/overwriting your GrandOrder user id
         """
