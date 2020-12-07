@@ -52,7 +52,7 @@ class MemeOff(commands.Cog):
         """
         message_parts = ctx.message.content.split()
         if len(message_parts) > 1 and ctx.invoked_subcommand is None:
-            return await ctx.send(f"No subcommand `{message_parts[1]}` found use `{ctx.prefix}mo help` for more help")
+            return await ctx.send(f"No subcommand `{message_parts[1]}` found, use `{ctx.prefix}mo help` for more help.")
 
     @meme_off.command(name="help")
     async def meme_off_help(self, ctx):
