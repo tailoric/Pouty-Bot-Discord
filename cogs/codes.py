@@ -5,10 +5,10 @@ import re
 
 nintendo_fc_regex = re.compile(r'^(SW)?[- ]?\d{4}[- ]\d{4}[- ]\d{4}$')
 slippi_code_regex = re.compile(r'^[A-Z]{2,4}#\d{3}$')
+grand_order_regex = re.compile(r'^\d{3}[, ]\d{3}[, ]\d{3}$')
 class NintendoCode(commands.Converter):
     async def convert(self, ctx, argument):
         match = nintendo_fc_regex.match(argument)
-        print(match)
         if match:
             return match.group(0)
         raise commands.BadArgument('Please provide a valid Friend Code.')
@@ -20,10 +20,28 @@ class slippiCode(commands.Converter):
             return match.group(0)
         raise commands.BadArgument('Please provide a valid Slippi Code.')
 
+class GrandOrderCode(commands.Converter):
+    async def convert(self, ctx, argument):
+        match = grand_order_regex.match(argument)
+        if match:
+            return match.group(0)
+        raise commands.BadArgument('Please provide a valid GrandOrder user id.')
+
 class FriendCodes(commands.Cog):
     """
     Cog for handling friend codes (supports slippi and nintendo codes)
     """
+    def __init__(self, bot):
+        self.bot = bot
+        self.bot.loop.create_task(self.build_friend_code_table())
+        self.bot.loop.create_task(self.migrations())
+    async def migrations(self):
+        query = '''
+         ALTER TABLE friend_codes ADD COLUMN IF NOT EXISTS grand_order VARCHAR(12)
+         '''
+        async with self.bot.db.acquire() as con:
+            async with con.transaction():
+                await self.bot.db.execute(query)
     async def build_friend_code_table(self):
         query = '''
             CREATE TABLE IF NOT EXISTS friend_codes(
@@ -38,7 +56,8 @@ class FriendCodes(commands.Cog):
 
     async def fetch_codes(self, user_id):
         query = '''
-        SELECT user_id, nintendo_code, slippi_code from friend_codes
+        SELECT *
+        FROM friend_codes
         WHERE user_id = $1
         '''
         return await self.bot.db.fetchrow(query, user_id)
@@ -68,6 +87,31 @@ class FriendCodes(commands.Cog):
                 async with connection.transaction():
                     return await statement.fetch(user_id, slippi_code)
 
+    async def update_grand_order(self, user_id, grand_order):
+        fetch_query = '''
+            SELECT user_id 
+            FROM friend_codes 
+            WHERE user_id = $1
+        '''
+        update_query = '''
+            UPDATE friend_codes 
+            SET grand_order = $2
+            WHERE user_id = $1
+        '''
+        insert_query = '''
+            INSERT INTO friend_codes (user_id, grand_order) 
+            VALUES ($1, $2)
+        '''
+        result = await self.bot.db.fetchval(fetch_query, user_id)
+        async with self.bot.db.acquire() as connection:
+            if result:
+                statement = await connection.prepare(update_query)
+                async with connection.transaction():
+                    return await statement.fetch(user_id, grand_order)
+            else:
+                statement = await connection.prepare(insert_query)
+                async with connection.transaction():
+                    return await statement.fetch(user_id, grand_order)
     async def update_nintendo_code(self, user_id, nintendo_code):
         fetch_query = '''
             SELECT user_id 
@@ -94,9 +138,6 @@ class FriendCodes(commands.Cog):
                 async with connection.transaction():
                     return await statement.fetch(user_id, nintendo_code)
 
-    def __init__(self, bot):
-        self.bot = bot
-        self.bot.loop.create_task(self.build_friend_code_table())
         
     @commands.group(name="friend-codes", aliases=["fc", "friendc"])
     async def friend_codes(self, ctx, user: Optional[discord.Member]):
@@ -112,14 +153,10 @@ class FriendCodes(commands.Cog):
             if not row:
                 return await ctx.send(no_code_message)
             embed = discord.Embed(title=user.display_name, colour=user.colour)
-            nintendo_code = row.get('nintendo_code', None)
-            if nintendo_code:
-                embed.add_field(name="Nintendo Friend Code", value=nintendo_code)
-            slippi_code = row.get('slippi_code', None)
-            if slippi_code:
-                embed.add_field(name="Slippi Code", value=slippi_code)
-            if not slippi_code and not nintendo_code:
-                return await ctx.send(no_code_message)
+            for k,v in row.items():
+                if k != "user_id" and row.get(k, None):
+                    embed.add_field(name=k.replace("_"," ").title(),value=row[k], inline=False)
+
             embed.set_thumbnail(url=user.avatar_url_as())
             return await ctx.send(embed=embed)
         if len(message_parts) > 1 and ctx.invoked_subcommand is None:
@@ -159,6 +196,25 @@ class FriendCodes(commands.Cog):
         remove your slippi code
         """
         await self.update_slippi_code(ctx.author.id, None)
+        await ctx.send("code removed")
+
+    @friend_codes.group(name="grand_order", aliases=["go"], invoke_without_command=True)
+    async def grand_order_code(self, ctx, grand_order: GrandOrderCode):
+        """
+        for adding/overwriting your GrandOrder user id
+        """
+        if ctx.invoked_subcommand:
+            return
+        if grand_order:
+            await self.update_grand_order(ctx.author.id, grand_order)
+            return await ctx.send(f"Set your grand order connect code to {grand_order}")
+
+    @grand_order_code.command(name="rm", aliases=["remove"])
+    async def grand_order_remove(self, ctx):
+        """
+        remove your grand order code
+        """
+        await self.update_grand_order(ctx.author.id, None)
         await ctx.send("code removed")
 def setup(bot):
     bot.add_cog(FriendCodes(bot))
