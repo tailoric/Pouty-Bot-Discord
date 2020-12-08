@@ -1,0 +1,59 @@
+[
+    {
+        "name": "nintendo",
+        "regex": "^(SW)?[- ]?\\d{4}[- ]\\d{4}[- ]\\d{4}$",
+        "aliases": ["nd"],
+        "charLength": 20,
+        "help": "command for adding and overwriting your nintendo friend code",
+        "example": "SW-1234-1234-1234"
+    },
+    {
+        "name": "slippi",
+        "regex": "[A-Z]{2,4}#\\d{3}$",
+        "aliases": ["sl"],
+        "charLength": 10,
+        "help": "command for adding and overwriting your slippi connect code",
+        "example": "ABCD#123"
+    },
+    {
+        "name": "grand_order",
+        "regex": "^\\d{3}[, ]\\d{3}[, ]\\d{3}$",
+        "aliases": ["go"],
+        "charLength": 12,
+        "help": "command for adding and overwriting your Grand Order friend code",
+        "example": "123,123,123"
+    },
+    {
+        "name": "genshin_impact",
+        "regex": "^\\d{9}$",
+        "aliases": ["gi"],
+        "charLength": 9,
+        "help": "command for adding and overwriting your Genshin Impact UID",
+        "example": "123456789"
+    },
+    {
+        "name": "azur_lane",
+        "regex": "^\\d{8,9}$",
+        "aliases": ["al"],
+        "charLength": 9,
+        "help": "command for adding and overwriting your Azur Lane UID",
+        "example": "12345678"
+    },
+    {
+        "name": "arknights",
+        "regex": "^\\w+#\\d{4}$",
+        "aliases": ["ak"],
+        "charLength": 20,
+        "help": "command for adding and overwriting your Arknights name",
+        "example": "ABCD#1234"
+
+    },
+    {
+        "name": "honkai_impact",
+        "regex": "^\\d{8}$",
+        "aliases": ["hi"],
+        "charLength": 8,
+        "help": "command for adding and overwriting your Honkai Impact UID",
+        "example": "12345678"
+    }
+]
