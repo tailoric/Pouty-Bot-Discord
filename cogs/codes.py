@@ -125,6 +125,8 @@ class FriendCodes(commands.Cog):
         """
         for adding/overwriting 
         """
+        if ctx.invoked_subcommand is not None:
+            return
         if code:
             await self.update_code(ctx.author.id, code, ctx.command.name)
             column = ctx.command.name.replace("_"," ").title()
@@ -144,7 +146,7 @@ class FriendCodes(commands.Cog):
         """
         remove your code
         """
-        await self.update_code(ctx.author.id, None, ctx.command.name)
+        await self.update_code(ctx.author.id, None, ctx.command.parent.name)
         await ctx.send("code removed")
 
 def setup(bot):
