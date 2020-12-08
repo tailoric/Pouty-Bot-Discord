@@ -1,6 +1,6 @@
 [
     {
-        "name": "nintendo",
+        "name": "nintendo_code",
         "regex": "^(SW)?[- ]?\\d{4}[- ]\\d{4}[- ]\\d{4}$",
         "aliases": ["nd"],
         "charLength": 20,
@@ -8,7 +8,7 @@
         "example": "SW-1234-1234-1234"
     },
     {
-        "name": "slippi",
+        "name": "slippi_code",
         "regex": "[A-Z]{2,4}#\\d{3}$",
         "aliases": ["sl"],
         "charLength": 10,
