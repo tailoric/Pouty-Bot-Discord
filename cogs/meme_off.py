@@ -94,7 +94,7 @@ class MemeOff(commands.Cog):
         if amount < 0: 
             return await ctx.send("Only positive values allowed")
         if amount * time_units[unit] > 604800:
-            return await ctx.send("Number too the countdown can go for 7 days max")
+            return await ctx.send("Number too highm, the countdown can go for 7 days at max")
         if unit not in time_units.keys():
             return await ctx.send(f"No valid time unit the only available units are:\n{', '.join(time_units.keys())}")
         delay = int(amount) * time_units[unit]
