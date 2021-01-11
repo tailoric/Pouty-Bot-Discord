@@ -82,7 +82,13 @@ class MemeOff(commands.Cog):
     async def meme_off_start(self, ctx, *, round_duration: str):
         """
         create a timer for the current round [typical inputs are 30 minutes or 60 minutes]
+        If done in reply to a message then it will also pin that message (for pinning the template)
         """
+        if ctx.message.reference and not self.bot.pinned_template:
+            message = await self.fetch_message(ctx)
+            await message.pin()
+            self.bot.pinned_template = message
+            self.bot.pinned_by = ctx.author
         if self.bot.meme_off_timer is not None:
             if not self.bot.meme_off_timer.cancelled() or not self.bot.meme_off_timer.done():
                 return await ctx.send("There is already a timer running. Cancel it with `.meme-off cancel` first")
@@ -211,12 +217,24 @@ class MemeOff(commands.Cog):
         self.bot.submitted_templates = {}
         await ctx.send("all templates removed")
 
+    async def fetch_message(self, ctx):
+        message = ctx.message.reference.resolved
+        if isinstance(message, discord.DeletedReferencedMessage):
+            guild = self.bot.get_guild(message.guild_id)
+            channel = guild.get_channel(message.channel_id)
+            message = await channel.fetch_message(message.id)
+        return message
+            
     @commands.guild_only()
     @meme_off.command(name="pin", aliases=[])
-    async def meme_off_pin(self, ctx, message : discord.Message):
+    async def meme_off_pin(self, ctx, message : typing.Optional[discord.Message]):
         """
-        provide a message link to pin as template
+        provide a message link to pin as template, or reply to a message that should be pinned
         """
+        if ctx.message.reference and not message:
+            message = await self.fetch_message(ctx)
+        if not message:
+            return await ctx.send("No message provided or couldn't fetch message")
         if self.bot.pinned_template:
             return await ctx.send("There already is a template pinned!")
         await message.pin()
