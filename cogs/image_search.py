@@ -228,6 +228,8 @@ class Search(commands.Cog):
                 .sauce on image upload comment <similarity (in percent)>
         """
         file = ctx.message.attachments
+        if not link and not file and ctx.message.reference:
+            link = self.get_referenced_message_image(ctx)
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
         else:
@@ -278,6 +280,8 @@ class Search(commands.Cog):
                 .tineye on image upload comment
         """
         file = ctx.message.attachments
+        if not link and not file and ctx.message.reference:
+            link = self.get_referenced_message_image(ctx)
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
         else:
@@ -350,6 +354,15 @@ class Search(commands.Cog):
         search = parse.quote_plus(query)
         await ctx.send("<https://lmgtfy.com/?q={}>".format(search))
 
+    def get_referenced_message_image(self, ctx):
+        link = None
+        if ctx.message.reference and ctx.message.reference.resolved:
+            if ctx.message.reference.resolved.attachments:
+                link = ctx.message.reference.resolved.attachments[0].url
+            else:
+                link = ctx.message.reference.resolved.embeds[0].url
+        return link
+
     @commands.command(name="trace", aliases=["whatanime", "find_anime"])
     @commands.cooldown(rate=2,per=60,type=commands.BucketType.user)
     async def trace_moe(self, ctx, similarity: typing.Optional[int] = 85,link: typing.Optional[str] = None):
@@ -359,6 +372,8 @@ class Search(commands.Cog):
         if similarity < 1 or similarity > 99:
             await ctx.send("similarity must be between 1 or 99 percent")
             return
+        if link is None and not ctx.message.attachments:
+            link = self.get_referenced_message_image(ctx)
         if link is None and len(ctx.message.attachments) == 0:
             await ctx.send("please add an image link or invoke with an image attached")
             return
