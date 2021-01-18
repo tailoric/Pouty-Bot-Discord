@@ -79,17 +79,19 @@ class Bill(commands.Cog):
                     text = await response.text()
                     to_run = partial(find_question, text)
                     question, q, dco = await self.bot.loop.run_in_executor(None, to_run)
-                    print(question.next_sibling)
-                    print(question)
-                    print(dco)
                     question_url = None
                     date = discord.Embed.Empty
                     if dco:
-                        print(dco.string)
                         date_str, date= self.parse_date(dco.string)
                         question_url = f"https://billwurtz.com/questions/q.php?date={date_str}"
                     if q: 
-                        embed = discord.Embed(title=q.string, description=question.next_sibling.string, url=question_url, timestamp=date)
+                        title = q.string
+                        if len(title) > 255: 
+                            title = f"{title[:252]}..."
+                        description = question.next_sibling.string
+                        if len(description) > 500:
+                            description = f"{description[:500]}..."
+                        embed = discord.Embed(title=title, description=description, url=question_url, timestamp=date)
                         await ctx.send(embed=embed)
 
 
