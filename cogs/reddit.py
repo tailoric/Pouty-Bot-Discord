@@ -7,6 +7,8 @@ from discord.ext import commands, tasks
 from os import path
 from .utils import checks
 import asyncio
+import logging
+import traceback
 
 
 class Reddit(commands.Cog):
@@ -111,7 +113,6 @@ class Reddit(commands.Cog):
             logger = logging.getLogger("PoutyBot")
             logger.error(traceback.format_exc())
 
-
     async def get_stickied_comment(self, post):
         async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
             if resp.status == 200:
@@ -158,6 +159,8 @@ class Reddit(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+        if after.channel.guild is None:
+            return
         if "subreddit-discussion" in after.channel.name.lower() or 522729174780084225 == after.channel.id:
             return
         contains_reddit_link_regex = re.compile("https://(\w+\.)?redd\.?it(.com/(r/\w+/)?comments)?/(\w+)",
