@@ -448,7 +448,7 @@ class Admin(commands.Cog):
                     return
                 await member.ban(delete_message_days=delete_message_days, reason=reason[:512])
             else:
-                await ctx.guild.ban(user=member, delete_message_days=0, reason=reason[:512])
+                await ctx.guild.ban(user=member, delete_message_days=delete_message_days, reason=reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
             embed = discord.Embed(title="Ban", description=f"**{mention} banned for the following reason:**\n{reason}")
             if hasattr(member, 'name'):
