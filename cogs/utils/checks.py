@@ -28,10 +28,12 @@ def is_owner_or_moderator_check(message):
     if is_owner_or_admin_check(message):
         return True
     if not message.guild:
-        return False
+        raise commands.CheckFailure("This command can only be used in servers/guilds")
     for role in message.author.roles:
         if role.name == "Discord-Senpai" or role.name == "Moderators":
             return True
+        else:
+            raise commands.CheckFailure("This command is only for Moderators")
 
 
 def is_owner_or_admin():

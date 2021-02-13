@@ -9,6 +9,7 @@ import asyncio
 import re
 import sys
 import importlib
+import inspect
 
 class Owner(commands.Cog):
     def __init__(self, bot):
@@ -28,7 +29,12 @@ class Owner(commands.Cog):
             '\N{WHITE HEAVY CHECK MARK}', '\N{CROSS MARK}'
         ]
 
-
+    def reload_submodules(self, module, prefix='cogs.'):
+        module = sys.modules.get(prefix + module)
+        members = inspect.getmembers(module)
+        modules = [module[1] for module in members if inspect.ismodule(module[1])]
+        for module in modules:
+            importlib.reload(module)
     #
     #
     # loading and unloading command by Rapptz
@@ -41,6 +47,7 @@ class Owner(commands.Cog):
         try:
             if with_prefix:
                 self.bot.load_extension('cogs.'+module)
+                self.reload_submodules(module)
             else:
                 self.bot.load_extension(module)
         except Exception as e:
@@ -80,11 +87,13 @@ class Owner(commands.Cog):
         try:
             if with_prefix:
                 self.bot.reload_extension('cogs.'+module)
+                self.reload_submodules(module)
             else:
                 self.bot.reload_extension(module)
         except Exception as e:
             try:
                 self.bot.load_extension('cogs.'+module)
+                self.reload_submodules(module)
                 await ctx.send('\N{THUMBS UP SIGN}')
             except Exception as inner_e:
                 await ctx.send('\N{THUMBS DOWN SIGN}')
