@@ -3,6 +3,8 @@ from discord.ext import commands
 from discord.utils import get
 from .utils import checks
 import asyncio
+import aiohttp
+import io
 import typing
 from datetime import datetime, timedelta
 import random
@@ -43,7 +45,10 @@ class MemeOff(commands.Cog):
         if not hasattr(self.bot, 'pinned_template'):
             self.bot.pinned_template = None
             self.bot.pinned_by = None
-
+        self.session = aiohttp.ClientSession()
+    
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
     @commands.group(name="meme-off", aliases=["meme_off", "memeoff", "mo"])
     @checks.channel_only("memeoff")
     async def meme_off(self, ctx):
@@ -193,6 +198,9 @@ class MemeOff(commands.Cog):
         template = submission.get_template()
         if template and not template.startswith("http"):
             template = None
+        if len(self.template_order) == 0:
+            self.template_order = [u for u in self.bot.submitted_templates.keys()]
+            random.shuffle(self.template_order)
         while not template:
             if len(self.template_order) == 0:
                 break
@@ -203,8 +211,15 @@ class MemeOff(commands.Cog):
         if not template:
             return await ctx.send("no templates left")
         embed = discord.Embed(title="Meme Off Template", description=f"Template for this round from <@{submission.user_id}> is", url=template)
-        embed.set_image(url=template)
-        self.bot.pinned_template = await ctx.send(embed=embed)
+        if template.rpartition(".")[2] in ("png", "jpeg", "jpg", "gif", "webp"):
+            embed.set_image(url=template)
+            self.bot.pinned_template = await ctx.send(embed=embed)
+        else:
+            async with self.session.get(template) as resp:
+                buf = io.BytesIO(await resp.read())
+                file_type = template.rpartition(".")[2]
+                f = discord.File(fp=buf, filename=f"mo_template.{file_type}")
+            self.bot.pinned_template = await ctx.send(file=f, embed=embed)
         await self.bot.pinned_template.pin()
         self.bot.pinned_by = ctx.author
 
