@@ -226,8 +226,12 @@ class Roles(commands.Cog):
     @commands.command(aliases=["color","colour"])
     @channel_only(582894980436328449, 208765039727869954, 390617633147453444)
     async def random_colors(self, ctx, hexcode : typing.Optional[discord.Color]):
+        rng = random.Random()
         if not hexcode:
-            value = [int(x * 255) for x in colorsys.hls_to_rgb(random.random(), 0.8, 1.0)]
+            invocation_string = f"{ctx.prefix}{ctx.invoked_with}"
+            if ctx.message.content != invocation_string:
+                rng.seed(ctx.message.content.replace(f"{invocation_string} ", "").lower(), version=2)
+            value = [int(x * 255) for x in colorsys.hls_to_rgb(rng.random(), 0.8, 1.0)]
             hexcode = discord.Color.from_rgb(*value)
         await ctx.send(embed=discord.Embed(color=hexcode, description=str(hexcode)))
 
