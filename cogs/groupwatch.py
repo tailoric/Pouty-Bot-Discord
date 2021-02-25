@@ -9,6 +9,12 @@ from os import path
 import json
 import io
 
+def mute(argument):
+    if argument.lower() in ("mute", "m"):
+        return True
+    else:
+        return False
+
 class GroupWatch(commands.Cog):
 
     def __init__(self, bot):
@@ -18,6 +24,7 @@ class GroupWatch(commands.Cog):
         self.title = None
         self.end_message = None
         groupwatch_settings = "config/groupwatch.json"
+        self.muted_channel = None
         if not path.exists(groupwatch_settings):
             with open(groupwatch_settings, 'w') as f:
                 settings = {"backlog_channel": None}
@@ -40,10 +47,20 @@ class GroupWatch(commands.Cog):
 
     @groupwatch.command(name="start")
     @checks.is_owner_or_moderator()
-    async def gw_start(self, ctx, start_message: commands.Greedy[discord.Message], *, title: typing.Optional[str],):
+    async def gw_start(self, ctx, start_message: commands.Greedy[discord.Message], mute: typing.Optional[str], *, title: typing.Optional[str],):
         """
         set the start point of the groupwatch messages after this one will be deleted after groupwatch is over
+        if mute is written before the title then the speak permission of the channel is set to False
         """
+        if mute.lower() in ("mute", "m"):
+            if not ctx.author.voice:
+                await ctx.send("Could not change permissions because you are not in a voice channel")
+            else:
+                vc = ctx.author.voice.channel
+                await vc.set_permissions(ctx.guild.default_role, speak=False)
+                self.muted_channel = vc
+        else:
+            title = f"{mute} {title}"
         self.groupwatch_channel = ctx.channel
         self.groupwatch_role = find(lambda r: r.name == "Groupwatch", ctx.guild.roles)
         if title:
@@ -61,6 +78,7 @@ class GroupWatch(commands.Cog):
             await ctx.send(f"start message set. Title: {self.title}")
         else:
             self.start_message = await ctx.send("start message set.")
+
 
     @groupwatch.command(name="end")
     @checks.is_owner_or_moderator()
@@ -86,6 +104,9 @@ class GroupWatch(commands.Cog):
             await self.generate_chatlog(ctx)
         filename = self.title+".txt" if self.title else None
         await ctx.send(file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
+        if self.muted_channel:
+            await self.muted_channel.set_permissions(ctx.guild.default_role, speak=None)
+            self.muted_channel = None
         self.title = None
         self.start_message = None
         self.end_message = None
