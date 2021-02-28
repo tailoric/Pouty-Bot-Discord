@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from discord.ext import commands, tasks
-from discord import Embed, Message
+from discord import Embed, Message, NotFound, Forbidden, HTTPException
 from discord.utils import find
 from .utils.checks import is_owner_or_moderator
 from typing import Optional
+import logging
 import re
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
@@ -59,24 +60,34 @@ class Poll(commands.Cog):
         for poll in polls:
             if poll.get("end_ts") > datetime.utcnow():
                 continue
-            poll_channel = self.bot.get_channel(poll.get("channel_id"))
-            poll_msg = await poll_channel.fetch_message(poll.get("message_id"))
-            reactions = poll_msg.reactions
-            options = poll_msg.embeds[0].description.splitlines()
-            reactions = sorted(reactions, key=lambda r: r.count, reverse=True)
-            valid_reacts = list(filter(lambda r: r.emoji in self.option_labels, reactions))
-            top_count = valid_reacts[0].count
-            winners = list(filter(lambda r: r.count == top_count , valid_reacts))
-            embed = poll_msg.embeds[0]
-            winner_text = [t for t in options for w in winners if t.startswith(w.emoji)]
-            win_embed = Embed(title="Poll finished")
-            for w in winner_text:
-                win_embed.add_field(name="Winner", value=w[5:])
-                embed.add_field(name="Winner", value=w[5:])
-            win_embed.add_field(name="jump to", value=f"[poll]({poll_msg.jump_url})", inline=False)
-            await poll_channel.send(embed=win_embed)
-            await poll_msg.edit(embed=embed)
-            await self.delete_poll(poll_msg.id)
+            try:
+                poll_channel = self.bot.get_channel(poll.get("channel_id"))
+                poll_msg = await poll_channel.fetch_message(poll.get("message_id"))
+                reactions = poll_msg.reactions
+                options = poll_msg.embeds[0].description.splitlines()
+                reactions = sorted(reactions, key=lambda r: r.count, reverse=True)
+                valid_reacts = list(filter(lambda r: r.emoji in self.option_labels, reactions))
+                top_count = valid_reacts[0].count
+                winners = list(filter(lambda r: r.count == top_count , valid_reacts))
+                embed = poll_msg.embeds[0]
+                winner_text = [t for t in options for w in winners if t.startswith(w.emoji)]
+                win_embed = Embed(title="Poll finished")
+                win_embed.add_field(name="Title", value=poll_msg.embeds[0].title, inline=False)
+                for w in winner_text:
+                    win_embed.add_field(name="Winner", value=w[5:])
+                    embed.add_field(name="Winner", value=w[5:])
+                win_embed.add_field(name="jump to", value=f"[poll]({poll_msg.jump_url})", inline=False)
+                await poll_channel.send(embed=win_embed)
+                await poll_msg.edit(embed=embed)
+                await self.delete_poll(poll_msg.id)
+            except (NotFound, Forbidden, HTTPException) as e:
+                logger = logging.getLogger("PoutyBot")
+                logger.error("error in the poll loop",exc_info=1)
+                await self.delete_poll(poll.get("message_id"))
+            except:
+                logger = logging.getLogger("PoutyBot")
+                logger.error("error in the poll loop",exc_info=1)
+
 
     async def create_database(self):
         query = """
@@ -189,7 +200,13 @@ class Poll(commands.Cog):
         """
         delete a poll by providing a message id of a poll message
         """
-        poll = await self.fetch_poll(message.id)
+        if not message and not ctx.message.reference and not ctx.message.reference.message_id:
+            return await ctx.send("either reply to or provide a message link to the poll")
+        if message:
+            message_id = message.id
+        else:
+            message_id = ctx.message.reference.message_id
+        poll = await self.fetch_poll(message_id)
         if not poll:
             return await ctx.send("Message was not a poll")
         poll_channel = self.bot.get_channel(poll.get("channel_id"))
