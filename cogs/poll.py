@@ -82,11 +82,11 @@ class Poll(commands.Cog):
                 await self.delete_poll(poll_msg.id)
             except (NotFound, Forbidden, HTTPException) as e:
                 logger = logging.getLogger("PoutyBot")
-                logger.error("error in the poll loop",exc_info=1)
+                logger.error("error in the poll loop, message_id: %s, channel_id: %s ",poll.get("message_id"), poll.get("channel_id"),exc_info=1)
                 await self.delete_poll(poll.get("message_id"))
             except:
                 logger = logging.getLogger("PoutyBot")
-                logger.error("error in the poll loop",exc_info=1)
+                logger.error("error in the poll loop, message_id: %s, channel_id: %s ",poll.get("message_id"), poll.get("channel_id"),exc_info=1)
 
 
     async def create_database(self):
