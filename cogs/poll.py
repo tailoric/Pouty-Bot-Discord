@@ -36,18 +36,19 @@ class Poll(commands.Cog):
         poll = await self.fetch_poll(payload.message_id)
         if not poll:
             return
-        if poll.get("multi"):
-            return
         guild = self.bot.get_guild(payload.guild_id)
         if payload.user_id == guild.me.id:
             return
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
         for reaction in message.reactions:
+            if reaction.emoji not in self.option_labels:
+                await reaction.clear()
+                continue
             if reaction.emoji == payload.emoji.name:
                 continue
             user = await reaction.users().find(lambda u: u.id == payload.member.id)
-            if user:
+            if user and not poll.get("multi"):
                 await reaction.remove(user)
 
     @tasks.loop(seconds=5.0)
