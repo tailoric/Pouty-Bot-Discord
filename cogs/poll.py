@@ -196,7 +196,7 @@ class Poll(commands.Cog):
         await self.insert_poll(poll_msg.id, poll_msg.channel.id, end_timestamp, True)
     @is_owner_or_moderator()
     @poll.command()
-    async def delete(self, ctx, message: Message):
+    async def delete(self, ctx, message: Optional[Message]):
         """
         delete a poll by providing a message id of a poll message
         """
