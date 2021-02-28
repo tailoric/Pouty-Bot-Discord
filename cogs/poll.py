@@ -62,13 +62,19 @@ class Poll(commands.Cog):
             poll_channel = self.bot.get_channel(poll.get("channel_id"))
             poll_msg = await poll_channel.fetch_message(poll.get("message_id"))
             reactions = poll_msg.reactions
+            options = poll_msg.embeds[0].description.splitlines()
             reactions = sorted(reactions, key=lambda r: r.count, reverse=True)
             valid_reacts = list(filter(lambda r: r.emoji in self.option_labels, reactions))
             top_count = valid_reacts[0].count
             winners = list(filter(lambda r: r.count == top_count , valid_reacts))
             embed = poll_msg.embeds[0]
-            embed.add_field(name="Winner", value=' | '.join([w.emoji for w in winners]))
-            await poll_channel.send(f"Poll finished: {poll_msg.jump_url}")
+            winner_text = [t for t in options for w in winners if t.startswith(w.emoji)]
+            win_embed = Embed(title="Poll finished")
+            for w in winner_text:
+                win_embed.add_field(name="Winner", value=w[5:])
+                embed.add_field(name="Winner", value=w[5:])
+            win_embed.add_field(name="jump to", value=f"[poll]({poll_msg.jump_url})", inline=False)
+            await poll_channel.send(embed=win_embed)
             await poll_msg.edit(embed=embed)
             await self.delete_poll(poll_msg.id)
 
