@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from discord import Embed, Message
 from discord.utils import find
 from .utils.checks import is_owner_or_moderator
+from typing import Optional
 import re
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
@@ -191,11 +192,17 @@ class Poll(commands.Cog):
         await ctx.send("poll deleted")
 
     @poll.command()
-    async def when(self, ctx, message: Message):
+    async def when(self, ctx, message: Optional[Message]):
         """
         check how long until a poll is finished by providing the message id of a poll message
         """
-        poll = await self.fetch_poll(message.id)
+        if not message and not ctx.message.reference and not ctx.message.reference.message_id:
+            return await ctx.send("either reply to or provide a message link to the poll")
+        if message:
+            message_id = message.id
+        else:
+            message_id = ctx.message.reference.message_id
+        poll = await self.fetch_poll(message_id)
         if not poll:
             return await ctx.send("Message was not a poll")
         end = poll.get("end_ts")
