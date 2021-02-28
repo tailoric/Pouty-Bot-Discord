@@ -61,10 +61,12 @@ class Poll(commands.Cog):
             poll_msg = await poll_channel.fetch_message(poll.get("message_id"))
             reactions = poll_msg.reactions
             reactions = sorted(reactions, key=lambda r: r.count, reverse=True)
-            top_count = reactions[0].count
-            winners = list(filter(lambda r: r.count == top_count, reactions))
+            valid_reacts = list(filter(lambda r: r.emoji in self.option_labels, reactions))
+            top_count = valid_reacts[0].count
+            winners = list(filter(lambda r: r.count == top_count , valid_reacts))
             embed = poll_msg.embeds[0]
             embed.add_field(name="Winner", value=' | '.join([w.emoji for w in winners]))
+            await poll_channel.send(f"Poll finished: {poll_msg.jump_url}")
             await poll_msg.edit(embed=embed)
             await self.delete_poll(poll_msg.id)
 
