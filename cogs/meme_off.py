@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord.utils import get
-from .utils import checks
+from .utils import checks, paginator
 import asyncio
 import aiohttp
 import io
@@ -17,6 +17,10 @@ class TemplateSubmission():
 
     def add_template(self, template_link):
         self.templates.append(template_link)
+
+    @property
+    def has_template(self):
+        return len(self.templates) > 0
 
     def get_template(self):
         if self.templates:
@@ -49,6 +53,7 @@ class MemeOff(commands.Cog):
     
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
+
     @commands.group(name="meme-off", aliases=["meme_off", "memeoff", "mo"])
     @checks.channel_only("memeoff")
     async def meme_off(self, ctx):
@@ -192,37 +197,40 @@ class MemeOff(commands.Cog):
         if not self.template_order:
             if not self.bot.submitted_templates:
                 return await ctx.send("No templates submitted")
-            self.template_order = [u for u in self.bot.submitted_templates.keys()]
+            self.template_order = [u for u in self.bot.submitted_templates.keys() if self.bot.submitted_templates[u].has_template]
             random.shuffle(self.template_order)
+            if not self.template_order:
+                return await ctx.send("No templates left")
         submission = self.bot.submitted_templates[self.template_order.pop()]
         template = submission.get_template()
-        if template and not template.startswith("http"):
-            template = None
-        if len(self.template_order) == 0:
-            self.template_order = [u for u in self.bot.submitted_templates.keys()]
-            random.shuffle(self.template_order)
-        while not template:
-            if len(self.template_order) == 0:
-                break
-            submission = self.bot.submitted_templates[self.template_order.pop()]
-            template = submission.get_template()
-            if template and not template.startswith("http"):
-                template = None
         if not template:
             return await ctx.send("no templates left")
         embed = discord.Embed(title="Meme Off Template", description=f"Template for this round from <@{submission.user_id}> is", url=template)
-        if template.rpartition(".")[2] in ("png", "jpeg", "jpg", "gif", "webp"):
-            embed.set_image(url=template)
-            self.bot.pinned_template = await ctx.send(embed=embed)
-        else:
-            async with self.session.get(template) as resp:
+        async with self.session.get(template) as resp:
+            print(resp.content_type)
+            if "image" in resp.content_type:
+                embed.set_image(url=template)
+                self.bot.pinned_template = await ctx.send(embed=embed)
+            else:
                 buf = io.BytesIO(await resp.read())
                 file_type = template.rpartition(".")[2]
                 f = discord.File(fp=buf, filename=f"mo_template.{file_type}")
-            self.bot.pinned_template = await ctx.send(file=f, embed=embed)
+                self.bot.pinned_template = await ctx.send(file=f, embed=embed)
         await self.bot.pinned_template.pin()
         self.bot.pinned_by = ctx.author
 
+    @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
+    @meme_off.command(name="list_templates", aliases=["ltemplate"])
+    async def meme_off_template_list(self, ctx):
+        entries = []
+        for user_id, template in self.bot.submitted_templates.items():
+            if template.has_template:
+                entries.append((user_id,'\n'.join(template.templates)))
+        field_pages = paginator.FieldPages(ctx, entries=entries)
+        if len(entries) == 0:
+            await ctx.send("no templates")
+        else:
+            await field_pages.paginate()
 
     @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
     @commands.guild_only()
