@@ -9,12 +9,6 @@ from os import path
 import json
 import io
 
-def mute(argument):
-    if argument.lower() in ("mute", "m"):
-        return True
-    else:
-        return False
-
 class GroupWatch(commands.Cog):
 
     def __init__(self, bot):
@@ -57,7 +51,9 @@ class GroupWatch(commands.Cog):
                 await ctx.send("Could not change permissions because you are not in a voice channel")
             else:
                 vc = ctx.author.voice.channel
-                await vc.set_permissions(ctx.guild.default_role, speak=False)
+                overwrite_default = vc.overwrites_for(ctx.guild.default_role)
+                overwrite_default.speak = False
+                await vc.set_permissions(ctx.guild.default_role, overwrite=overwrite_default)
                 self.muted_channel = vc
         else:
             title = f"{mute} {title}"
@@ -71,8 +67,10 @@ class GroupWatch(commands.Cog):
             await ctx.send("Could not find Groupwatch role. "
                            "Therefore now permissions changed")
         else:
+            overwrites_gw = ctx.channel.overwrites_for(self.groupwatch_role)
+            overwrites_gw.read_messages = True
             await ctx.channel.set_permissions(self.groupwatch_role,
-                                          read_messages=True)
+                                          overwrite=overwrites_gw)
         if start_message:
             self.start_message = start_message[0]
             await ctx.send(f"start message set. Title: {self.title}")
@@ -94,8 +92,10 @@ class GroupWatch(commands.Cog):
             await ctx.send("Could not find Groupwatch role. "
                            "Therefore now permissions changed")
         else:
+            overwrites_gw = ctx.channel.overwrites_for(self.groupwatch_role)
+            overwrites_gw.read_messages = False
             await ctx.channel.set_permissions(self.groupwatch_role,
-                                          read_messages=False)
+                                          overwrite=overwrites_gw)
         if end_message:
             self.end_message = end_message
         else:
@@ -105,7 +105,9 @@ class GroupWatch(commands.Cog):
         filename = self.title+".txt" if self.title else None
         await ctx.send(file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
         if self.muted_channel:
-            await self.muted_channel.set_permissions(ctx.guild.default_role, speak=None)
+            overwrite_default = self.muted_channel.overwrites_for(ctx.guild.default_role)
+            overwrite_default.speak = None
+            await self.muted_channel.set_permissions(ctx.guild.default_role, overwrite=overwrite_default)
             self.muted_channel = None
         self.title = None
         self.start_message = None
