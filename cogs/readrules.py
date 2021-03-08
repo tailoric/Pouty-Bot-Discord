@@ -201,8 +201,9 @@ class ReadRules(commands.Cog):
             await message.author.add_roles(self.new_memester)
             await message.delete()
             await self.join_log.send(f"{message.author.mention} joined the server.")
-            self.join_counter += 1
-            if self.join_counter >= self.join_limit and self.join_limit > 0:
+            if self.limit_reset.is_running():
+                self.join_counter += 1
+            if self.join_counter >= self.join_limit and self.join_limit > 0 and self.limit_reset.is_running():
                 default_role = message.guild.default_role
                 overwrite = message.channel.overwrites_for(default_role)
                 overwrite.send_messages = False
