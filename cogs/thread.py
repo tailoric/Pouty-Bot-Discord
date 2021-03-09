@@ -106,7 +106,7 @@ class Thread(commands.Cog):
         disc_channel = await category.create_text_channel(name=topic, topic=self.topic)
         await disc_channel.set_permissions(ctx.author, read_messages=True)
         embed = discord.Embed(title=f"Thread: {topic} \N{OPEN LOCK}", 
-                description=f"To join the channel {disc_channel.mention} react with {self.settings.get('join_reaction')}", 
+                description=f"To join the channel {disc_channel.mention} react with {self.settings.get('join_reaction')}\nremove reaction to leave", 
                 colour=discord.Colour(0x76d16a))
         thread_start = await ctx.send(embed=embed)
         await disc_channel.send(textwrap.dedent(self.thread_rule.format(topic)))
@@ -205,6 +205,18 @@ class Thread(commands.Cog):
             thread_channel = self.bot.get_channel(thread_channel)
             await thread_channel.set_permissions(payload.member, read_messages=True)
 
+    @commands.Cog.listener("on_raw_reaction_remove")
+    async def remove_users_from_thread(self, payload):
+        """
+        reaction handler for adding people to a thread channel
+        """
+        if payload.user_id == self.bot.user.id or payload.emoji.name != self.settings.get('join_reaction') or not payload.guild_id:
+            return
+        thread_channel = await self.bot.db.fetchval("""SELECT thread_channel_id FROM thread_channels WHERE invocation_message_id = $1""", payload.message_id)
+        if thread_channel:
+            thread_channel = self.bot.get_channel(thread_channel)
+            member = thread_channel.guild.get_member(payload.user_id)
+            await thread_channel.set_permissions(member, overwrite=None)
 
 def setup(bot):
     bot.add_cog(Thread(bot))
