@@ -96,6 +96,10 @@ class Thread(commands.Cog):
         """
         create a new "thread" channel to discuss something with other people
         """
+
+        open_threads = await self.bot.db.fetch("SELECT thread_channel_id, invocation_message_id, invocation_channel_id FROM thread_channels")
+        if ctx.channel.id in [ot.get("thread_channel_id") for ot in open_threads]:
+            return await ctx.send("you can't open another thread from within a thread") 
         category = ctx.guild.get_channel(self.settings.get("category_channel"))
         if not category:
             return await ctx.send(f"No category for channel creation set please use `{ctx.prefix}thread category` to set it")
