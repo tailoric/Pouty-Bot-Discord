@@ -195,12 +195,22 @@ class Thread(commands.Cog):
                 if time_diff > timedelta(hours=self.settings.get("livetime")):
                     delete_channel = True
 
+                
+            thread_list_channel = self.bot.get_channel(self.settings.get("thread_list_channel"))
+            copy_message = thread_list_channel.get_partial_message(thread.get("copy_message_id"))
+            invocation_channel = self.bot.get_channel(thread.get("invocation_channel_id"))
+            message = invocation_channel.get_partial_message(thread.get("invocation_message_id"))
+
             if delete_channel:
-                thread_list_channel = self.bot.get_channel(self.settings.get("thread_list_channel"))
-                copy_message = thread_list_channel.get_partial_message(thread.get("copy_message_id"))
-                invocation_channel = self.bot.get_channel(thread.get("invocation_channel_id"))
-                message = invocation_channel.get_partial_message(thread.get("invocation_message_id"))
                 await self.delete_thread(thread_channel, message, copy_message)
+            else:
+                full_message = await copy_message.fetch()
+                embed = full_message.embeds[0]
+                hours, remainder = divmod(time_diff.seconds, 3600)
+                minutes, seconds = divmod(remainder, 60)
+                embed.set_footer(text=f"thread inactive for {hours:02d}:{minutes:02d}:{seconds:02d}")
+                embed.timestamp = datetime.utcnow()
+                await full_message.edit(embed=embed)
 
     async def delete_thread(self, thread_channel, thread_message, copy_message):
         chat_log = await self.generate_file(thread_channel)
