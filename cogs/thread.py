@@ -208,6 +208,10 @@ class Thread(commands.Cog):
                 embed = full_message.embeds[0]
                 hours, remainder = divmod(time_diff.seconds, 3600)
                 minutes, seconds = divmod(remainder, 60)
+                if hours <= self.settings.get("livetime") // 3:
+                    embed.colour = discord.Colour(0xd89849)
+                else:
+                    embed.colour = discord.Colour(0x76d16a)
                 embed.set_footer(text=f"thread inactive for {hours:02d}:{minutes:02d}:{seconds:02d}")
                 embed.timestamp = datetime.utcnow()
                 await full_message.edit(embed=embed)
