@@ -208,7 +208,8 @@ class Thread(commands.Cog):
                 embed = full_message.embeds[0]
                 hours, remainder = divmod(time_diff.seconds, 3600)
                 minutes, seconds = divmod(remainder, 60)
-                if hours <= self.settings.get("livetime") // 3:
+                livetime = self.settings.get("livetime") 
+                if hours >= round(livetime *  (2/3)):
                     embed.colour = discord.Colour(0xd89849)
                 else:
                     embed.colour = discord.Colour(0x76d16a)
