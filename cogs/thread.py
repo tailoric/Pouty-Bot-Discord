@@ -2,10 +2,12 @@ import discord
 from discord.ext import commands, tasks
 from .utils.checks import is_owner_or_moderator
 from datetime import datetime, timedelta
+from logging import getLogger
 import json
 from pathlib import Path
 import io
 import textwrap
+import asyncio
 
 class Thread(commands.Cog):
     """
@@ -23,6 +25,7 @@ class Thread(commands.Cog):
     """
     def __init__(self, bot):
         self.bot = bot
+        self.logger= getLogger("PoutyBot")
         self.admin_cog = self.bot.get_cog("Admin")
         self.check_activity.start()
         self.settings_path = Path('config/thread_channel_settings.json')
@@ -41,7 +44,7 @@ class Thread(commands.Cog):
                         }
                 json.dump(self.settings,f)
 
-        self.bot.loop.create_task(self.create_thread_log())
+        self.create_thread_table = self.bot.loop.create_task(self.create_thread_log())
 
     async def get_attachment_links(self, message):
         attachment_string_format = "\t[attachments: {}]\n" 
@@ -176,11 +179,12 @@ class Thread(commands.Cog):
             message = invocation_channel.get_partial_message(thread_info.get("invocation_message_id"))
             await self.delete_thread(thread_channel, message, copy_message)
 
-    @tasks.loop(hours=1)
+    @tasks.loop(minutes=15)
     async def check_activity(self):
         """
         iterate through open threads and check if they are inactive and can be deleted
         """
+        await asyncio.wait_for(self.create_thread_table, timeout=None)
         open_threads = await self.bot.db.fetch("SELECT thread_channel_id, invocation_message_id, invocation_channel_id, copy_message_id FROM thread_channels")
         for thread in open_threads:
             thread_channel = self.bot.get_channel(thread.get("thread_channel_id"))
@@ -216,6 +220,10 @@ class Thread(commands.Cog):
                 embed.set_footer(text=f"thread inactive for {hours:02d}:{minutes:02d}:{seconds:02d}")
                 embed.timestamp = datetime.utcnow()
                 await full_message.edit(embed=embed)
+
+    @check_activity.error
+    async def check_activity_error(self, error):
+        self.logger.error("unhandled error in check_activity loop:\n%s", error, exc_info=True)
 
     async def delete_thread(self, thread_channel, thread_message, copy_message):
         chat_log = await self.generate_file(thread_channel)
