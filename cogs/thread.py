@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from .utils.checks import is_owner_or_moderator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from logging import getLogger
 import json
 from pathlib import Path
@@ -9,6 +9,7 @@ import io
 import textwrap
 import asyncio
 
+LOOP_TIME = 30 * 60 # 30 minutes
 class Thread(commands.Cog):
     """
     A cog for creating "Thread" channels for spoiler discussions etc.
@@ -29,6 +30,7 @@ class Thread(commands.Cog):
         self.admin_cog = self.bot.get_cog("Admin")
         self.check_activity.start()
         self.settings_path = Path('config/thread_channel_settings.json')
+        self.scheduled_deletions = []
         if self.settings_path.exists():
             with self.settings_path.open('r') as f:
                 self.settings = json.load(f)
@@ -84,6 +86,8 @@ class Thread(commands.Cog):
 
     def cog_unload(self):
         self.check_activity.cancel()
+        for task in self.scheduled_deletions:
+            task.cancel()
 
     async def create_thread_log(self):
         await self.bot.db.execute("""
@@ -177,27 +181,32 @@ class Thread(commands.Cog):
             copy_message = thread_list_channel.get_partial_message(thread_info.get("copy_message_id"))
             invocation_channel = self.bot.get_channel(thread_info.get("invocation_channel_id"))
             message = invocation_channel.get_partial_message(thread_info.get("invocation_message_id"))
-            await self.delete_thread(thread_channel, message, copy_message)
+            thread_id = await self.delete_thread(thread_channel, message, copy_message, force=True)
+            if thread_id: await self.db_delete_thread(thread_id)
 
-    @tasks.loop(minutes=15)
+    @tasks.loop(seconds=LOOP_TIME)
     async def check_activity(self):
         """
         iterate through open threads and check if they are inactive and can be deleted
         """
+        self.logger.debug("starting check_activity...")
         await asyncio.wait_for(self.create_thread_table, timeout=None)
         open_threads = await self.bot.db.fetch("SELECT thread_channel_id, invocation_message_id, invocation_channel_id, copy_message_id FROM thread_channels")
         for thread in open_threads:
             thread_channel = self.bot.get_channel(thread.get("thread_channel_id"))
+            if not thread_channel:
+                return await self.db_delete_thread(thread.get("thread_channel_id"))
             last_message = next(iter(await thread_channel.history(limit=1).flatten()), None)
-            delete_channel = False
-            time_diff = datetime.utcnow() - thread_channel.created_at
+            schedule_delete = False
             if last_message:
                 time_diff = datetime.utcnow() - last_message.created_at
-                if time_diff > timedelta(hours=self.settings.get("livetime")):
-                    delete_channel = True
+                delete_at = last_message.created_at + timedelta(hours=self.settings.get("livetime"))
             else:
-                if time_diff > timedelta(hours=self.settings.get("livetime")):
-                    delete_channel = True
+                time_diff = datetime.utcnow() - thread_channel.created_at
+                delete_at = thread_channel.created_at + timedelta(hours=self.settings.get("livetime"))
+
+            if delete_at <= self.check_activity.next_iteration.replace(tzinfo=None):
+                schedule_delete = True
 
                 
             thread_list_channel = self.bot.get_channel(self.settings.get("thread_list_channel"))
@@ -205,27 +214,54 @@ class Thread(commands.Cog):
             invocation_channel = self.bot.get_channel(thread.get("invocation_channel_id"))
             message = invocation_channel.get_partial_message(thread.get("invocation_message_id"))
 
-            if delete_channel:
-                await self.delete_thread(thread_channel, message, copy_message)
+            if schedule_delete:
+                deletion_task = self.bot.loop.create_task(self.delete_thread(thread_channel, message, copy_message, delete_at))
+                deletion_task.add_done_callback(self.thread_delete_error)
+                deletion_task.set_name(f"<ChannelDeletionTask channel={thread_channel.name} id={thread_channel.id} delete_at={delete_at.strftime('%H:%M:%S')}>")
+                self.scheduled_deletions.append(deletion_task)
+            full_message = await copy_message.fetch()
+            embed = full_message.embeds[0]
+            hours, remainder = divmod(int(time_diff.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            livetime = self.settings.get("livetime") 
+            if hours >= round(livetime *  (2/3)):
+                embed.colour = discord.Colour(0xd89849)
             else:
-                full_message = await copy_message.fetch()
-                embed = full_message.embeds[0]
-                hours, remainder = divmod(time_diff.seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                livetime = self.settings.get("livetime") 
-                if hours >= round(livetime *  (2/3)):
-                    embed.colour = discord.Colour(0xd89849)
-                else:
-                    embed.colour = discord.Colour(0x76d16a)
-                embed.set_footer(text=f"thread inactive for {hours:02d}:{minutes:02d}:{seconds:02d}")
-                embed.timestamp = datetime.utcnow()
-                await full_message.edit(embed=embed)
+                embed.colour = discord.Colour(0x76d16a)
+            embed.set_footer(text=f"thread inactive for {hours:02d}:{minutes:02d}:{seconds:02d}")
+            embed.timestamp = datetime.utcnow()
+            await full_message.edit(embed=embed)
 
     @check_activity.error
     async def check_activity_error(self, error):
         self.logger.error("unhandled error in check_activity loop:\n%s", error, exc_info=True)
 
-    async def delete_thread(self, thread_channel, thread_message, copy_message):
+    def thread_delete_error(self, task: asyncio.Task):
+        if task.cancelled():
+            return self.logger.debug("task was cancelled : %s", task.get_name())
+        if task.exception():
+            self.logger.error("error when trying to delete thread:\n%s", task.exception(), exc_info=True)
+        else:
+            self.logger.debug("result: %s", task.result())
+            self.bot.loop.create_task(self.db_delete_thread(task.result()))
+        
+    async def db_delete_thread(self, thread_id):
+        if thread_id:
+            try:
+                await self.bot.db.execute(""" DELETE FROM thread_channels WHERE thread_channel_id = $1""", thread_id)
+            except Exception as e:
+                self.logger.error("Error when trying to delete thread from database:\n%s", e, exc_info=True)
+        else:
+            self.logger.debug("No deletion needed channel was active")
+
+    async def delete_thread(self, thread_channel, thread_message, copy_message, delete_at=datetime.utcnow(), force=False):
+        self.logger.debug("deletion of channel #%s at %s", thread_channel.name, delete_at)
+        await discord.utils.sleep_until(delete_at)
+        last_message = next(iter(await thread_channel.history(limit=1).flatten()), None)
+        # one last activity check before deleting the channel
+        if not force and last_message and last_message.created_at + timedelta(hours=self.settings.get("livetime")) > delete_at:
+            self.logger.debug("deletion aborted channel was active at %s, next deletion around: %s", last_message.created_at, last_message.created_at + timedelta(hours=self.settings.get("livetime")))
+            return None
         chat_log = await self.generate_file(thread_channel)
         chat_log_message = await self.attachments_backlog.send(file=discord.File(chat_log, filename=f"{thread_channel.name}.txt"))
         embed = discord.Embed(title=f"Thread: {thread_channel.name.replace('-',' ')} \N{LOCK}", description="channel closed see the below text file for a chat log", colour=discord.Colour(0xd16a76))
@@ -235,7 +271,7 @@ class Thread(commands.Cog):
         await thread_message.clear_reactions()
         await copy_message.clear_reactions()
         await thread_channel.delete()
-        await self.bot.db.execute(""" DELETE FROM thread_channels WHERE thread_channel_id = $1""", thread_channel.id)
+        return thread_channel.id
 
     @commands.Cog.listener("on_raw_reaction_add")
     async def add_users_to_channel(self, payload):
