@@ -95,6 +95,22 @@ class Starboard(commands.Cog):
                 """, ctx.guild.id, channel.id, threshold, False, max_age)
             await ctx.send(f"Set starboard to {channel.mention} with a vote threshold of {threshold} and a max message age of {max_age}")
 
+    @starboard.command(name="info")
+    @checks.is_owner_or_moderator()
+    async def sb_info(self, ctx):
+        starboard = await self.get_starboard(ctx.guild.id)
+        if not starboard:
+            return await ctx.send("No starboard configured on this server")
+        embed = discord.Embed(title="Starboard Info",colour=discord.Colour(0xffac33))
+        sb_message_count = await self.bot.db.fetchval("""
+        SELECT COUNT(*) as star_counts FROM starboard_entries WHERE guild_id = $1
+        """, ctx.guild.id)
+        sb_channel = self.bot.get_channel(starboard.get("channel_id"))
+        embed.add_field(name="Channel",value=sb_channel.mention)
+        embed.add_field(name="Threshold",value=starboard.get("threshold"))
+        embed.add_field(name="Max age",value=starboard.get("max_age"))
+        embed.add_field(name="Starred Messages Count", value=sb_message_count)
+        await ctx.send(embed=embed)
     @starboard.command(name="channel")
     @checks.is_owner_or_moderator()
     async def sb_channel(self, ctx, channel: discord.TextChannel):
