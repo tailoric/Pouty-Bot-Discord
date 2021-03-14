@@ -22,8 +22,11 @@ def can_stop():
         if not ctx.guild.me.voice:
             raise commands.CheckFailure("I am not in voice no need to stop")
         my_voice = ctx.guild.me.voice.channel
-        if checks.is_owner_or_moderator_check(ctx.message):
-            return True
+        try:
+            if checks.is_owner_or_moderator_check(ctx.message):
+                return True
+        except commands.CheckFailure:
+            pass
         if ctx.guild.me.voice:
             if len(my_voice.members) == 2 and ctx.author in my_voice.members:
                 return True
@@ -394,7 +397,12 @@ class Music(commands.Cog):
     async def remove(self, ctx, index: int):
         """ Removes an item from the player's queue with the given index. """
         player = self.bot.lavalink.player_manager.get(ctx.guild.id)
-        if checks.is_owner_or_moderator_check(ctx.message) or ctx.author.id == player.queue[index-1].requester:
+        can_remove = False
+        try:
+            can_remove = checks.is_owner_or_moderator_check(ctx.message)
+        except commands.CheckFailure:
+            pass
+        if can_remove or ctx.author.id == player.queue[index-1].requester:
             if not player.queue:
                 return await ctx.send('Nothing queued.')
 
