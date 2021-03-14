@@ -197,7 +197,8 @@ class Starboard(commands.Cog):
             else:
                 embed.add_field(name="Attachment", value=f"[{file.filename}]({file.url})", inline=False)
 
-        embed.add_field(name="Count", value=f"{await self.get_star_emoji_number(message, starboard_message)} {self.star_emoji}", inline=False)
+        embed.add_field(name="Count", value=f"{await self.get_star_emoji_number(message, starboard_message)} {self.star_emoji}")
+        embed.add_field(name="Channel", value=message.channel.mention)
         return embed
 
     @commands.Cog.listener('on_raw_reaction_add')
