@@ -1,3 +1,475 @@
+import discord
+from discord.ext import commands, tasks
+import os
+import time
+import logging
+import json
+import random
+import re
+import typing
+import asyncio
+import unicodedata
+from functools import partial
+import aiohttp
+
+from datetime import datetime, timedelta
+from .utils import paginator
+from textwrap import shorten
+
+
+timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
+
+class Misc(commands.Cog):
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @commands.command(name="ping")
+    async def check_ping(self, ctx):
+        latency = self.bot.latency 
+        if latency > 1.0:
+            seconds, milliseconds = divmod(latency * 1000, 1000)
+            return await ctx.send(f"My latency to discord is {int(seconds)} seconds and {int(milliseconds)}ms")
+        await ctx.send(f"My latency to discord is {int(latency * 1000)}ms")
+
+
+class RemindMe(commands.Cog):
+    """Never forget anything anymore."""
+
+    def __init__(self, bot : commands.Bot):
+        self.bot = bot
+        self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
+        self.check_reminders.start()
+        self.bot.loop.create_task(self.create_remindme_table())
+        self.bot.loop.create_task(self.load_and_delete_old_json_file( ))
+
+    async def load_and_delete_old_json_file(self):
+        if not os.path.exists('data/remindme/reminders.json'):
+            return
+        reminders = [] 
+        with open("data/remindme/reminders.json", "r") as f:
+            reminders = json.load(f)
+        for entry in reminders:
+            date = datetime.utcfromtimestamp(entry["FUTURE"])
+            user_id = entry["ID"]
+            channel_id = entry.get("CHANNEL", None)
+            text = entry.get("TEXT")
+            await self.insert_reminder(user_id, text, channel_id, date)
+        os.rename("data/remindme/reminders.json", "data/remindme/reminders.json.2")
+
+    async def create_remindme_table(self):
+        query = '''
+            CREATE TABLE IF NOT EXISTS reminders (
+                     r_id SERIAL PRIMARY KEY,
+                     user_id BIGINT,
+                     reminder TEXT,
+                     channel_id BIGINT,
+                     reminder_ts TIMESTAMP)
+        '''
+        await self.bot.db.execute(query)
+
+    async def all_reminders(self):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetch()
+    async def forget_user(self, user_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                DELETE from reminders
+                WHERE user_id = $1
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id)
+
+    async def fetch_reminders(self, user_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                WHERE user_id = $1
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetch(user_id)
+
+    async def fetch_reminder(self, r_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                FROM reminders
+                WHERE r_id = $1
+                ORDER BY reminder_ts
+            '''
+            statement = await con.prepare(query)
+            return await statement.fetchrow(r_id)
+    async def remove_reminder(self, r_id):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                DELETE from reminders
+                WHERE r_id = $1
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(r_id)
+
+    async def insert_remindme(self, user_id, text, date):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                INSERT INTO reminders(user_id, reminder, reminder_ts)
+                VALUES
+                    ($1, $2, $3)
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id, text, date)
+
+    async def insert_reminder(self, user_id, text, channel_id, date):
+        async with self.bot.db.acquire() as con:
+            query = '''
+                INSERT INTO reminders(user_id, reminder, channel_id, reminder_ts)
+                VALUES
+                    ($1, $2, $3, $4)
+            '''
+            statement = await con.prepare(query)
+            async with con.transaction():
+                await statement.fetch(user_id, text, channel_id,date)
+
+    def cog_unload(self):
+        self.check_reminders.cancel()
+
+    def parse_timer(self, timer):
+        match = timing_regex.match(timer)
+        if not match:
+            return None
+        if not any(match.groupdict().values()):
+            return None
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return datetime.utcnow() + delta
+
+    @commands.command()
+    async def remindme(self, ctx,  timer, *, text : str):
+        """Sends you <text> when the time is up
+
+        Accepts: seconds, minutes, hours, days
+        Example:
+        `.remindme "3 days" Have sushi with Asu and JennJenn`
+        """
+        end_timestamp = self.parse_timer(timer)
+        if not end_timestamp: 
+            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+        difference = end_timestamp - datetime.utcnow()
+        if len(text) > 1960:
+            await ctx.send("Text is too long.")
+            return
+        if  difference.total_seconds() > 157788000:
+            await ctx.send("Please use realistic time frames")
+            return
+        await self.insert_remindme(ctx.author.id, text, end_timestamp)
+        await ctx.send(f"I will DM you a reminder of this in {difference}")
+
+    @commands.command()
+    async def reminder(self, ctx, timer, *, text: commands.clean_content()):
+        """
+        posts an open reminder later into the channel
+        example: `.reminder "1 minute" turn off the stove`
+        """
+        end_timestamp = self.parse_timer(timer)
+        if not end_timestamp: 
+            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".reminder 1h20m reminder in 1 hour and 20 minutes\n```")
+        difference = end_timestamp - datetime.utcnow()
+        if len(text) > 1024:
+            await ctx.send("Text is too long.")
+            return
+        if difference.seconds > 157788000:
+            await ctx.send("Please use realistic time frames")
+            return
+        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, end_timestamp)
+        await ctx.send(f"I will send a reminder in this channel in {difference}")
+
+    @commands.command()
+    async def rlist(self, ctx):
+        """lists all your reminders"""
+        reminders = await self.fetch_reminders(ctx.author.id)
+        if not reminders:
+            return await ctx.send("No reminders set!")
+        entries = []
+        for index, reminder in enumerate(reminders):
+            time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
+            entries.append((f"ID: **{reminder['r_id']}** in {time_until}",
+                            f"\n{shorten(reminder.get('reminder'), 100)}"))
+        pager = paginator.FieldPages(ctx, entries=entries, per_page=3)
+        await pager.paginate()
+    @commands.command()
+    async def rfetch(self, ctx, reminder_id:int):
+        reminder = await self.fetch_reminder(reminder_id)
+        time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
+        await ctx.send(f"reminder text: {reminder['reminder']}\n"
+                       f"in {time_until}")
+    
+    @commands.command()
+    async def forget(self, ctx, reminder_id: int):
+        """ use id from rlist to remove an entry"""
+        reminders = await self.fetch_reminders(ctx.author.id)
+        if not reminders:
+            return await ctx.send("No reminders set!")
+        await self.remove_reminder(reminder_id)
+        await ctx.send(f"reminder with id {reminder_id} deleted")
+
+    @commands.command()
+    async def forgetme(self, ctx):
+        """ delete all reminders """
+        await self.forget_user(ctx.author.id)
+        await ctx.send("all reminders deleted.")
+
+    @tasks.loop(seconds=5)
+    async def check_reminders(self):
+        to_remove = []
+        reminders = await self.all_reminders()
+        for reminder in reminders:
+            if reminder["reminder_ts"] <= datetime.utcnow():
+                try:
+                    user = self.bot.get_user(id=reminder["user_id"])
+                    if not user:
+                        to_remove.append(reminder)
+                        continue
+                    if reminder.get("channel_id", None):
+                        channel = self.bot.get_channel(reminder["channel_id"])
+                        the_reminder = reminder["reminder"]
+                        await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
+                    else:
+                        await user.send("You asked me to remind you of this:\n{}".format(reminder["reminder"]))
+                    to_remove.append(reminder)
+                except (discord.errors.Forbidden, discord.errors.NotFound):
+                    to_remove.append(reminder)
+                except discord.errors.HTTPException as e:
+                    logger.error(f"{e}: for reminder {reminder['r_id']}, {reminder['reminder']}")
+                else:
+                    to_remove.append(reminder)
+        for reminder in to_remove:
+            await self.remove_reminder(reminder['r_id'])
+
+def check_folders():
+    if not os.path.exists("data/remindme"):
+        print("Creating data/remindme folder...")
+        os.makedirs("data/remindme")
+
+class Choose(commands.Cog):
+    """chooses one option from a list of several"""
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command()
+    async def choose(self,  ctx, *, options: commands.clean_content):
+        """
+        choose from a list of options seperated by a space
+        example:
+            .choose heads tails "two words"
+        """
+        count_quotes = len(list(filter(lambda c: c in ['"', "\u201c", "\u201d"], options)))
+        if count_quotes % 2 != 0:
+            await ctx.send("there is an unmatched quote")
+            return
+        list_of_options = [opt.strip('"\u201c\u201d') for opt in
+                           re.split(r"( |[\"\u201c].*?[\"\u201d]|'.*?')",
+                                    options,
+                                    flags=re.UNICODE) if opt.strip()
+                           ]
+        list_of_options = list(filter(lambda i: bool(i), list_of_options))
+        set_of_options = set([i.lower().strip("\"").rstrip().lstrip() for i in list_of_options])
+        if len(set_of_options) == 1:
+            await ctx.send("There is only one choice. This is pointless :T")
+            return
+        choice = random.choice(list_of_options)
+        if not choice.strip("\""):
+            choice = '\u200b'
+        sent_message = await ctx.send(choice.strip("\""))
+        def check_del(del_mes,):
+            return del_mes.id == ctx.message.id
+        def check_edit(before, after):
+            return after.id == ctx.message.id
+
+        done, pending = await asyncio.wait([
+            self.bot.wait_for("message_delete", check=check_del),
+            self.bot.wait_for("message_edit", check=check_edit)],
+            return_when=asyncio.FIRST_COMPLETED, timeout=60.0)
+        if done:
+            await sent_message.delete()
+        for  future in pending:
+            future.cancel()
+
+
+class EightBall(commands.Cog):
+    """let fate answer a yes or no question"""
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command(name="8ball")
+    async def eightball(self, ctx, *, question=None):
+        """
+        Let fate answer a yes or no question...
+        """
+        if not question:
+            await ctx.send("you need to ask a question")
+            return
+        response = {
+            "positive": [
+                "It is certain.",
+                "It is decidedly so.",
+                "Without a doubt.",
+                "Yes - definitely.",
+                "You may rely on it.",
+                "As I see it, yes.",
+                "Most likely.",
+                "Outlook good.",
+                "Yes.",
+                "Signs point to yes."
+            ],
+            "neutral": [
+                "Reply hazy, try again.",
+                "Ask again later.",
+                "Better not tell you now.",
+                "Cannot predict now.",
+                "Concentrate and ask again."
+            ],
+            "negative": [
+                "Don't count on it.",
+                "My reply is no.",
+                "My sources say no.",
+                "Outlook not so good.",
+                "Very doubtful."
+            ]
+        }
+        answerlist = response[random.choice(["positive", "negative", "neutral"])]
+        await ctx.send(random.choice(answerlist))
+
+class Emoji(commands.Cog):
+    """
+    get image link of unicode emoji or a custom emote
+    """
+    def __init__(self, bot: commands.Bot):
+        self.custom_emote_regex = re.compile(r"<(?P<animated>a)?:(?P<name>\w+):(?P<id>\d+)>")
+        self.bot = bot
+
+    @commands.command()
+    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], message: typing.Optional[discord.Message], emoji=None):
+        """
+        displays a custom emote as an image in chat or 
+        try to find custom emote from a provided message link
+        """
+        if emote:
+            embed = discord.Embed(title=emote.name, url=str(emote.url))
+            embed.set_image(url=emote.url)
+            await ctx.send(embed=embed)
+            return
+        if message:
+            match = re.search(self.custom_emote_regex, message.content)
+            if match and match.group("id"):
+                emote_url = f"https://cdn.discordapp.com/emojis/{match.group('id')}"
+                if match.group("animated"):
+                    emote_url += ".gif"
+                else:
+                    emote_url += ".png"
+                embed = discord.Embed(title=match.group("name"), url=emote_url)
+                embed.set_image(url=emote_url)
+                return await ctx.send(embed=embed)
+            else:
+                await ctx.send("could not find a custom emote in the provided message")
+                return
+        if emoji:
+            def code_point(c):
+
+                return f'{ord(c):x}'
+            def unicode_name(c):
+                return unicodedata.name(c, "??")
+            cp = '-'.join(filter(lambda c: int(c, 16) != 0xfe0f, map(code_point, emoji)))
+            name = ', '.join(map(unicode_name, emoji))
+            twitter_emoji_image = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/{cp}.png"
+            twitter_emoji_svg = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/{cp}.svg"
+            embed = discord.Embed(title=name, url=twitter_emoji_svg, description=f"[png]({twitter_emoji_image}) | [svg]({twitter_emoji_svg})")
+            embed.set_thumbnail(url=twitter_emoji_image)
+            await ctx.send(embed=embed)
+            return
+        await ctx.send("Please provide a custom emote or a default emoji")
+
+
+class SCP(commands.Cog):
+    """
+    look up scp articles via number
+    """
+    def __init__(self, bot):
+        self.bot = bot
+        self.session = aiohttp.ClientSession()
+
+    @commands.group(invoke_without_command=True)
+    async def scp(self, ctx, number):
+        """look up an scp page (either via number for example .scp 2053)
+        or via page name for example .scp fear-alone"""
+        pattern = re.compile(r"(\d+)?(.*)")
+        match = pattern.match(number)
+        scp_number = None
+        if match.group(1):
+            scp_number = int(match.group(1))
+        rest = match.group(2)
+        if scp_number:
+            url = f"http://www.scp-wiki.net/scp-{scp_number:03}{rest}"
+        else:
+            url = f"http://www.scp-wiki.net/{rest}"
+        async with self.session.get(url) as resp:
+            if resp.status == 200:
+                await ctx.send(url)
+            else:
+                await ctx.send("SCP not found")
+
+    @scp.command(name="random")
+    async def scp_random(self, ctx):
+        """
+        display a random scp article (only works with scp-001 to scp-4999)
+        """
+        max_scp_number = 4999
+        scp_number = random.randint(1,max_scp_number)
+        url = f"http://www.scp-wiki.net/scp-{scp_number:03}" 
+        async with self.session.options(url=url, allow_redirects=True) as resp:
+            if resp.status == 200:
+                await ctx.send(url)
+
+
+
+
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
+
+
+def setup(bot):
+    global logger
+    check_folders()
+    logger = logging.getLogger("remindme")
+    if logger.level == 0: # Prevents the logger from being loaded again in case of module reload
+        logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(filename='data/remindme/reminders.log', encoding='utf-8', mode='a')
+        handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt="[%d/%m/%Y %H:%M]"))
+        logger.addHandler(handler)
+    n = RemindMe(bot)
+    bot.add_cog(n)
+    bot.add_cog(Choose(bot))
+    bot.add_cog(EightBall(bot))
+    bot.add_cog(Emoji(bot))
+    bot.add_cog(SCP(bot))
+    bot.add_cog(Misc(bot))
 """
 this cog is partially provided by
 https://github.com/Twentysix26/26-Cogs/tree/master/remindme
@@ -679,473 +1151,3 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html
 """
-import discord
-from discord.ext import commands, tasks
-import os
-import time
-import logging
-import json
-import random
-import re
-import typing
-import asyncio
-from emojipedia import Emojipedia
-from functools import partial
-import aiohttp
-
-from datetime import datetime, timedelta
-from .utils import paginator
-from textwrap import shorten
-
-
-timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
-
-class Misc(commands.Cog):
-
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @commands.command(name="ping")
-    async def check_ping(self, ctx):
-        latency = self.bot.latency 
-        if latency > 1.0:
-            seconds, milliseconds = divmod(latency * 1000, 1000)
-            return await ctx.send(f"My latency to discord is {int(seconds)} seconds and {int(milliseconds)}ms")
-        await ctx.send(f"My latency to discord is {int(latency * 1000)}ms")
-
-
-class RemindMe(commands.Cog):
-    """Never forget anything anymore."""
-
-    def __init__(self, bot : commands.Bot):
-        self.bot = bot
-        self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
-        self.check_reminders.start()
-        self.bot.loop.create_task(self.create_remindme_table())
-        self.bot.loop.create_task(self.load_and_delete_old_json_file( ))
-
-    async def load_and_delete_old_json_file(self):
-        if not os.path.exists('data/remindme/reminders.json'):
-            return
-        reminders = [] 
-        with open("data/remindme/reminders.json", "r") as f:
-            reminders = json.load(f)
-        for entry in reminders:
-            date = datetime.utcfromtimestamp(entry["FUTURE"])
-            user_id = entry["ID"]
-            channel_id = entry.get("CHANNEL", None)
-            text = entry.get("TEXT")
-            await self.insert_reminder(user_id, text, channel_id, date)
-        os.rename("data/remindme/reminders.json", "data/remindme/reminders.json.2")
-
-    async def create_remindme_table(self):
-        query = '''
-            CREATE TABLE IF NOT EXISTS reminders (
-                     r_id SERIAL PRIMARY KEY,
-                     user_id BIGINT,
-                     reminder TEXT,
-                     channel_id BIGINT,
-                     reminder_ts TIMESTAMP)
-        '''
-        await self.bot.db.execute(query)
-
-    async def all_reminders(self):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
-                FROM reminders
-                ORDER BY reminder_ts
-            '''
-            statement = await con.prepare(query)
-            return await statement.fetch()
-    async def forget_user(self, user_id):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                DELETE from reminders
-                WHERE user_id = $1
-            '''
-            statement = await con.prepare(query)
-            async with con.transaction():
-                await statement.fetch(user_id)
-
-    async def fetch_reminders(self, user_id):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
-                FROM reminders
-                WHERE user_id = $1
-                ORDER BY reminder_ts
-            '''
-            statement = await con.prepare(query)
-            return await statement.fetch(user_id)
-
-    async def fetch_reminder(self, r_id):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
-                FROM reminders
-                WHERE r_id = $1
-                ORDER BY reminder_ts
-            '''
-            statement = await con.prepare(query)
-            return await statement.fetchrow(r_id)
-    async def remove_reminder(self, r_id):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                DELETE from reminders
-                WHERE r_id = $1
-            '''
-            statement = await con.prepare(query)
-            async with con.transaction():
-                await statement.fetch(r_id)
-
-    async def insert_remindme(self, user_id, text, date):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                INSERT INTO reminders(user_id, reminder, reminder_ts)
-                VALUES
-                    ($1, $2, $3)
-            '''
-            statement = await con.prepare(query)
-            async with con.transaction():
-                await statement.fetch(user_id, text, date)
-
-    async def insert_reminder(self, user_id, text, channel_id, date):
-        async with self.bot.db.acquire() as con:
-            query = '''
-                INSERT INTO reminders(user_id, reminder, channel_id, reminder_ts)
-                VALUES
-                    ($1, $2, $3, $4)
-            '''
-            statement = await con.prepare(query)
-            async with con.transaction():
-                await statement.fetch(user_id, text, channel_id,date)
-
-    def cog_unload(self):
-        self.check_reminders.cancel()
-
-    def parse_timer(self, timer):
-        match = timing_regex.match(timer)
-        if not match:
-            return None
-        if not any(match.groupdict().values()):
-            return None
-        timer_inputs = match.groupdict()
-        for key, value in timer_inputs.items():
-            if value is None:
-                value = 0
-            else:
-                value = int(''.join(filter(str.isdigit, value)))
-            timer_inputs[key] = value
-        delta = timedelta(**timer_inputs)
-        return datetime.utcnow() + delta
-
-    @commands.command()
-    async def remindme(self, ctx,  timer, *, text : str):
-        """Sends you <text> when the time is up
-
-        Accepts: seconds, minutes, hours, days
-        Example:
-        `.remindme "3 days" Have sushi with Asu and JennJenn`
-        """
-        end_timestamp = self.parse_timer(timer)
-        if not end_timestamp: 
-            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
-                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
-        difference = end_timestamp - datetime.utcnow()
-        if len(text) > 1960:
-            await ctx.send("Text is too long.")
-            return
-        if  difference.total_seconds() > 157788000:
-            await ctx.send("Please use realistic time frames")
-            return
-        await self.insert_remindme(ctx.author.id, text, end_timestamp)
-        await ctx.send(f"I will DM you a reminder of this in {difference}")
-
-    @commands.command()
-    async def reminder(self, ctx, timer, *, text: commands.clean_content()):
-        """
-        posts an open reminder later into the channel
-        example: `.reminder "1 minute" turn off the stove`
-        """
-        end_timestamp = self.parse_timer(timer)
-        if not end_timestamp: 
-            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
-                                  ".reminder 1h20m reminder in 1 hour and 20 minutes\n```")
-        difference = end_timestamp - datetime.utcnow()
-        if len(text) > 1024:
-            await ctx.send("Text is too long.")
-            return
-        if difference.seconds > 157788000:
-            await ctx.send("Please use realistic time frames")
-            return
-        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, end_timestamp)
-        await ctx.send(f"I will send a reminder in this channel in {difference}")
-
-    @commands.command()
-    async def rlist(self, ctx):
-        """lists all your reminders"""
-        reminders = await self.fetch_reminders(ctx.author.id)
-        if not reminders:
-            return await ctx.send("No reminders set!")
-        entries = []
-        for index, reminder in enumerate(reminders):
-            time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
-            entries.append((f"ID: **{reminder['r_id']}** in {time_until}",
-                            f"\n{shorten(reminder.get('reminder'), 100)}"))
-        pager = paginator.FieldPages(ctx, entries=entries, per_page=3)
-        await pager.paginate()
-    @commands.command()
-    async def rfetch(self, ctx, reminder_id:int):
-        reminder = await self.fetch_reminder(reminder_id)
-        time_until = str(reminder['reminder_ts'] - datetime.utcnow()).split('.')[0]
-        await ctx.send(f"reminder text: {reminder['reminder']}\n"
-                       f"in {time_until}")
-    
-    @commands.command()
-    async def forget(self, ctx, reminder_id: int):
-        """ use id from rlist to remove an entry"""
-        reminders = await self.fetch_reminders(ctx.author.id)
-        if not reminders:
-            return await ctx.send("No reminders set!")
-        await self.remove_reminder(reminder_id)
-        await ctx.send(f"reminder with id {reminder_id} deleted")
-
-    @commands.command()
-    async def forgetme(self, ctx):
-        """ delete all reminders """
-        await self.forget_user(ctx.author.id)
-        await ctx.send("all reminders deleted.")
-
-    @tasks.loop(seconds=5)
-    async def check_reminders(self):
-        to_remove = []
-        reminders = await self.all_reminders()
-        for reminder in reminders:
-            if reminder["reminder_ts"] <= datetime.utcnow():
-                try:
-                    user = self.bot.get_user(id=reminder["user_id"])
-                    if not user:
-                        to_remove.append(reminder)
-                        continue
-                    if reminder.get("channel_id", None):
-                        channel = self.bot.get_channel(reminder["channel_id"])
-                        the_reminder = reminder["reminder"]
-                        await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
-                    else:
-                        await user.send("You asked me to remind you of this:\n{}".format(reminder["reminder"]))
-                    to_remove.append(reminder)
-                except (discord.errors.Forbidden, discord.errors.NotFound):
-                    to_remove.append(reminder)
-                except discord.errors.HTTPException as e:
-                    logger.error(f"{e}: for reminder {reminder['r_id']}, {reminder['reminder']}")
-                else:
-                    to_remove.append(reminder)
-        for reminder in to_remove:
-            await self.remove_reminder(reminder['r_id'])
-
-def check_folders():
-    if not os.path.exists("data/remindme"):
-        print("Creating data/remindme folder...")
-        os.makedirs("data/remindme")
-
-class Choose(commands.Cog):
-    """chooses one option from a list of several"""
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command()
-    async def choose(self,  ctx, *, options: commands.clean_content):
-        """
-        choose from a list of options seperated by a space
-        example:
-            .choose heads tails "two words"
-        """
-        count_quotes = len(list(filter(lambda c: c in ['"', "\u201c", "\u201d"], options)))
-        if count_quotes % 2 != 0:
-            await ctx.send("there is an unmatched quote")
-            return
-        list_of_options = [opt.strip('"\u201c\u201d') for opt in
-                           re.split(r"( |[\"\u201c].*?[\"\u201d]|'.*?')",
-                                    options,
-                                    flags=re.UNICODE) if opt.strip()
-                           ]
-        list_of_options = list(filter(lambda i: bool(i), list_of_options))
-        set_of_options = set([i.lower().strip("\"").rstrip().lstrip() for i in list_of_options])
-        if len(set_of_options) == 1:
-            await ctx.send("There is only one choice. This is pointless :T")
-            return
-        choice = random.choice(list_of_options)
-        if not choice.strip("\""):
-            choice = '\u200b'
-        sent_message = await ctx.send(choice.strip("\""))
-        def check_del(del_mes,):
-            return del_mes.id == ctx.message.id
-        def check_edit(before, after):
-            return after.id == ctx.message.id
-
-        done, pending = await asyncio.wait([
-            self.bot.wait_for("message_delete", check=check_del),
-            self.bot.wait_for("message_edit", check=check_edit)],
-            return_when=asyncio.FIRST_COMPLETED, timeout=60.0)
-        if done:
-            await sent_message.delete()
-        for  future in pending:
-            future.cancel()
-
-
-class EightBall(commands.Cog):
-    """let fate answer a yes or no question"""
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command(name="8ball")
-    async def eightball(self, ctx, *, question=None):
-        """
-        Let fate answer a yes or no question...
-        """
-        if not question:
-            await ctx.send("you need to ask a question")
-            return
-        response = {
-            "positive": [
-                "It is certain.",
-                "It is decidedly so.",
-                "Without a doubt.",
-                "Yes - definitely.",
-                "You may rely on it.",
-                "As I see it, yes.",
-                "Most likely.",
-                "Outlook good.",
-                "Yes.",
-                "Signs point to yes."
-            ],
-            "neutral": [
-                "Reply hazy, try again.",
-                "Ask again later.",
-                "Better not tell you now.",
-                "Cannot predict now.",
-                "Concentrate and ask again."
-            ],
-            "negative": [
-                "Don't count on it.",
-                "My reply is no.",
-                "My sources say no.",
-                "Outlook not so good.",
-                "Very doubtful."
-            ]
-        }
-        answerlist = response[random.choice(["positive", "negative", "neutral"])]
-        await ctx.send(random.choice(answerlist))
-
-class Emoji(commands.Cog):
-    """
-    get image link of unicode emoji or a custom emote
-    """
-    def __init__(self, bot: commands.Bot):
-        self.custom_emote_regex = re.compile(r"<(?P<animated>a)?:(?P<name>\w+):(?P<id>\d+)>")
-        self.bot = bot
-
-    @commands.command()
-    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], message: typing.Optional[discord.Message], emoji=None):
-        """
-        displays a custom emote as an image in chat or 
-        try to find custom emote from a provided message link
-        """
-        if emote:
-            embed = discord.Embed(title=emote.name, url=str(emote.url))
-            embed.set_image(url=emote.url)
-            await ctx.send(embed=embed)
-            return
-        if message:
-            match = re.search(self.custom_emote_regex, message.content)
-            if match and match.group("id"):
-                emote_url = f"https://cdn.discordapp.com/emojis/{match.group('id')}"
-                if match.group("animated"):
-                    emote_url += ".gif"
-                else:
-                    emote_url += ".png"
-                embed = discord.Embed(title=match.group("name"), url=emote_url)
-                embed.set_image(url=emote_url)
-                return await ctx.send(embed=embed)
-            else:
-                await ctx.send("could not find a custom emote in the provided message")
-                return
-        if emoji:
-            to_run = partial(Emojipedia.search, emoji)
-            try:
-                found_emoji = await self.bot.loop.run_in_executor(None, to_run)
-            except RuntimeError:
-                await ctx.send("couldn't find emoji \N{PENSIVE FACE}")
-                return
-            twitter_emoji = next(twi for twi in found_emoji.platforms if twi.name == "Twitter")
-            embed = discord.Embed(title=found_emoji.title, url=twitter_emoji.image_url)
-            embed.set_image(url=twitter_emoji.image_url)
-            await ctx.send(embed=embed)
-            return
-        await ctx.send("Please provide a custom emote")
-
-
-class SCP(commands.Cog):
-    """
-    look up scp articles via number
-    """
-    def __init__(self, bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
-
-    @commands.group(invoke_without_command=True)
-    async def scp(self, ctx, number):
-        """look up an scp page (either via number for example .scp 2053)
-        or via page name for example .scp fear-alone"""
-        pattern = re.compile(r"(\d+)?(.*)")
-        match = pattern.match(number)
-        scp_number = None
-        if match.group(1):
-            scp_number = int(match.group(1))
-        rest = match.group(2)
-        if scp_number:
-            url = f"http://www.scp-wiki.net/scp-{scp_number:03}{rest}"
-        else:
-            url = f"http://www.scp-wiki.net/{rest}"
-        async with self.session.get(url) as resp:
-            if resp.status == 200:
-                await ctx.send(url)
-            else:
-                await ctx.send("SCP not found")
-
-    @scp.command(name="random")
-    async def scp_random(self, ctx):
-        """
-        display a random scp article (only works with scp-001 to scp-4999)
-        """
-        max_scp_number = 4999
-        scp_number = random.randint(1,max_scp_number)
-        url = f"http://www.scp-wiki.net/scp-{scp_number:03}" 
-        async with self.session.options(url=url, allow_redirects=True) as resp:
-            if resp.status == 200:
-                await ctx.send(url)
-
-
-
-
-    def cog_unload(self):
-        self.bot.loop.create_task(self.session.close())
-
-
-def setup(bot):
-    global logger
-    check_folders()
-    logger = logging.getLogger("remindme")
-    if logger.level == 0: # Prevents the logger from being loaded again in case of module reload
-        logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(filename='data/remindme/reminders.log', encoding='utf-8', mode='a')
-        handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt="[%d/%m/%Y %H:%M]"))
-        logger.addHandler(handler)
-    n = RemindMe(bot)
-    bot.add_cog(n)
-    bot.add_cog(Choose(bot))
-    bot.add_cog(EightBall(bot))
-    bot.add_cog(Emoji(bot))
-    bot.add_cog(SCP(bot))
-    bot.add_cog(Misc(bot))
