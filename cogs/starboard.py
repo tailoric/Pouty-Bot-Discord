@@ -178,6 +178,7 @@ class Starboard(commands.Cog):
                 async for user in star_react_sb.users():
                     users_who_reacted.add(user.id)
         users_who_reacted.discard(reacted_message.author.id)
+        users_who_reacted.discard(self.bot.user.id)
         return len(users_who_reacted)
 
     async def create_starboard_embed(self, message, starboard_message=None):
@@ -228,6 +229,7 @@ class Starboard(commands.Cog):
                 return
             embed = await self.create_starboard_embed(message)       
             bot_message = await sb_channel.send(embed=embed)
+            await bot_message.add_reaction("\N{WHITE MEDIUM STAR}")
             async with self.bot.db.acquire() as con:
                 await con.execute("""
                     INSERT INTO starboard_entries (bot_message_id, guild_id, channel_id, message_id, author_id)
