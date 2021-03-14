@@ -35,6 +35,8 @@ class Owner(commands.Cog):
         members = inspect.getmembers(module)
         modules = [module[1] for module in members if inspect.ismodule(module[1])]
         for module in modules:
+            if not hasattr(module, '__file__'):
+                continue
             path = Path(module.__file__)
             if path.parent.name == 'utils' or path.parent.name == 'cogs':
                 importlib.reload(module)
