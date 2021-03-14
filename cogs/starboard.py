@@ -206,7 +206,7 @@ class Starboard(commands.Cog):
     async def listen_to_star_emotes(self, payload):
         if not payload.guild_id:
             return
-        if payload.emoji != self.star_emoji:
+        if payload.emoji.name != self.star_emoji:
             return
         starboard = await self.get_starboard(payload.guild_id)
         if not starboard:
@@ -268,7 +268,7 @@ class Starboard(commands.Cog):
     async def listen_to_star_emotes_remove(self, payload):
         if not payload.guild_id:
             return
-        if payload.emoji != self.star_emoji:
+        if payload.emoji.name != self.star_emoji:
             return
         starboard = await self.get_starboard(payload.guild_id)
         if not starboard:
