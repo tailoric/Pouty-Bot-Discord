@@ -217,7 +217,6 @@ class Thread(commands.Cog):
             if schedule_delete:
                 deletion_task = self.bot.loop.create_task(self.delete_thread(thread_channel, message, copy_message, delete_at))
                 deletion_task.add_done_callback(self.thread_delete_error)
-                deletion_task.set_name(f"<ChannelDeletionTask channel={thread_channel.name} id={thread_channel.id} delete_at={delete_at.strftime('%H:%M:%S')}>")
                 self.scheduled_deletions.append(deletion_task)
             full_message = await copy_message.fetch()
             embed = full_message.embeds[0]
