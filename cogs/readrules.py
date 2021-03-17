@@ -105,7 +105,7 @@ class ReadRules(commands.Cog):
         show how many people are still not able to read the rules
         """
         memester_count = len(self.memester_role.members) + len(self.new_memester.members)
-        await ctx.send(embed=discord.Embed(title=f"People stuck in #{self.rules_channel.name}", description=f"There are currently {self.animemes_guild.member_count - memester_count:,} stuck"))
+        await ctx.send(embed=discord.Embed(title=f"People stuck in #{self.rules_channel.name}", description=f"There are currently {self.animemes_guild.member_count - memester_count:,} users stuck still reading the rules."))
 
 
 
