@@ -154,7 +154,11 @@ class Roles(commands.Cog):
             description = await self.fetch_role_description(role.id)
             embed.title = role.name
             embed.color = role.colour
+            embed.add_field(name="ID", value=role.id)
             embed.add_field(name="Member Count", value="{} Member(s)".format(len(role.members)))
+            embed.add_field(name="Colour", value=role.colour)
+            embed.set_footer(text="Role was created on")
+            embed.timestamp = role.created_at
             if description:
                 embed.description = description
         await ctx.send(embed=embed)
