@@ -19,6 +19,7 @@ import typing
 import subprocess
 import importlib
 import logging
+from pathlib import Path
 
 
 class SauceNaoResult:
@@ -110,8 +111,11 @@ class Search(commands.Cog):
         self.dans_session = aiohttp.ClientSession()
         self.sauce_session = aiohttp.ClientSession()
         self.tineye_session = aiohttp.ClientSession()
-        if not os.path.exists("data/image_search"):
-            os.mkdir("data/image_search/")
+        self.sauce_nao_settings = Path('config/sauce_nao_settings.json')
+        if not self.sauce_nao_settings.exists():
+            self.sauce_nao_settings.touch()
+        with self.sauce_nao_settings.open('r') as f:
+            self.sauce_nao_settings = json.load(f)
 
     async def _danbooru_api(self, ctx, link):
         """
@@ -227,6 +231,7 @@ class Search(commands.Cog):
        usage:   .sauce <image-link> <similarity (in percent)> or
                 .sauce on image upload comment <similarity (in percent)>
         """
+        self.logger.info("hi")
         file = ctx.message.attachments
         if not link and not file and ctx.message.reference:
             link = self.get_referenced_message_image(ctx)
@@ -242,9 +247,11 @@ class Search(commands.Cog):
             url = url.strip("<>|")
             saucenao_url = 'https://saucenao.com/search.php'
             search_url = '{}?url={}'.format(saucenao_url,url)
+            print(search_url)
             params = {
                     'url': url,
                     'output_type': 2,
+                    'api_key': self.sauce_nao_settings.get('api_key'),
                     'hide': 2
                     }
             async with self.sauce_session.get(url=saucenao_url, params=params) as response:
@@ -271,6 +278,14 @@ class Search(commands.Cog):
                             return await ctx.send(embed=embed)
                     if source is None:
                         await ctx.send('No source over the similarity threshold')
+                else:
+                    info = await response.json()
+                    paginator = commands.Paginator()
+                    paginator.add_line(f"Error when calling saucenao (HTTP STATUS: {response.status}):", empty=True)
+                    for line in json.dumps(info, indent=4).splitlines():
+                        paginator.add_line(line)
+                    for page in paginator.pages:
+                        await ctx.send(page)
 
     @commands.command()
     async def tineye(self, ctx, link=None):
