@@ -114,9 +114,12 @@ class Search(commands.Cog):
         self.sauce_nao_settings = Path('config/sauce_nao_settings.json')
         if not self.sauce_nao_settings.exists():
             self.sauce_nao_settings.touch()
+            self.sauce_nao_settings = {}
         with self.sauce_nao_settings.open('r') as f:
             self.sauce_nao_settings = json.load(f)
-
+        self.sauce_nao_settings['long_remaining'] = 200
+        self.sauce_nao_settings['short_remaining'] = 6
+        self.reset_time_tasks = []
     async def _danbooru_api(self, ctx, link):
         """
         looks up information about the image on danbooru
@@ -161,6 +164,8 @@ class Search(commands.Cog):
         loop.create_task(self.dans_session.close())
         loop.create_task(self.sauce_session.close())
         loop.create_task(self.tineye_session.close())
+        for task in self.reset_time_tasks:
+            task.cancel()
 
 
     def _tag_to_title(self, tag):
@@ -224,6 +229,14 @@ class Search(commands.Cog):
                     if not danbooru_found:
                         await ctx.send('<{}>'.format(best_match))
 
+    async def reset_long_limit(self):
+        await asyncio.sleep(86400)
+        self.sauce_nao_settings["long_remaining"] = 200
+
+    async def reset_short_limit(self):
+        await asyncio.sleep(30)
+        self.sauce_nao_settings["short_remaining"] = 6
+
     @commands.command(aliases=["source","saucenao"])
     async def sauce(self, ctx, link=None, similarity=80):
         """
@@ -237,6 +250,10 @@ class Search(commands.Cog):
             link = self.get_referenced_message_image(ctx)
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
+        if self.sauce_nao_settings.get("short_remaining") == 0:
+            return await ctx.send("Ratelimit reached. Please wait 30 seconds before doing another search")
+        if self.sauce_nao_settings.get("long_remaining") == 0:
+            return await ctx.send("No more searches available for toaday. Please wait 24 hours before doing another search")
         else:
             await ctx.trigger_typing()
             if file:
@@ -247,7 +264,6 @@ class Search(commands.Cog):
             url = url.strip("<>|")
             saucenao_url = 'https://saucenao.com/search.php'
             search_url = '{}?url={}'.format(saucenao_url,url)
-            print(search_url)
             params = {
                     'url': url,
                     'output_type': 2,
@@ -257,7 +273,16 @@ class Search(commands.Cog):
             async with self.sauce_session.get(url=saucenao_url, params=params) as response:
                 source = None
                 if response.status == 200:
-                    for result in (await response.json())['results']:
+                    resp = await response.json()
+                    header = resp['header']
+                    results = resp['results']
+                    self.sauce_nao_settings['short_remaining'] = header['short_remaining']
+                    self.sauce_nao_settings['long_remaining'] = header['long_remaining']
+                    if self.sauce_nao_settings.get("short_remaining") == 0:
+                        self.reset_time_tasks.append(self.bot.loop.create_task(self.reset_short_limit()))
+                    if self.sauce_nao_settings.get("long_remaining") == 0:
+                        self.reset_time_tasks.append(self.bot.loop.create_task(self.reset_long_limit()))
+                    for result in results:
                         if float(similarity) > float(result['header']['similarity']):
                             break
                         else:
