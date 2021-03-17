@@ -99,6 +99,15 @@ class ReadRules(commands.Cog):
         self.check_for_new_memester.stop()
         self.limit_reset.cancel()
 
+    @commands.command(name="stuck")
+    async def people_stuck(self, ctx):
+        """
+        show how many people are still not able to read the rules
+        """
+        memester_count = len(self.memester_role.members) + len(self.new_memester.members)
+        await ctx.send(embed=discord.Embed(title=f"People stuck in #{self.rules_channel.name}", description=f"There are currently {self.animemes_guild.member_count - memester_count:,} stuck"))
+
+
 
     @tasks.loop(hours=0)
     async def limit_reset(self):
