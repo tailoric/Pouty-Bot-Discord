@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from discord import Embed, Message, NotFound, Forbidden, HTTPException
 from discord.utils import find
 from .utils.checks import is_owner_or_moderator
+from .utils.converters import ReferenceOrMessage
 from typing import Optional
 import logging
 import re
@@ -200,13 +201,12 @@ class Poll(commands.Cog):
         """
         delete a poll by providing a message id of a poll message
         """
-        if not message and not ctx.message.reference and not ctx.message.reference.message_id:
-            return await ctx.send("either reply to or provide a message link to the poll")
-        if message:
-            message_id = message.id
-        else:
-            message_id = ctx.message.reference.message_id
-        poll = await self.fetch_poll(message_id)
+        converter = ReferenceOrMessage()
+        try:
+            message = await converter.convert(ctx, message)
+        except:
+            return await ctx.send("please provide a valid jump url or reply to a poll message")
+        poll = await self.fetch_poll(message.id)
         if not poll:
             return await ctx.send("Message was not a poll")
         poll_channel = self.bot.get_channel(poll.get("channel_id"))
@@ -215,18 +215,18 @@ class Poll(commands.Cog):
         await self.delete_poll(poll_msg.id)
         await ctx.send("poll deleted")
 
+    
     @poll.command()
     async def when(self, ctx, message: Optional[Message]):
         """
         check how long until a poll is finished by providing the message id of a poll message
         """
-        if not message and not ctx.message.reference and not ctx.message.reference.message_id:
-            return await ctx.send("either reply to or provide a message link to the poll")
-        if message:
-            message_id = message.id
-        else:
-            message_id = ctx.message.reference.message_id
-        poll = await self.fetch_poll(message_id)
+        converter = ReferenceOrMessage()
+        try:
+            message = await converter.convert(ctx, message)
+        except:
+            return await ctx.send("please provide a valid jump url or reply to a poll message")
+        poll = await self.fetch_poll(message.id)
         if not poll:
             return await ctx.send("Message was not a poll")
         end = poll.get("end_ts")

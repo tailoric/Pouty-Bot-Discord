@@ -14,6 +14,7 @@ import aiohttp
 
 from datetime import datetime, timedelta
 from .utils import paginator
+from .utils.converters import ReferenceOrMessage
 from textwrap import shorten
 
 
@@ -365,17 +366,17 @@ class Emoji(commands.Cog):
         self.custom_emote_regex = re.compile(r"<(?P<animated>a)?:(?P<name>\w+):(?P<id>\d+)>")
         self.bot = bot
 
-    @commands.command()
-    async def emote(self, ctx, emote: typing.Optional[discord.PartialEmoji], message: typing.Optional[discord.Message], emoji=None):
+    @commands.command(aliases=["emoji"], usage="emote [emoji|custom emote] (or reply to message)")
+    async def emote(self, ctx, message: typing.Optional[discord.Message], emote: typing.Optional[typing.Union[discord.PartialEmoji, str]]):
         """
         displays a custom emote as an image in chat or 
         try to find custom emote from a provided message link
         """
-        if emote:
-            embed = discord.Embed(title=emote.name, url=str(emote.url))
-            embed.set_image(url=emote.url)
-            await ctx.send(embed=embed)
-            return
+        try:
+            converter = ReferenceOrMessage()
+            message = await converter.convert(ctx, message)
+        except:
+            pass
         if message:
             match = re.search(self.custom_emote_regex, message.content)
             if match and match.group("id"):
@@ -390,14 +391,19 @@ class Emoji(commands.Cog):
             else:
                 await ctx.send("could not find a custom emote in the provided message")
                 return
-        if emoji:
+        if isinstance(emote, discord.PartialEmoji):
+            embed = discord.Embed(title=emote.name, url=str(emote.url))
+            embed.set_image(url=emote.url)
+            await ctx.send(embed=embed)
+            return
+        if isinstance(emote, str):
             def code_point(c):
 
                 return f'{ord(c):x}'
             def unicode_name(c):
                 return unicodedata.name(c, "??")
-            cp = '-'.join(filter(lambda c: int(c, 16) != 0xfe0f, map(code_point, emoji)))
-            name = ', '.join(map(unicode_name, emoji))
+            cp = '-'.join(filter(lambda c: int(c, 16) != 0xfe0f, map(code_point, emote)))
+            name = ', '.join(map(unicode_name, emote))
             twitter_emoji_image = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/{cp}.png"
             twitter_emoji_svg = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/{cp}.svg"
             embed = discord.Embed(title=name, url=twitter_emoji_svg, description=f"[png]({twitter_emoji_image}) | [svg]({twitter_emoji_svg})")
