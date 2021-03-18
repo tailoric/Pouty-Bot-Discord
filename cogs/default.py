@@ -75,13 +75,14 @@ class CustomHelpCommand(DefaultHelpCommand):
 
     async def send_command_help(self, command):
         embed = discord.Embed()
-        embed.title = f"{self.clean_prefix}{command.qualified_name} {command.signature}"
+        if not command.usage:
+            embed.title = f"{self.clean_prefix}{command.qualified_name} {command.signature}"
+        else:
+            embed.title = f"{self.clean_prefix}{command.usage}"
         embed.description = command.help if command.help else discord.Embed.Empty
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if command.aliases:
             embed.add_field(name="aliases", value=", ".join(command.aliases), inline=True)
-        if command.usage:
-            embed.add_field(name="usage", value=command.usage, inline=True)
         await self.get_destination().send(embed=embed)
 
     async def send_group_help(self, group):
