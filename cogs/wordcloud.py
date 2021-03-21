@@ -79,7 +79,7 @@ class Wordcloud(commands.Cog):
     ##################
     @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="[user|channel]")
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
-    async def word_cloud(self, ctx, target: Union[discord.Member, discord.TextChannel, None]):
+    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel, None]):
         """
         generate a word cloud from the last 100 messages of a user or a channel. 
         for users it only applies to messages the bot recorded after getting your consent for recording messages, see `wc consent`
