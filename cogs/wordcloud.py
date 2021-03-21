@@ -91,7 +91,7 @@ class Wordcloud(commands.Cog):
             permissions = target.permissions_for(ctx.author)
             if not permissions.read_messages:
                 return await ctx.send("Can't create wordcloud since you don't have the permission to view that channel")
-            messages = await target.history(limit=100).flatten()
+            messages = await target.history(limit=300).flatten()
             text = " ".join([self.url_regex.sub("", m.clean_content) for m in messages])
         if isinstance(target, discord.Member):
             consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", ctx.author.id)
