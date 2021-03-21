@@ -24,3 +24,4 @@ youtube-dl
 pillow
 emojipedia
 fuzzywuzzy
+wordcloud
