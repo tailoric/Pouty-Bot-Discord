@@ -96,7 +96,6 @@ class Wordcloud(commands.Cog):
             messages = await target.history(limit=300).flatten()
             text = "\n".join([self.url_regex.sub("", m.clean_content) for m in messages])
             text = self.spoiler_regex.sub("", text)
-            print(text)
         if isinstance(target, discord.Member):
             consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", ctx.author.id)
 
