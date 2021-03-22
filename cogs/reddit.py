@@ -143,12 +143,12 @@ class Reddit(commands.Cog):
                                           color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
                                           description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
                                           else "\u200b")
-                    if post["over_18"]:
+                    if post["over_18"] or post["spoiler"]:
                         embed.set_thumbnail(url=sub_data["header_img"])
-                    elif "image" in post["post_hint"]:
-                        embed.set_image(url=post["url"])
                     elif post["thumbnail"] != "default" and post["thumbnail"] != "spoiler":
                         embed.set_thumbnail(url=post["thumbnail"])
+                    elif "image" in post["post_hint"]:
+                        embed.set_image(url=post["url"])
                     else:
                         embed.set_thumbnail(url=sub_data["header_img"])
 
