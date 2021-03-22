@@ -12,6 +12,7 @@ class Wordcloud(commands.Cog):
         self.bot= bot
         self.create_table = self.bot.loop.create_task(self.init_table())
         self.url_regex = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+        self.spoiler_regex = re.compile(r"\|\|.+?\|\|")
         self.clean_db.start()
 
     def cog_unload(self):
@@ -49,6 +50,7 @@ class Wordcloud(commands.Cog):
         if not consent:
             return
         clean_message = self.url_regex.sub("", message.clean_content)
+        clean_message = self.spoiler_regex.sub("", clean_message)
         if clean_message:
             await self.bot.db.execute("""
             INSERT INTO wc_messages (user_id, message_id, message_content, message_time) VALUES ($1, $2, $3, $4)
