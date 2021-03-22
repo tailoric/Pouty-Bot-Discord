@@ -127,6 +127,8 @@ class FriendCodes(commands.Cog):
         """
         if ctx.invoked_subcommand is not None:
             return
+        if not user:
+            user = ctx.author
         if code:
             await self.update_code(ctx.author.id, code, ctx.command.name)
             column = ctx.command.name.replace("_"," ").title()
@@ -135,11 +137,13 @@ class FriendCodes(commands.Cog):
             embed = discord.Embed(title=user.display_name, colour=user.colour)
             embed.set_thumbnail(url=user.avatar_url_as())
             game = await self.fetch_game_code(user.id, ctx.command.name)
-            embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
-            return await ctx.send(embed=embed)
-        else:
-            return await ctx.send(f"Could not find valid code or valid user please try again.\n"
-                    f"Example of a valid code: `{self.examples.get(ctx.command.name)}`")
+            if game:
+                embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
+                return await ctx.send(embed=embed)
+            else:
+                return await ctx.send((f"Could not find {ctx.command.name} account or id for user {user.mention}.\n"
+                    f"If you were trying to set your own id then provide one in this fomat: `{self.examples.get(ctx.command.name)}`"), 
+                    allowed_mentions=discord.AllowedMentions.none())
         
 
     async def code_remove(self, ctx):

@@ -55,5 +55,21 @@
         "charLength": 8,
         "help": "command for adding and overwriting your Honkai Impact UID",
         "example": "12345678"
+    },
+    {
+        "name": "mal",
+        "regex": "https://myanimelist.net/(animelist|mangalist)/\\w+",
+        "aliases": ["myanimelist"],
+        "charLength": 256,
+        "help": "command for adding or overwriting your mal account/username",
+        "example": "https://myanimelist.net/animelist/MyUsername"
+    },
+    {
+        "name": "anilist",
+        "regex": "https://anilist.co/user/\\w+",
+        "aliases": ["ani"],
+        "charLength": 256,
+        "help": "command for overwriting your anilist account link",
+        "example": "https://anilist.co/user/Username"
     }
 ]
