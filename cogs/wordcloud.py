@@ -130,8 +130,8 @@ class Wordcloud(commands.Cog):
         reaction, user = await self.bot.wait_for("reaction_add", check=check)
         if reaction.emoji == "\N{THUMBS UP SIGN}":
             await self.bot.db.execute("INSERT INTO wc_consent VALUES ($1) ON CONFLICT DO NOTHING", ctx.author.id)
-            await consent_message.edit(content="consent given, wait a bit"
-                    " until I have enough messages collected to create a word cloud for you")
+            await consent_message.edit(content="Consent given, I am now starting to collect messages you send"
+                    "\nI won't collect messages you have sent before the consent.")
         else:
             await consent_message.edit(content="No consent for recording messages, you won't be able to create a word cloud")
 
