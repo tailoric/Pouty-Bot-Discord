@@ -21,6 +21,9 @@ class Time(commands.Cog):
 
     @commands.group(name="time", invoke_without_command=True)
     async def user_time(self, ctx: commands.Context, user : typing.Optional[discord.Member]):
+        """
+        show the time of a user if they added their timezone to the database
+        """
         await asyncio.wait_for(self.table_creation, timeout=None)
         if not user:
             user = ctx.author
@@ -32,6 +35,10 @@ class Time(commands.Cog):
 
     @user_time.command(name="set")
     async def user_time_set(self, ctx, timezone_name):
+        """
+        set your own timezone for tracking check the following list to find the name of your timezone:
+        https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        """
         try:
             tz = timezone(timezone_name)
         except UnknownTimeZoneError:
@@ -43,6 +50,10 @@ class Time(commands.Cog):
 
     @user_time.command(name="now")
     async def time_now(self, ctx, timezone_name):
+        """
+        get the current time of a timezone see following list for timezone names
+        https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        """
         try:
             tz = timezone(timezone_name)
         except UnknownTimeZoneError:
@@ -54,6 +65,10 @@ class Time(commands.Cog):
         
     @user_time.command(name="convert")
     async def time_convert(self, ctx, from_, to):
+        """
+        compare the time difference between two timezones
+        https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        """
         try:
             now = datetime.now()
             tz_from = timezone(from_)
