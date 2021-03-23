@@ -31,6 +31,9 @@ class Time(commands.Cog):
         self.bot = bot
         self.table_creation = self.bot.loop.create_task(self.create_user_time_entries())
         self.time_format = '%H:%M:%S'
+        self.unknown_tz = ("Unknown timezone please refer to this table to find your correct one: "
+                "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
+                "the format is usually `Region/City`")
 
     async def create_user_time_entries(self):
         await self.bot.db.execute("""
@@ -63,9 +66,7 @@ class Time(commands.Cog):
         try:
             tz = timezone(timezone_name)
         except UnknownTimeZoneError:
-            return await ctx.send("Unknown timezone please refer to this table to find your correct one: "
-                    "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
-                    "the format is `Country/City`")
+            return await ctx.send(self.unknown_tz)
         await self.bot.db.execute("INSERT INTO user_tz(user_id, timezone) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET timezone = $2", ctx.author.id, timezone_name)
         await ctx.send(f"I stored your timezone info as `{timezone_name}`")
 
@@ -78,9 +79,7 @@ class Time(commands.Cog):
         try:
             tz = timezone(timezone_name)
         except UnknownTimeZoneError:
-            return await ctx.send("Unknown timezone please refer to this table to find your correct one: "
-                    "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
-                    "the format is `Country/City`")
+            return await ctx.send(self.unknown_tz)
         dt = datetime.now(tz=tz)
         await ctx.send(f"the current time of timezone `{timezone_name}` is {dt.strftime(self.time_format)}")
         
@@ -97,9 +96,7 @@ class Time(commands.Cog):
             dt1 = now.astimezone(tz_from).replace(tzinfo=None)
             dt2 = now.astimezone(tz_to).replace(tzinfo=None)
         except UnknownTimeZoneError:
-            return await ctx.send("Unknown timezone please refer to this table to find your correct one: "
-                    "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
-                    "the format is `Country/City`")
+            return await ctx.send(self.unknown_tz)
         embed = discord.Embed(title=f"Time difference between {from_} and {to}")
         embed.add_field(name=from_, value=dt1.strftime(self.time_format), inline=False)
         embed.add_field(name=to, value=dt2.strftime(self.time_format), inline=False)
@@ -120,9 +117,7 @@ class Time(commands.Cog):
             tz_from = timezone(from_)
             tz_to = timezone(to)
         except UnknownTimeZoneError:
-            return await ctx.send("Unknown timezone please refer to this table to find your correct one: "
-                    "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
-                    "the format is `Country/City`")
+            return await ctx.send(self.unknown_tz)
         dt_from = tz_from.localize(time)
         dt_utc = dt_from.astimezone(timezone('UTC'))
         dt_to = dt_utc.astimezone(tz_to)
