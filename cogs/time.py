@@ -5,6 +5,27 @@ import asyncio
 from pytz import timezone, UnknownTimeZoneError
 from datetime import datetime
 
+class BadTimeString(commands.BadArgument):
+    pass
+class TimeStringConverter(commands.Converter):
+
+    async def convert(self, ctx, argument):
+        formats = ["%H:%M", "%H:%M:%S", "%I%p", "%I:%M%p", "%I %p", "%I:%M %p"]
+        dt = None
+        today_at = None
+        for f in formats:
+            try:
+                dt = datetime.strptime(argument, f)
+                today_at = datetime.utcnow().replace(hour=dt.hour, minute=dt.minute, second=dt.second)
+                break
+            except ValueError:
+                continue
+        if not dt or not today_at:
+            raise BadTimeString("Time format input was invalid", argument)
+        else:
+            return today_at
+
+
 class Time(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -63,8 +84,8 @@ class Time(commands.Cog):
         dt = datetime.now(tz=tz)
         await ctx.send(f"the current time of timezone `{timezone_name}` is {dt.strftime(self.time_format)}")
         
-    @user_time.command(name="convert")
-    async def time_convert(self, ctx, from_, to):
+    @user_time.command(name="difference")
+    async def time_difference(self, ctx, from_, to):
         """
         compare the time difference between two timezones
         https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -87,6 +108,26 @@ class Time(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         embed.add_field(name=f"time difference from {from_} to {to}", value=f"{hours:02}:{minutes:02}:{seconds:02}", inline=False)
         await ctx.send(embed=embed)
+
+    @user_time.command(name="convert")
+    async def time_convert(self, ctx, time: TimeStringConverter, from_, to):
+        """
+        convert one provided time with timezone to another timezone 
+        example: `time convert 13:45 Europe/Berlin US/Eastern`
+        available input time formats are `13:12:02` `15:22` `"1:45 pm/am"` `12pm/am`
+        """
+        try:
+            tz_from = timezone(from_)
+            tz_to = timezone(to)
+        except UnknownTimeZoneError:
+            return await ctx.send("Unknown timezone please refer to this table to find your correct one: "
+                    "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
+                    "the format is `Country/City`")
+        dt_from = tz_from.localize(time)
+        dt_utc = dt_from.astimezone(timezone('UTC'))
+        dt_to = dt_utc.astimezone(tz_to)
+        await ctx.send(f"{dt_from.strftime(self.time_format)} `{from_}` in `{to}` is {dt_to.strftime(self.time_format)}")
+
 
 def setup(bot):
     bot.add_cog(Time(bot))
