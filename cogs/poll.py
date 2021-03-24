@@ -201,11 +201,12 @@ class Poll(commands.Cog):
         """
         delete a poll by providing a message id of a poll message
         """
-        converter = ReferenceOrMessage()
-        try:
-            message = await converter.convert(ctx, message)
-        except:
-            return await ctx.send("please provide a valid jump url or reply to a poll message")
+        if not message:
+            converter = ReferenceOrMessage()
+            try:
+                message = await converter.convert(ctx, message)
+            except:
+                return await ctx.send("please provide a valid jump url or reply to a poll message")
         poll = await self.fetch_poll(message.id)
         if not poll:
             return await ctx.send("Message was not a poll")
@@ -221,11 +222,12 @@ class Poll(commands.Cog):
         """
         check how long until a poll is finished by providing the message id of a poll message
         """
-        converter = ReferenceOrMessage()
-        try:
-            message = await converter.convert(ctx, message)
-        except:
-            return await ctx.send("please provide a valid jump url or reply to a poll message")
+        if not message:
+            converter = ReferenceOrMessage()
+            try:
+                message = await converter.convert(ctx, message)
+            except:
+                return await ctx.send("please provide a valid jump url or reply to a poll message")
         poll = await self.fetch_poll(message.id)
         if not poll:
             return await ctx.send("Message was not a poll")
