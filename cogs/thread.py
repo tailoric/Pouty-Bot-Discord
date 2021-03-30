@@ -8,6 +8,8 @@ from pathlib import Path
 import io
 import textwrap
 import asyncio
+import re
+
 
 LOOP_TIME = 30 * 60 # 30 minutes
 class Thread(commands.Cog):
@@ -93,6 +95,7 @@ class Thread(commands.Cog):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS thread_channels(
             id SERIAL PRIMARY KEY,
+            thread_creator BIGINT NOT NULL,
             invocation_channel_id BIGINT NOT NULL,
             invocation_message_id BIGINT NOT NULL,
             thread_channel_id BIGINT NOT NULL,
@@ -101,6 +104,10 @@ class Thread(commands.Cog):
             last_counter_increase TIMESTAMP,
             thread_title TEXT NOT NULL
         )
+        """)
+        await self.bot.db.execute("""
+            ALTER TABLE thread_channels ADD COLUMN IF NOT EXISTS
+            thread_creator BIGINT NOT NULL
         """)
 
     @commands.group(invoke_without_command=True)
@@ -127,8 +134,8 @@ class Thread(commands.Cog):
         await thread_start.add_reaction(self.settings.get('join_reaction'))
         await thread_list_copy.add_reaction(self.settings.get('join_reaction'))
         await self.bot.db.execute("""
-            INSERT INTO thread_channels (invocation_channel_id, invocation_message_id, thread_channel_id, copy_message_id, thread_title) VALUES ($1, $2, $3, $4, $5)
-        """, ctx.channel.id, thread_start.id, disc_channel.id, thread_list_copy.id, topic)
+            INSERT INTO thread_channels (invocation_channel_id, invocation_message_id, thread_channel_id, copy_message_id, thread_title, thread_creator) VALUES ($1, $2, $3, $4, $5, $6)
+        """, ctx.channel.id, thread_start.id, disc_channel.id, thread_list_copy.id, topic, ctx.author.id)
 
 
     @is_owner_or_moderator()
@@ -169,17 +176,25 @@ class Thread(commands.Cog):
             json.dump(self.settings, s)
         await ctx.send(f"live time of the thread channels is now: {livetime} hours")
 
-    @is_owner_or_moderator()
-    @thread.command(name="close")
+    @commands.guild_only()
+    @thread.command(name="close", aliases=["delete"])
     async def thread_close(self, ctx, thread: discord.TextChannel):
         """
         Close a thread channel before its livetime is over
         """
-        thread_info = await self.bot.db.fetchrow("SELECT thread_channel_id, invocation_channel_id, invocation_message_id, copy_message_id, thread_title, reset_count FROM thread_channels WHERE thread_channel_id = $1", thread.id)
+        thread_info = await self.bot.db.fetchrow("""
+        SELECT *
+        FROM thread_channels 
+        WHERE thread_channel_id = $1
+        """, thread.id)
         if not thread_info:
             return await ctx.send(f"The channel {thread.mention} is not a thread channel")
         thread_channel = self.bot.get_channel(thread_info.get("thread_channel_id"))
         if thread_channel:
+            permissions = thread_channel.permissions_for(ctx.author)
+            thread_creator = ctx.guild.get_member(thread_info.get("thread_creator"))
+            if not permissions.manage_channels and not thread_creator == ctx.author:
+                return await ctx.send("Only thread creator or moderators are allowed to close a thread manually")
             thread_list_channel = self.bot.get_channel(self.settings.get("thread_list_channel"))
             copy_message = thread_list_channel.get_partial_message(thread_info.get("copy_message_id"))
             invocation_channel = self.bot.get_channel(thread_info.get("invocation_channel_id"))
