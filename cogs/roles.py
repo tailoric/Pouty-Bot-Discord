@@ -101,7 +101,10 @@ class Roles(commands.Cog):
                     return
             member = ctx.message.author
             await member.add_roles(role)
-            await ctx.send(f"Assigned you the following role: {role.name}")
+            if self.bot.get_cog("Dadjoke"):
+                await ctx.send(f"Hi {role.name}, I am {self.bot.user.display_name}")
+            else:
+                await ctx.send(f"Assigned you the following role: {role.name}")
         except discord.Forbidden as fb:
             await ctx.send("Sorry I don't have the permission to give you that role")
 
