@@ -44,7 +44,7 @@ class Owner(commands.Cog):
                         modules_to_reload.add(inspect.getmodule(module))
                 except TypeError:
                     continue
-        modules_to_reload.remove(module_self)
+        modules_to_reload.discard(module_self)
         for module in modules_to_reload:
             print(module)
             importlib.reload(module)
