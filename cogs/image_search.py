@@ -7,17 +7,13 @@ import json
 from urllib import parse
 import youtube_dl
 import base64
-import os
 import urllib.parse
 import sys
 from PIL import Image
-import PIL
 import mimetypes
 import io
 import asyncio
 import typing
-import subprocess
-import importlib
 import logging
 from pathlib import Path
 
@@ -27,7 +23,8 @@ class SauceNaoResult:
         self.header = result['header']
         self.data = result['data']
         self.similarity = float(self.header.get('similarity'))
-        self.source_url = self.data.get('ext_urls')[0]
+        self.source_url = self.data.get('ext_urls')
+        print(self.source_url)
         self.title = self.data.get('source')
         self.thumbnail = self.header.get('thumbnail')
         self.est_time = None
@@ -288,7 +285,7 @@ class Search(commands.Cog):
                         else:
                             sn_result = SauceNaoResult(result)
                             embed = discord.Embed(title=sn_result.title, description=f"Source found via [saucenao]({search_url})")
-                            if sn_result.source_url:
+                            if sn_result.source_url and sn_result.source_url.startswith(("http:", "https:")):
                                 embed.url = sn_result.source_url
                             if sn_result.thumbnail:
                                 embed.set_thumbnail(url=sn_result.thumbnail)
