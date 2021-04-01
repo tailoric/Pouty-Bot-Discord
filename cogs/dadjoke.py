@@ -8,6 +8,9 @@ class Dadjoke(commands.Cog):
 
     @commands.command(name="dadjoke", aliases=["dad"])
     async def dad_joke(self, ctx):
+        """
+        tells a dad joke
+        """
         joke_prefixes = [
                 "Stop me if you heard this one before: ",
                 "Here comes a real kneeslapper: ",
@@ -19,7 +22,6 @@ class Dadjoke(commands.Cog):
             }
         async with self.session.get("https://icanhazdadjoke.com/", headers=headers) as response:
             if response.status < 400:
-                print(response.headers)
                 joke_response = await response.json()
                 joke = "\n".join([random.choice(joke_prefixes), joke_response.get("joke")])
                 await ctx.send(joke)
