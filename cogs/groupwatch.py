@@ -103,9 +103,9 @@ class GroupWatch(commands.Cog):
         else:
             self.end_message = ctx.message
         async with ctx.typing():
-            await self.generate_chatlog(ctx)
+            chatlog = await self.generate_chatlog(ctx)
         filename = self.title+".txt" if self.title else None
-        log_entry = await self.attachments_backlog.send(file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
+        log_entry = await self.attachments_backlog.send(file=discord.File(chatlog, filename=filename))
         embed = discord.Embed(title=f"{self.title} chatlog", description=f"[{filename}]({log_entry.attachments[0].url})", colour=self.groupwatch_role.colour)
         await ctx.send(embed=embed)
         if self.muted_channel:
@@ -118,9 +118,10 @@ class GroupWatch(commands.Cog):
         self.end_message = None
 
     async def generate_chatlog(self, ctx):
-        with io.StringIO() as f:
-            return await self.generate_file(ctx, f)
-
+            f = io.StringIO()
+            await self.generate_file(ctx, f)
+            f.seek(0)
+            return f
     async def get_attachment_links(self, ctx, message):
         attachment_string_format = "\t[attachments: {}]\n" 
         if not self.attachments_backlog:
