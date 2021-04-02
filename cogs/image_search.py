@@ -24,7 +24,6 @@ class SauceNaoResult:
         self.data = result['data']
         self.similarity = float(self.header.get('similarity'))
         self.source_url = self.data.get('ext_urls')
-        print(self.source_url)
         self.title = self.data.get('source')
         self.thumbnail = self.header.get('thumbnail')
         self.est_time = None
@@ -285,8 +284,8 @@ class Search(commands.Cog):
                         else:
                             sn_result = SauceNaoResult(result)
                             embed = discord.Embed(title=sn_result.title, description=f"Source found via [saucenao]({search_url})")
-                            if sn_result.source_url and sn_result.source_url.startswith(("http:", "https:")):
-                                embed.url = sn_result.source_url
+                            if sn_result.source_url and sn_result.source_url[0].startswith(("http:", "https:")):
+                                embed.url = sn_result.source_url[0]
                             if sn_result.thumbnail:
                                 embed.set_thumbnail(url=sn_result.thumbnail)
                             if sn_result.is_anime:
