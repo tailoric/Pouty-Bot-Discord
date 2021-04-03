@@ -8,6 +8,7 @@ import io
 import typing
 from datetime import datetime, timedelta
 import random
+from itertools import groupby
 
 class TemplateSubmission():
 
@@ -39,18 +40,41 @@ class MemeOff(commands.Cog):
     """Command suite for Animemes meme-offs only"""
     def __init__(self, bot):
         self.bot = bot
+        self.create_table = self.bot.loop.create_task(self.initialize_table())
         if not hasattr(self.bot, 'meme_off_timer'):
             self.bot.meme_off_timer = None
         if not hasattr(self.bot, 'meme_off_timer_timestamp'):
             self.bot.meme_off_timer_timestamp = None
         if not hasattr(self.bot, 'submitted_templates'):
             self.bot.submitted_templates = {}
+            self.bot.loop.create_task(self.load_templates())
         self.template_order = None
         if not hasattr(self.bot, 'pinned_template'):
             self.bot.pinned_template = None
             self.bot.pinned_by = None
         self.session = aiohttp.ClientSession()
+
     
+    async def initialize_table(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS meme_off_templates(
+            user_id BIGINT NOT NULL,
+            link TEXT
+        )
+        """)
+
+    async def load_templates(self):
+        await asyncio.wait_for(self.create_table, timeout=None)
+        results = await self.bot.db.fetch("""
+            SELECT * FROM meme_off_templates
+        """)
+        grouped_templates = groupby(results, key=lambda r: r['user_id'])
+        for user, templates in grouped_templates:
+            template_submission = self.bot.submitted_templates.get(user, TemplateSubmission(user))
+            for template in templates:
+                template_submission.add_template(template['link'])
+            self.bot.submitted_templates[user] = template_submission
+
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
@@ -175,6 +199,9 @@ class MemeOff(commands.Cog):
             template_submission.add_template(ctx.message.attachments[0].url)
             self.bot.submitted_templates[ctx.author.id] = template_submission
             await ctx.send("template successfully submitted")
+            await self.bot.db.execute("""
+                INSERT INTO meme_off_templates (user_id, link) VALUES ($1, $2)
+            """, ctx.author.id, ctx.message.attachments[0].url)
         elif link:
             if not link.startswith("http"):
                 return await ctx.send("please provide a link")
@@ -185,6 +212,9 @@ class MemeOff(commands.Cog):
             template_submission.add_template(link)
             self.bot.submitted_templates[ctx.author.id] = template_submission
             await ctx.send("template successfully submitted")
+            await self.bot.db.execute("""
+                INSERT INTO meme_off_templates (user_id, link) VALUES ($1, $2)
+            """, ctx.author.id, link)
         else:
             return await ctx.send("You need to attach a file to your message or provide a link")
 
@@ -218,6 +248,9 @@ class MemeOff(commands.Cog):
                 self.bot.pinned_template = await ctx.send(file=f, embed=embed)
         await self.bot.pinned_template.pin()
         self.bot.pinned_by = ctx.author
+        await self.bot.db.execute("""
+        DELETE FROM meme_off_templates WHERE user_id = $1 and link = $2
+        """, submission.user_id, template)
 
     @commands.has_any_role("Subreddit-Senpai", "Discord-Senpai")
     @meme_off.command(name="list_templates", aliases=["ltemplate"])
