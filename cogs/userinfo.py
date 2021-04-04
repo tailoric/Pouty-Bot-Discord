@@ -2,7 +2,7 @@ from typing import Optional
 from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import DataIO
-from discord import Member, Embed, Role, utils
+from discord import Member, Embed, Role, utils, ActivityType
 import discord
 from datetime import datetime,timedelta
 import time
@@ -68,6 +68,37 @@ class Userinfo(commands.Cog):
 
 
         user_roles.pop(0)
+        if member.activity:
+            print(member.activities)
+            activity = member.activity
+            field_value = '\u200b'
+            if isinstance(activity, discord.Game):
+                field_value = activity.name
+            elif isinstance(activity, discord.Streaming):
+                field_value = f'On {activity.platform}: [**{activity.name}**]({activity.url})'
+            elif isinstance(activity, discord.CustomActivity):
+                if activity.emoji and activity.emoji.is_unicode_emoji(): 
+                    field_value = f'{activity.emoji.name} '
+                field_value += f'{activity.name}'
+            elif isinstance(activity, discord.Spotify):
+                field_value = f'{activity.tile} - {activity.artist}'
+            elif isinstance(activity, discord.Activity):
+                since = ''
+                if activity.start:
+                    time_diff = datetime.utcnow().replace(microsecond=0) - activity.start.replace(microsecond=0)
+                    since = f'For {time_diff}'
+
+                field_value = f'**{activity.name}**: {activity.details}\n{since}'
+            else:
+                pass
+            if activity.type:
+                title = activity.type.name.title()
+                if activity.type == discord.ActivityType.custom:
+                    title = "Status"
+                embed.add_field(name=title, value=field_value)
+            else:
+                embed.add_field(name="Status", value=field_value)
+
         if user_roles:
             embed.add_field(name="Roles", value=", ".join([x.mention for x in user_roles]), inline=True)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
