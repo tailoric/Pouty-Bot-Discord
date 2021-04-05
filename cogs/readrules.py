@@ -12,6 +12,7 @@ from .utils.dataIO import DataIO
 from .utils.checks import is_owner_or_moderator
 from cogs.default import CustomHelpCommand
 
+forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
 class AnimemesHelpFormat(CustomHelpCommand):
 
     def random_response(self):
@@ -338,16 +339,13 @@ class ReadRules(commands.Cog):
     async def check_member_name(self, before, after):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
-        if before.display_name == after.display_name:
-            return
-        forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
         forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
+        forbidden_match_name = forbidden_word_pattern.search(after.name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match:
-            new_nick = forbidden_word_pattern.sub('*' * len(forbidden_match.group(1)), after.display_name.lower())
-            await after.edit(nick=new_nick)
+        elif forbidden_match or forbidden_match_name:
+            await after.edit(nick=f"bad_name#{after.discriminator}")
         else:
             return
         if self.checkers_channel:
@@ -361,16 +359,13 @@ class ReadRules(commands.Cog):
             return
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
-        if before.display_name == after.display_name:
-            return
-        forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
         forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
+        forbidden_match_name = forbidden_word_pattern.search(after.name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match:
-            new_nick = forbidden_word_pattern.sub('*' * len(forbidden_match.group(1)), after.display_name.lower())
-            await after.edit(nick=new_nick)
+        elif forbidden_match or forbidden_match_name:
+            await after.edit(nick=f"bad_name#{after.discriminator}")
         else:
             return
         if self.checkers_channel:
