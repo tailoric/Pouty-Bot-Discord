@@ -19,6 +19,9 @@ class LinkExpander(commands.Cog):
 
     @commands.command(name="pixiv")
     async def pixiv_expand(self, ctx, link):
+        """
+        expand a pixiv link into the first 10 images of a pixiv gallery/artwork link
+        """
         details_url = "https://www.pixiv.net/touch/ajax/illust/details?illust_id={}"
         illust_id = self.pixiv_url_regex.match(link).group(1)
         await ctx.trigger_typing()
