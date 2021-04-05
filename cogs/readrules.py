@@ -346,10 +346,10 @@ class ReadRules(commands.Cog):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
         elif forbidden_match or forbidden_match_name:
             await after.edit(nick=f"bad_name#{after.discriminator}")
+            if self.checkers_channel:
+                await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
         else:
             return
-        if self.checkers_channel:
-            await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
 
 
     @commands.Cog.listener(name="on_user_update")
@@ -366,10 +366,10 @@ class ReadRules(commands.Cog):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
         elif forbidden_match or forbidden_match_name:
             await after.edit(nick=f"bad_name#{after.discriminator}")
+            if self.checkers_channel:
+                await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
         else:
             return
-        if self.checkers_channel:
-            await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
 
     @commands.command(name="adduser")
     async def add_user(self, ctx, user: discord.Member):
