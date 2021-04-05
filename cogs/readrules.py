@@ -205,7 +205,8 @@ class ReadRules(commands.Cog):
             return
         if channel.id != self.rules_channel.id:
             return
-        iam_memester_regex = re.compile(r'\.?i\s?am\s?meme?(ma)?st[ea]r', re.IGNORECASE)
+
+        iam_memester_regex = re.compile(r'\.?i\s?a?m\s?meme?(ma)?st[ea]r', re.IGNORECASE)
         if iam_memester_regex.match(message.clean_content):
             await message.author.add_roles(self.new_memester)
             await message.delete()
@@ -322,26 +323,53 @@ class ReadRules(commands.Cog):
             color = after.color
             await self.new_memester.edit(color=color)
 
-    @commands.Cog.listener()
-    async def on_member_update(self, before, after):
+    async def check_member_for_valid_character(self, member) -> bool:
+        def name_check(c):
+            return c.isascii() or c.isdigit()
+        valid_chars_nick = ""
+        if member.nick:
+            valid_chars_nick = list(filter(name_check, member.nick))
+        valid_chars_name = list(filter(name_check, member.name))
+        if len(valid_chars_nick) >=3 or len(valid_chars_name) >= 3:
+            return True
+        return False
+
+    @commands.Cog.listener(name="on_member_update")
+    async def check_member_name(self, before, after):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
         if before.display_name == after.display_name:
             return
-        alphanumeric_pattern = re.compile(r'.*[a-zA-Z0-9\_\.\,\[\](\\)\'\"\:\;\<\>\*\!\#\$\%\^\&\=\/\`\+\-\~\:\;\@\|]{1,}.*', re.ASCII)
         forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
-        match_name = alphanumeric_pattern.match(after.name.lower())
-        match_nickname = None
-        if after.nick:
-            match_nickname = alphanumeric_pattern.match(after.nick)
         forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
         old_name = after.display_name
-        if not match_nickname and not match_name:
-            await after.edit(nick="pingable_username")
-        elif not match_name and not after.nick:
-            await after.edit(nick="pingable_username")
+        if not await self.check_member_for_valid_character(after):
+            await after.edit(nick=f"pingable_username#{after.discriminator}")
         elif forbidden_match:
-            new_nick = forbidden_word_pattern.sub('*', after.display_name.lower())
+            new_nick = forbidden_word_pattern.sub('*' * len(forbidden_match.group(1)), after.display_name.lower())
+            await after.edit(nick=new_nick)
+        else:
+            return
+        if self.checkers_channel:
+            await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
+
+
+    @commands.Cog.listener(name="on_user_update")
+    async def check_user_name(self, before, after):
+        after = self.animemes_guild.get_member(after.id)
+        if not after:
+            return
+        if self.memester_role not in after.roles and self.new_memester not in after.roles:
+            return
+        if before.display_name == after.display_name:
+            return
+        forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
+        forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
+        old_name = after.display_name
+        if not await self.check_member_for_valid_character(after):
+            await after.edit(nick=f"pingable_username#{after.discriminator}")
+        elif forbidden_match:
+            new_nick = forbidden_word_pattern.sub('*' * len(forbidden_match.group(1)), after.display_name.lower())
             await after.edit(nick=new_nick)
         else:
             return
