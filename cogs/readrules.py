@@ -331,7 +331,7 @@ class ReadRules(commands.Cog):
         if member.nick:
             valid_chars_nick = list(filter(name_check, member.nick))
         valid_chars_name = list(filter(name_check, member.name))
-        if len(valid_chars_nick) >=3 or len(valid_chars_name) >= 3:
+        if len(valid_chars_nick) >=1 or len(valid_chars_name) >= 1:
             return True
         return False
 
