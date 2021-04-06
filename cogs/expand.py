@@ -3,6 +3,9 @@ import discord
 import aiohttp
 import re
 import io
+from pathlib import Path
+import json
+import logging
 
 class LinkExpander(commands.Cog):
     """
@@ -15,6 +18,19 @@ class LinkExpander(commands.Cog):
                 "Referer" : "https://pixiv.net"
                 }
         self.pixiv_url_regex = re.compile(r"https://www.pixiv.net/en/artworks/(\d+)")
+        self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        path = Path('config/twitter.json')
+        self.logger = logging.getLogger('PoutyBot')
+        if path.exists():
+            with path.open('r') as f:
+                self.twitter_settings = json.load(f)
+                self.twitter_header = {
+                        "Authorization" : f"Bearer {self.twitter_settings.get('token')}"
+                        }
+        else:
+            self.logger.warn("No twitter configs found")
+            self.twitter_settings = None
+            self.twitter_header = None           
 
 
     @commands.command(name="pixiv")
@@ -57,6 +73,55 @@ class LinkExpander(commands.Cog):
             await ctx.send(content=message, files=file_list[0:10])
             if ctx.guild.me.guild_permissions.manage_messages:
                 await ctx.message.edit(suppress=True)
+
+    @commands.command(name="twitter")
+    async def twitter_expand(self, ctx, link):
+        """
+        expand a twitter link to its images
+        """
+        if not self.twitter_header:
+            return await ctx.send("Command disabled since host has no authentication token")
+        match = self.twitter_url_regex.match(link)
+        if not match:
+            return await ctx.send("Couldn't get id from link")
+        await ctx.trigger_typing()
+        api_url = f"https://api.twitter.com/2/tweets/{match.group('post_id')}?expansions=attachments.media_keys,author_id&media.fields=type,url&user.fields=profile_image_url,username"
+        file_list = []
+        async with self.session.get(url=api_url, headers=self.twitter_header) as response:
+            if response.status < 400:
+                tweet = await response.json()            
+                text = tweet['data'].get('text', "No Text")
+                includes = tweet.get('includes', [])
+                if includes:
+                    users = includes.get("users", [])
+                    media = includes.get('media', [])
+                else:
+                    users = []
+                    media = []
+                for m in media:
+                    if m.get('type') != 'photo':
+                        continue
+                    async with self.session.get(url=m.get('url')) as img:
+                        filename = m.get('url').split('/')[-1]
+                        if img.status < 400:
+                            content_length = img.headers.get('Content-Length')
+                            if content_length and int(content_length) > ctx.guild.filesize_limit:
+                                continue
+                            buffer = io.BytesIO(await img.read())
+                            buffer.seek(0)
+                            file_list.append(discord.File(fp=buffer, filename=filename))
+                embed = discord.Embed(title=f"Extracted {len(file_list)} images", description=text, url=link, color=discord.Colour(0x5dbaec))
+                if users:
+                    user = users[0]
+                    embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
+                if len(file_list) == 0:
+                    return await ctx.send("Sorry no images found in that Tweet")
+                await ctx.send(embed=embed, files=file_list)
+                if ctx.guild.me.guild_permissions.manage_messages:
+                    await ctx.message.edit(suppress=True)
+            else:
+                self.logger.error(await response.text())
+                return await ctx.send(f"Twitter responded with status code {response.status}")
 
 
 
