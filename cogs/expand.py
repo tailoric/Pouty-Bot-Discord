@@ -1,17 +1,23 @@
 from discord.ext import commands
 import discord
 import aiohttp
+import asyncio
+from youtube_dl import YoutubeDL
 import re
 import io
+from functools import partial
 from pathlib import Path
 import json
 import logging
+import os
 
 class LinkExpander(commands.Cog):
     """
     A cog for expanding links with multiple images
     """
     def __init__(self, bot):
+        if not os.path.exists('export'):
+            os.mkdir('export')
         self.bot = bot
         self.session = aiohttp.ClientSession()
         self.pixiv_headers = {
@@ -90,11 +96,18 @@ class LinkExpander(commands.Cog):
         if not match:
             return await ctx.send("Couldn't get id from link")
         await ctx.trigger_typing()
-        api_url = f"https://api.twitter.com/2/tweets/{match.group('post_id')}?expansions=attachments.media_keys,author_id&media.fields=type,url&user.fields=profile_image_url,username"
+        params = {
+                "expansions": "attachments.media_keys,author_id",
+                "media.fields" : "type,url",
+                "user.fields" : "profile_image_url,username",
+                "tweet.fields": "attachments"
+                }
+        api_url = f"https://api.twitter.com/2/tweets/{match.group('post_id')}"
         file_list = []
-        async with self.session.get(url=api_url, headers=self.twitter_header) as response:
+        async with self.session.get(url=api_url, headers=self.twitter_header, params=params) as response:
             if response.status < 400:
                 tweet = await response.json()            
+                #print(json.dumps(tweet, indent=2))
                 text = tweet['data'].get('text', "No Text")
                 includes = tweet.get('includes', [])
                 if includes:
@@ -104,17 +117,48 @@ class LinkExpander(commands.Cog):
                     users = []
                     media = []
                 for m in media:
-                    if m.get('type') != 'photo':
-                        continue
-                    async with self.session.get(url=m.get('url')) as img:
-                        filename = m.get('url').split('/')[-1]
-                        if img.status < 400:
-                            content_length = img.headers.get('Content-Length')
-                            if content_length and int(content_length) > ctx.guild.filesize_limit:
+                    if m.get('type') == 'video':
+                        with YoutubeDL({'format': 'best'}) as ydl:
+                            extract = partial(ydl.extract_info, link, download=False)
+                            result = await self.bot.loop.run_in_executor(None, extract)
+                            best_format = next(iter(sorted(result.get('formats'),key=lambda v: v.get('width') * v.get('height'), reverse=True)), None)
+                            filename = f"{match.group('post_id')}.{best_format.get('ext')}"
+                            print(json.dumps(best_format, indent=2))
+                            if not best_format:
                                 continue
-                            buffer = io.BytesIO(await img.read())
-                            buffer.seek(0)
-                            file_list.append(discord.File(fp=buffer, filename=filename))
+                            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
+                            result, err = await proc.communicate()
+                            file_size = os.path.getsize(filename=f'export/{filename}')
+                            if file_size > ctx.guild.filesize_limit:
+                                os.remove(f'export/{filename}')
+                                return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
+                            file_list.append(discord.File(f'export/{filename}', filename=filename))
+                    elif m.get('type') == 'animated_gif':
+                        with YoutubeDL({'format': 'best'}) as ydl:
+                            extract = partial(ydl.extract_info, link, download=False)
+                            result = await self.bot.loop.run_in_executor(None, extract)
+                            print(json.dumps(result, indent=2))
+                            gif_url = result.get('formats')[0].get('url')
+                            async with self.session.get(gif_url) as gif:
+                                filename = gif_url.split('/')[-1]
+                                content_length = gif.headers.get('Content-Length')
+                                print(content_length)
+                                if content_length and int(content_length) > ctx.guild.filesize_limit:
+                                    continue
+                                buffer = io.BytesIO(await gif.read())
+                                buffer.seek(0)
+                                file_list.append(discord.File(fp=buffer, filename=filename))
+                                
+                    else:
+                        async with self.session.get(url=m.get('url')) as img:
+                            filename = m.get('url').split('/')[-1]
+                            if img.status < 400:
+                                content_length = img.headers.get('Content-Length')
+                                if content_length and int(content_length) > ctx.guild.filesize_limit:
+                                    continue
+                                buffer = io.BytesIO(await img.read())
+                                buffer.seek(0)
+                                file_list.append(discord.File(fp=buffer, filename=filename))
                 embed = discord.Embed(title=f"Extracted {len(file_list)} images", description=text, url=link, color=discord.Colour(0x5dbaec))
                 if users:
                     user = users[0]
@@ -124,6 +168,10 @@ class LinkExpander(commands.Cog):
                 await ctx.send(embed=embed, files=file_list)
                 if ctx.guild.me.guild_permissions.manage_messages:
                     await ctx.message.edit(suppress=True)
+                for file in file_list:
+                    if hasattr(file.fp, 'name'):
+                        os.remove(file.fp.name)
+
             else:
                 self.logger.error(await response.text())
                 return await ctx.send(f"Twitter responded with status code {response.status}")
