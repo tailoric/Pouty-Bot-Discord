@@ -17,7 +17,7 @@ class LinkExpander(commands.Cog):
         self.pixiv_headers = {
                 "Referer" : "https://pixiv.net"
                 }
-        self.pixiv_url_regex = re.compile(r"https://www.pixiv.net/en/artworks/(\d+)")
+        self.pixiv_url_regex = re.compile(r"https?://www.pixiv.net.*/artworks/(\d+)")
         self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         path = Path('config/twitter.json')
         self.logger = logging.getLogger('PoutyBot')
@@ -32,6 +32,8 @@ class LinkExpander(commands.Cog):
             self.twitter_settings = None
             self.twitter_header = None           
 
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
 
     @commands.command(name="pixiv")
     async def pixiv_expand(self, ctx, link):
@@ -39,7 +41,10 @@ class LinkExpander(commands.Cog):
         expand a pixiv link into the first 10 images of a pixiv gallery/artwork link
         """
         details_url = "https://www.pixiv.net/touch/ajax/illust/details?illust_id={}"
-        illust_id = self.pixiv_url_regex.match(link).group(1)
+        match_url= self.pixiv_url_regex.match(link)
+        if not match_url:
+            return await ctx.send("Could not extract an id from this link.")
+        illust_id = match_url.group(1)
         await ctx.trigger_typing()
         async with self.session.get(details_url.format(illust_id)) as resp:
             if resp.status < 400:
