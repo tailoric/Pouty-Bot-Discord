@@ -17,7 +17,7 @@ class LinkExpander(commands.Cog):
         self.pixiv_headers = {
                 "Referer" : "https://pixiv.net"
                 }
-        self.pixiv_url_regex = re.compile(r"https?://www.pixiv.net.*/artworks/(\d+)")
+        self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
         self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         path = Path('config/twitter.json')
         self.logger = logging.getLogger('PoutyBot')
