@@ -179,7 +179,7 @@ class Default(commands.Cog):
         if isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
-        if isinstance(error, commands.BadArgument):
+        if isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
