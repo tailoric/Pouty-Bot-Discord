@@ -186,16 +186,17 @@ class Default(commands.Cog):
             return
         elif isinstance(error, commands.CommandInvokeError):
             error_pages = Paginator()
-            [error_pages.add_line(e) for e in traceback.format_exception(type(error.original),error.original, error.original.__traceback__)]
+            lines = traceback.format_exception(type(error.original), error.original, error.original.__traceback__)
+            [error_pages.add_line(e) for e in lines]
             for line in error_pages.pages:
                 await ctx.send(line)
             error_msg = ""
             if hasattr(ctx.command, 'name'):
                 error_msg += f"{ctx.command.name} error:\n"
-            error_msg += f"{error}\n"
+            error_msg += '\n'.join(lines) + '\n'
             error_msg += f"message jump url: {ctx.message.jump_url}\n"
             error_msg += f"message content: {ctx.message.content}\n"
-            self.logger.error(error_msg, exc_info=True)
+            self.logger.error(error_msg)
         else:
             error_pages = Paginator()
             lines = traceback.format_exception(type(error), error, error.__traceback__)
@@ -208,7 +209,7 @@ class Default(commands.Cog):
             error_msg += "\n".join(lines)
             error_msg += f"\nmessage jump url: {ctx.message.jump_url}\n"
             error_msg += f"message content: {ctx.message.content}\n"
-            self.logger.error(error_msg, )
+            self.logger.error(error_msg)
 
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
