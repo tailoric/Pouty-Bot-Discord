@@ -2,7 +2,7 @@ from typing import Optional
 from discord.ext import commands
 from .utils import checks
 from .utils.dataIO import DataIO
-from discord import Member, Embed, Role, utils, ActivityType
+from discord import Member, User, Embed, Role, utils, ActivityType
 import discord
 from datetime import datetime,timedelta
 import time
@@ -227,7 +227,7 @@ class Userinfo(commands.Cog):
                         await stmt.fetch(int(entry), nickname)
 
     @commands.command()
-    async def names(self, ctx, member: Member=None):
+    async def names(self, ctx, member: Union[Member, User]=None):
         """
         lists the past 20 names and nicknames of a user
         """
@@ -243,7 +243,7 @@ class Userinfo(commands.Cog):
             nickname_list.append(entry['nickname'])
         if member.name not in names_list:
             names_list.insert(0, member.name)
-        if member.nick not in nickname_list and member.nick:
+        if not isinstance(member, User) and member.nick and member.nick not in nickname_list:
             nickname_list.insert(0, member.nick)
         message_fmt = "**Past 20 names:**\n{}\n" \
                       "**Past 20 nicknames:**\n{}"
