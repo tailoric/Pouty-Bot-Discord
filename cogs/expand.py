@@ -46,6 +46,7 @@ class LinkExpander(commands.Cog):
         """
         expand a pixiv link into the first 10 images of a pixiv gallery/artwork link
         """
+        link = link.strip('<>')
         details_url = "https://www.pixiv.net/touch/ajax/illust/details?illust_id={}"
         match_url= self.pixiv_url_regex.match(link)
         if not match_url:
@@ -90,6 +91,7 @@ class LinkExpander(commands.Cog):
         """
         expand a twitter link to its images
         """
+        link = link.strip('<>')
         if not self.twitter_header:
             return await ctx.send("Command disabled since host has no authentication token")
         match = self.twitter_url_regex.match(link)
