@@ -224,10 +224,10 @@ class Thread(commands.Cog):
                 increase_counter_at = thread_channel.created_at + (timedelta(hours=current_livetime))
             if last_message:
                 time_diff = datetime.utcnow() - last_message.created_at
-                delete_at = last_message.created_at + timedelta(hours=self.settings.get("livetime"))
+                delete_at = last_message.created_at + timedelta(hours=current_livetime)
             else:
                 time_diff = datetime.utcnow() - thread_channel.created_at
-                delete_at = thread_channel.created_at + timedelta(hours=self.settings.get("livetime"))
+                delete_at = thread_channel.created_at + timedelta(hours=current_livetime)
             
             next_loop = self.check_activity.next_iteration.replace(tzinfo=None)
             if delete_at <= next_loop:
