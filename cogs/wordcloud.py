@@ -71,7 +71,7 @@ class Wordcloud(commands.Cog):
                     where user_id = $1
                     group by message_id, message_time
                     order by message_time desc
-                    limit 100
+                    limit 500
                 )
                 AND user_id = $1
                 """, user_ids)
@@ -83,7 +83,7 @@ class Wordcloud(commands.Cog):
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
     async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel, None]):
         """
-        generate a word cloud from the last 100 messages of a user or a channel. 
+        generate a word cloud from the last 500 messages of a user or a channel. 
         for users it only applies to messages the bot recorded after getting your consent for recording messages, see `wc consent`
         """
         text = ""
@@ -105,7 +105,7 @@ class Wordcloud(commands.Cog):
                 else:
                     return await ctx.send(f"Please first consent to having your messages recorded. using `{ctx.prefix}wc consent`")
             messages = await self.bot.db.fetch("""
-            SELECT message_content from wc_messages WHERE user_id = $1 LIMIT 100 
+            SELECT message_content from wc_messages WHERE user_id = $1 LIMIT 500 
             """, target.id)
             text = " ".join([m['message_content'] for m in messages])
 
@@ -121,7 +121,7 @@ class Wordcloud(commands.Cog):
         using `wc delete`
         """
         consent_message = await ctx.send("I will record any message you send from now on even deleted once, "
-                "I only keep your last 100 messages (I won't record DMs either). You can remove your consent any time (using `wc delete`) "
+                "I only keep your last 500 messages (I won't record DMs either). You can remove your consent any time (using `wc delete`) "
                 "react with \N{THUMBS UP SIGN} to confirm or \N{THUMBS DOWN SIGN} to decline")
         await consent_message.add_reaction("\N{THUMBS UP SIGN}")
         await consent_message.add_reaction("\N{THUMBS DOWN SIGN}")
