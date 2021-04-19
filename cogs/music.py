@@ -20,7 +20,7 @@ def can_stop():
         if not ctx.guild:
             raise commands.CheckFailure("Only usable within a server")
         if not ctx.guild.me.voice:
-            raise commands.CheckFailure("I am not in voice no need to stop")
+            raise commands.CheckFailure("I am not in voice")
         my_voice = ctx.guild.me.voice.channel
         try:
             if checks.is_owner_or_moderator_check(ctx.message):
@@ -33,8 +33,8 @@ def can_stop():
             if len(my_voice.members) == 1:
                 return True
             raise commands.CheckFailure(
-                    "Can only stop when nobody or"
-                    "only one in voice channel with me"
+                    "Can only use this when nobody or "
+                    "only one user in voice channel with me"
                     )
     return commands.check(predicate)
 
@@ -309,6 +309,13 @@ class Music(commands.Cog):
 
         embed = discord.Embed(color=discord.Color.blurple(),
                               title='Now Playing', description=song)
+        status = f"""
+        \N{TWISTED RIGHTWARDS ARROWS} Shuffle: {"enabled" if player.shuffle else "disabled"} | 
+        \N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {"enabled" if player.repeat else "disabled"} | 
+        \N{SPEAKER} Volume : {player.volume}
+        """
+
+        embed.set_footer(text=status, icon_url="https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f3b5.png")
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['q', 'playlist'])
@@ -368,7 +375,6 @@ class Music(commands.Cog):
         await ctx.send(f'🔈 | Set to {player.volume}%')
 
     @commands.command()
-    @checks.is_owner_or_moderator()
     async def shuffle(self, ctx):
         """ Shuffles the player's queue. """
         player = self.bot.lavalink.player_manager.get(ctx.guild.id)
