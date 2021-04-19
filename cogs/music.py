@@ -309,8 +309,8 @@ class Music(commands.Cog):
 
         embed = discord.Embed(color=discord.Color.blurple(),
                               title='Now Playing', description=song)
-        status = f("\N{TWISTED RIGHTWARDS ARROWS} Shuffle: {"enabled" if player.shuffle else "disabled"} | "
-        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {"enabled" if player.repeat else "disabled"} | "
+        status = f("\N{TWISTED RIGHTWARDS ARROWS} Shuffle: {'enabled' if player.shuffle else 'disabled'} | "
+        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if player.repeat else 'disabled'} | "
         f"\N{SPEAKER} Volume : {player.volume}")
 
         embed.set_footer(text=status)
