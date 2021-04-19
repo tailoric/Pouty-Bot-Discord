@@ -15,7 +15,7 @@ class Penis(commands.Cog):
 
     @commands.command(pass_context=True)
     @channel_only(*allowed_channels)
-    async def penis(self, ctx, members: commands.Greedy[discord.User]):
+    async def penis(self, ctx, members: commands.Greedy[discord.Member]):
         """accurately measure a user's penis size or compare the penis size of multiple users"""
         if not members:
             members = [ctx.author]
