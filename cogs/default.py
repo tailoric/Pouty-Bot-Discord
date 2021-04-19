@@ -184,12 +184,18 @@ class Default(commands.Cog):
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
             return
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send(error)
+            return
         elif isinstance(error, commands.CommandInvokeError):
             error_pages = Paginator()
             lines = traceback.format_exception(type(error.original), error.original, error.original.__traceback__)
             [error_pages.add_line(e) for e in lines]
-            for line in error_pages.pages:
-                await ctx.send(line)
+            if hasattr(self.bot, 'debug') and self.bot.debug:
+                for line in error_pages.pages:
+                    await ctx.send(line)
+            else:
+                await ctx.send(error.original)
             error_msg = ""
             if hasattr(ctx.command, 'name'):
                 error_msg += f"{ctx.command.name} error:\n"
@@ -201,8 +207,11 @@ class Default(commands.Cog):
             error_pages = Paginator()
             lines = traceback.format_exception(type(error), error, error.__traceback__)
             [error_pages.add_line(e) for e in lines]
-            for line in error_pages.pages:
-                await ctx.send(line)
+            if hasattr(self.bot, 'debug') and self.bot.debug:
+                for line in error_pages.pages:
+                    await ctx.send(line)
+            else:
+                await ctx.send(error)
             error_msg = ""
             if hasattr(ctx.command, 'name'):
                 error_msg += f"{ctx.command.name} error:\n"
