@@ -9,11 +9,31 @@ import re
 import discord
 import lavalink
 from discord.ext import commands
+from discord.ext import menus
 from .utils import checks
+from typing import List
 import asyncio
 
 url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
 
+class MusicQueue(menus.ListPageSource):
+    def __init__(self, data: List[lavalink.AudioTrack] , ctx: commands.Context, player):
+        self.ctx = ctx
+        self.player = player
+        super().__init__(data, per_page=10)
+
+    async def format_page(self, menu, entries):
+        offset = menu.current_page * self.per_page
+        embed = discord.Embed(title="Queue", 
+                description="\n".join(
+                    f'`{i+1}.` [{v.title}]({v.uri}) requested by **{self.ctx.guild.get_member(v.requester).name}**' for i, v in enumerate(entries, start=offset)
+                    )
+                )
+        status = (f"\N{TWISTED RIGHTWARDS ARROWS} Shuffle: {'enabled' if self.player.shuffle else 'disabled'} | "
+        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if self.player.repeat else 'disabled'} | "
+        f"\N{SPEAKER} Volume : {self.player.volume}")
+        embed.set_footer(text=status)
+        return embed
 
 def can_stop():
     def predicate(ctx):
@@ -39,6 +59,7 @@ def can_stop():
     return commands.check(predicate)
 
 
+
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -56,6 +77,7 @@ class Music(commands.Cog):
                              'on_socket_response')
 
         bot.lavalink.add_event_hook(self.track_hook)
+        self.pages = {}
         self.skip_votes = {}
 
     def current_voice_channel(self, ctx):
@@ -77,6 +99,9 @@ class Music(commands.Cog):
             await self.ensure_voice(ctx)
 
         return guild_check
+    async def cog_after_invoke(self,ctx):
+        for page in self.pages.get(ctx.message.guild.id, []):
+            await page.show_page(page.current_page)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -316,33 +341,31 @@ class Music(commands.Cog):
         embed.set_footer(text=status)
         await ctx.send(embed=embed)
 
+    @commands.Cog.listener(name="on_reaction_clear")
+    async def remove_page_on_menu_close(self, message, reactions):
+        current_pages = self.pages.get(message.guild.id, None)
+        if not current_pages:
+            return
+        found_page = next(filter(lambda p: p.message == message, current_pages), None)
+        if found_page:
+            self.pages[message.guild.id].remove(found_page)
+
     @commands.command(aliases=['q', 'playlist'])
-    async def queue(self, ctx, page: int = 1):
+    async def queue(self, ctx):
         """ Shows the player's queue. """
         player = self.bot.lavalink.player_manager.get(ctx.guild.id)
 
         if not player.queue:
             return await ctx.send('Nothing queued.')
 
-        items_per_page = 10
-        pages = math.ceil(len(player.queue) / items_per_page)
 
-        start = (page - 1) * items_per_page
-        end = start + items_per_page
-
-        queue_list = ''
-        for index, track in enumerate(player.queue[start:end], start=start):
-            requester = ctx.guild.get_member(track.requester)
-            requester_name = requester.display_name if requester else "?"
-            queue_list += (f'`{index + 1}.` [**{track.title}**]({track.uri}) '
-                           f'requested by '
-                           f'**{requester_name}**\n')
-
-        description = f'**{len(player.queue)} tracks**\n\n{queue_list}'
-        embed = discord.Embed(colour=discord.Color.blurple(),
-                              description=description)
-        embed.set_footer(text=f'Viewing page {page}/{pages}')
-        await ctx.send(embed=embed)
+        pages= menus.MenuPages(source=MusicQueue(player.queue, ctx, player), clear_reactions_after=True)
+        await pages.start(ctx)
+        if ctx.guild.id in self.pages:
+            self.pages[ctx.guild.id].append(pages)
+        else:
+            self.pages[ctx.guild.id] = [pages]
+        
 
     @commands.command(aliases=['resume'])
     @checks.is_owner_or_moderator()
@@ -543,16 +566,16 @@ class Music(commands.Cog):
             return
 
         if not ctx.author.voice or not ctx.author.voice.channel:
-            raise commands.CommandInvokeError('Join a voicechannel first.')
+            raise commands.CheckFailure('Join a voicechannel first.')
 
         permissions = ctx.author.voice.channel.permissions_for(ctx.me)
 
         if not permissions.connect or not permissions.speak:  # Check user limit too?
-            raise commands.CommandInvokeError('I need the `CONNECT` and `SPEAK` permissions.')
+            raise commands.CheckFailure('I need the `CONNECT` and `SPEAK` permissions.')
 
         if not player.is_connected:
             if not should_connect:
-                raise commands.CommandInvokeError('Not connected.')
+                raise commands.CheckFailure('Not connected.')
 
             player.store('channel', ctx.channel)
             await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
@@ -560,13 +583,13 @@ class Music(commands.Cog):
             self.bot.lavalink.player_manager.remove(ctx.guild.id)
             player = self.bot.lavalink.player_manager.create(ctx.guild.id)
             if not should_connect:
-                raise commands.CommandInvokeError('Not connected.')
+                raise commands.CheckFailure('Not connected.')
 
             player.store('channel', ctx.channel)
             await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
         else:
             if int(player.channel_id) != ctx.author.voice.channel.id:
-                raise commands.CommandInvokeError('You need to be in my voicechannel.')
+                raise commands.CheckFailure('You need to be in my voicechannel.')
 
 
 def setup(bot):
