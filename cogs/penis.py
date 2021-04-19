@@ -22,8 +22,8 @@ class Penis(commands.Cog):
         length_list = []
         message_string = ""
         for member in members:
-            random.seed(member.id)
-            length = random.randint(0, 20)
+            rand = random.Random(member.id)
+            length = rand.randint(0, 20)
             length_list.append({"username": member.display_name, "length": length})
         for entry in length_list:
             message_string += "**{0}'s size:**\n8{1}D\n".format(entry["username"], "=" * entry["length"])
