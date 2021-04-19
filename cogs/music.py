@@ -313,9 +313,9 @@ class Music(commands.Cog):
         \N{TWISTED RIGHTWARDS ARROWS} Shuffle: {"enabled" if player.shuffle else "disabled"} | 
         \N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {"enabled" if player.repeat else "disabled"} | 
         \N{SPEAKER} Volume : {player.volume}
-        """
+        """.replace("\n", "")
 
-        embed.set_footer(text=status, icon_url="https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f3b5.png")
+        embed.set_footer(text=status)
         await ctx.send(embed=embed)
 
     @commands.command(aliases=['q', 'playlist'])
