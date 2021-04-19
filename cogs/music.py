@@ -47,7 +47,7 @@ class Music(commands.Cog):
             bot.lavalink = lavalink.Client(bot.user.id)
             # Host, Port, Password, Region, Name
             bot.lavalink.add_node(
-                    '127.0.0.1',
+                    'localhost',
                     2333,
                     'youshallnotpass',
                     'us',
