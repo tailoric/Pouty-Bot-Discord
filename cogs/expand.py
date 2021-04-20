@@ -5,7 +5,8 @@ import asyncio
 from youtube_dl import YoutubeDL, DownloadError
 import re
 import io
-from functools import partial
+from functools import partial 
+from itertools import filterfalse
 from pathlib import Path
 import json
 import logging
@@ -190,17 +191,21 @@ class LinkExpander(commands.Cog):
 
         await ctx.trigger_typing()
         with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
-            try:
-                extract_video = partial(ytdl_v.extract_info, url, download=False)
-                extract_audio = partial(ytdl_a.extract_info, url, download=False)
-                results = await asyncio.gather(
-                            self.bot.loop.run_in_executor(None, extract_video),
-                            self.bot.loop.run_in_executor(None, extract_audio)
-                            )
-            except DownloadError:
-                return await ctx.send("Could not download a video make sure your link contains a video preferably use v.redd.it link")
+            extract_video = partial(ytdl_v.extract_info, url, download=False)
+            extract_audio = partial(ytdl_a.extract_info, url, download=False)
+            results = await asyncio.gather(
+                    self.bot.loop.run_in_executor(None, extract_video),
+                    self.bot.loop.run_in_executor(None, extract_audio),
+                    return_exceptions=True
+                    )
+            results = list(filterfalse(lambda r: isinstance(r, DownloadError), results))
+            if len(results) == 0:
+                return await ctx.send("No video found please check if this link contains a video file (not a gif) preferably use the v.redd.it link")
             filename = f"{results[0].get('id')}.{results[0].get('ext')}"
-            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-i', results[1].get('url'),  '-c', 'copy', '-y', f'export/{filename}')
+            if len(results) == 1:
+                proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-c', 'copy', '-y', f'export/{filename}')
+            else:
+                proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-i', results[1].get('url'),  '-c', 'copy', '-y', f'export/{filename}')
             result, err = await proc.communicate()
             file_size = os.path.getsize(filename=f'export/{filename}')
             if file_size > ctx.guild.filesize_limit:
