@@ -2,7 +2,7 @@ from discord.ext import commands
 import discord
 import aiohttp
 import asyncio
-from youtube_dl import YoutubeDL
+from youtube_dl import YoutubeDL, DownloadError
 import re
 import io
 from functools import partial
@@ -25,6 +25,7 @@ class LinkExpander(commands.Cog):
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
         self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        self.reddit_url_regex = re.compile(r"https?://(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?")
         path = Path('config/twitter.json')
         self.logger = logging.getLogger('PoutyBot')
         if path.exists():
@@ -178,6 +179,37 @@ class LinkExpander(commands.Cog):
                 self.logger.error(await response.text())
                 return await ctx.send(f"Twitter responded with status code {response.status}")
 
+    @commands.command(name="vreddit")
+    async def expand_reddit_video(self, ctx, url):
+        """
+        reupload a reddit hosted video 
+        preferably use the v.redd.it link but it should work with threads too
+        """
+        if not self.reddit_url_regex.match(url):
+            return await ctx.send("Please send a valid reddit link")
+
+        await ctx.trigger_typing()
+        with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
+            try:
+                extract_video = partial(ytdl_v.extract_info, url, download=False)
+                extract_audio = partial(ytdl_a.extract_info, url, download=False)
+                results = await asyncio.gather(
+                            self.bot.loop.run_in_executor(None, extract_video),
+                            self.bot.loop.run_in_executor(None, extract_audio)
+                            )
+            except DownloadError:
+                return await ctx.send("Could not download a video make sure your link contains a video preferably use v.redd.it link")
+            filename = f"{results[0].get('id')}.{results[0].get('ext')}"
+            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-i', results[1].get('url'),  '-c', 'copy', '-y', f'export/{filename}')
+            result, err = await proc.communicate()
+            file_size = os.path.getsize(filename=f'export/{filename}')
+            if file_size > ctx.guild.filesize_limit:
+                os.remove(f'export/{filename}')
+                return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
+            await ctx.send(file=discord.File(f'export/{filename}', filename=filename))
+            if ctx.guild.me.guild_permissions.manage_messages:
+                await ctx.message.edit(suppress=True)
+            os.remove(f'export/{filename}')
 
 
 def setup(bot):
