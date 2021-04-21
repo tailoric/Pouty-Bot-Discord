@@ -76,7 +76,10 @@ class LinkExpander(commands.Cog):
                 async with self.session.get(img_url, headers=self.pixiv_headers) as img:
                     if img.status < 400:
                         content_length = img.headers.get('Content-Length')
-                        if content_length and int(content_length) > ctx.guild.filesize_limit:
+                        file_limit = 8388608
+                        if ctx.guild:
+                            file_limit = ctx.guild.filesize_limit
+                        if content_length and int(content_length) > file_limit:
                             continue
                         filename= img_url.split(r"/")[-1]
                         img_buffer = io.BytesIO(await img.read())
@@ -89,7 +92,7 @@ class LinkExpander(commands.Cog):
                 return await ctx.send("Could not expand link, something went wrong")
             message = "the first 10 images of this gallery" if stopped else None
             await ctx.send(content=message, files=file_list[0:10])
-            if ctx.guild.me.guild_permissions.manage_messages:
+            if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
                 await ctx.message.edit(suppress=True)
 
     @commands.command(name="twitter")
@@ -135,9 +138,11 @@ class LinkExpander(commands.Cog):
                             proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
                             result, err = await proc.communicate()
                             file_size = os.path.getsize(filename=f'export/{filename}')
-                            if file_size > ctx.guild.filesize_limit:
+                            file_limit = 8388608
+                            if ctx.guild:
+                                file_limit = ctx.guild.filesize_limit
+                            if file_size > file_limit:
                                 embed = discord.Embed(title="Extracted video", description=text, url=link, color=discord.Colour(0x5dbaec))
-
                                 if users:
                                     user = users[0]
                                     embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
@@ -151,7 +156,10 @@ class LinkExpander(commands.Cog):
                             async with self.session.get(gif_url) as gif:
                                 filename = gif_url.split('/')[-1]
                                 content_length = gif.headers.get('Content-Length')
-                                if content_length and int(content_length) > ctx.guild.filesize_limit:
+                                file_limit = 8388608
+                                if ctx.guild:
+                                    file_limit = ctx.guild.filesize_limit
+                                if content_length and int(content_length) > file_limit:
                                     continue
                                 buffer = io.BytesIO(await gif.read())
                                 buffer.seek(0)
@@ -162,7 +170,10 @@ class LinkExpander(commands.Cog):
                             filename = m.get('url').split('/')[-1]
                             if img.status < 400:
                                 content_length = img.headers.get('Content-Length')
-                                if content_length and int(content_length) > ctx.guild.filesize_limit:
+                                file_limit = 8388608
+                                if ctx.guild:
+                                    file_limit = ctx.guild.filesize_limit
+                                if content_length and int(content_length) > file_limit:
                                     continue
                                 buffer = io.BytesIO(await img.read())
                                 buffer.seek(0)
@@ -174,7 +185,7 @@ class LinkExpander(commands.Cog):
                 if len(file_list) == 0:
                     return await ctx.send("Sorry no images found in that Tweet")
                 await ctx.send(embed=embed, files=file_list)
-                if ctx.guild.me.guild_permissions.manage_messages:
+                if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
                     await ctx.message.edit(suppress=True)
                 for file in file_list:
                     if hasattr(file.fp, 'name'):
@@ -231,10 +242,14 @@ class LinkExpander(commands.Cog):
             proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-i', results[1].get('url'),  '-c', 'copy', '-y', f'export/{filename}')
         result, err = await proc.communicate()
         file_size = os.path.getsize(filename=f'export/{filename}')
-        if file_size > ctx.guild.filesize_limit:
+        
+        file_limit = 8388608
+        if ctx.guild:
+            file_limit = ctx.guild.filesize_limit
+        if file_size > file_limit:
             return await self.upload_to_streamable(ctx, file_size, filename, embed)
         await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename))
-        if ctx.guild.me.guild_permissions.manage_messages:
+        if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
             await ctx.message.edit(suppress=True)
         os.remove(f'export/{filename}')
 
@@ -266,7 +281,7 @@ class LinkExpander(commands.Cog):
             message = await ctx.send(content=f"https://streamable.com/{shortcode}")
             self.bot.loop.create_task(self.check_video_status(message=message, vid_id=shortcode))
             os.remove(f'export/{filename}')
-            if ctx.guild.me.guild_permissions.manage_messages:
+            if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
                 await ctx.message.edit(suppress=True)
             return
         else:
