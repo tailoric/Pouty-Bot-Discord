@@ -515,6 +515,9 @@ class Danbooru(commands.Cog):
             return None
 
     async def _find_danbooru_image(self, ctx, tags, random):
+        if any(tag in self.tags_blacklist for tag in tags.split()):
+            await ctx.send("You used a blacklisted tag, please don't use these.")
+            return None, None 
         message = ctx.message
         if ctx.guild:
             channel = self._get_danbooru_channel_of_message(message)
@@ -528,7 +531,7 @@ class Danbooru(commands.Cog):
             image = await self.helper.lookup_tags(tags, limit='1', random=random)
         else:
             image = await self.helper.lookup_tags(tags, limit='1')
-        if len(image) == 0:
+        if not image or len(image) == 0:
             await ctx.send("no image found please refer to the pin:\n"
                            "https://discordapp.com/channels/187423852224053248/402151326915493888/582629178285883394\n"
                            "or use the `dantag` command with part of the character or franchise name to see how it"
