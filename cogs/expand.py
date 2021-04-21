@@ -28,6 +28,7 @@ class LinkExpander(commands.Cog):
         self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w+)|r)(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
+        path_streamable = Path('config/streamable.json')
         self.logger = logging.getLogger('PoutyBot')
         if path.exists():
             with path.open('r') as f:
@@ -35,6 +36,9 @@ class LinkExpander(commands.Cog):
                 self.twitter_header = {
                         "Authorization" : f"Bearer {self.twitter_settings.get('token')}"
                         }
+        if path_streamable.exists():
+            with path_streamable.open('r') as f:
+                self.streamable_auth = json.load(f)
         else:
             self.logger.warn("No twitter configs found")
             self.twitter_settings = None
@@ -132,8 +136,12 @@ class LinkExpander(commands.Cog):
                             result, err = await proc.communicate()
                             file_size = os.path.getsize(filename=f'export/{filename}')
                             if file_size > ctx.guild.filesize_limit:
-                                os.remove(f'export/{filename}')
-                                return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
+                                embed = discord.Embed(title="Extracted video", description=text, url=link, color=discord.Colour(0x5dbaec))
+
+                                if users:
+                                    user = users[0]
+                                    embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
+                                return await self.upload_to_streamable(ctx, file_size, filename, embed=embed)
                             file_list.append(discord.File(f'export/{filename}', filename=filename))
                     elif m.get('type') == 'animated_gif':
                         with YoutubeDL({'format': 'best'}) as ydl:
@@ -224,13 +232,45 @@ class LinkExpander(commands.Cog):
         result, err = await proc.communicate()
         file_size = os.path.getsize(filename=f'export/{filename}')
         if file_size > ctx.guild.filesize_limit:
-            os.remove(f'export/{filename}')
-            return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
+            return await self.upload_to_streamable(ctx, file_size, filename, embed)
         await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename))
         if ctx.guild.me.guild_permissions.manage_messages:
             await ctx.message.edit(suppress=True)
         os.remove(f'export/{filename}')
 
+    async def check_video_status(self, message, vid_id):
+        status = 1
+        count = 0
+        while status == 1 and count < 6:
+            async with self.session.get(f"https://api.streamable.com/videos/{vid_id}") as resp:
+                if resp.status < 400:
+                    data = await resp.json()
+                    status = data.get('status')
+            count += 1
+            await asyncio.sleep(20)
+        if status != 1:
+            await message.edit(content=message.content + " ")
+
+
+    async def upload_to_streamable(self, ctx, file_size, filename, embed):
+        with open(f'export/{filename}', 'rb') as f:
+            files = {'file' : f}
+            auth = aiohttp.BasicAuth(self.streamable_auth.get('username'), password=self.streamable_auth.get('password'))
+            shortcode = None
+            async with self.session.post("https://api.streamable.com/upload", data=files, auth=auth) as resp:
+                if resp.status < 400:
+                    data = await resp.json()
+                    shortcode = data.get('shortcode')
+        if shortcode:
+            await ctx.send(embed=embed)
+            message = await ctx.send(content=f"https://streamable.com/{shortcode}")
+            self.bot.loop.create_task(self.check_video_status(message=message, vid_id=shortcode))
+            os.remove(f'export/{filename}')
+            if ctx.guild.me.guild_permissions.manage_messages:
+                await ctx.message.edit(suppress=True)
+            return
+        else:
+            return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
 
 def setup(bot):
     bot.add_cog(LinkExpander(bot))
