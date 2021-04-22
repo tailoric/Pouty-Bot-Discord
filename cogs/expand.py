@@ -26,7 +26,7 @@ class LinkExpander(commands.Cog):
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
         self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
-        self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w+)|r)(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
+        self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
         self.logger = logging.getLogger('PoutyBot')
@@ -205,6 +205,13 @@ class LinkExpander(commands.Cog):
         if not reddit_match:
             return await ctx.send("Please send a valid reddit link")
         
+        if reddit_match.group('video_id'):
+            reddit_request = f"https://www.reddit.com/video/{reddit_match.group('video_id')}.json"
+        elif reddit_match.group('short_id'):
+            url = f"https://www.reddit.com/{reddit_match.group('short_id')}"
+            reddit_request = f"https://www.reddit.com/{reddit_match.group('short_id')}.json"
+        else:
+            reddit_request = f"https://www.reddit.com/{reddit_match.group('post_id')}.json"
 
         await ctx.trigger_typing()
         results = []
@@ -217,10 +224,7 @@ class LinkExpander(commands.Cog):
                     return_exceptions=True
                     )
         
-        if reddit_match.group('video_id'):
-            reddit_request = f"https://www.reddit.com/video/{reddit_match.group('video_id')}.json"
-        else:
-            reddit_request = f"https://www.reddit.com/{reddit_match.group('post_id')}.json"
+
         post_data = {}
         async with self.session.get(url=reddit_request) as resp:
             post_data = await resp.json()
