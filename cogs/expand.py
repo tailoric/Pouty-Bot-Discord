@@ -95,7 +95,7 @@ class LinkExpander(commands.Cog):
             if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
                 await ctx.message.edit(suppress=True)
 
-    @commands.command(name="twitter")
+    @commands.command(name="twitter", aliases=['twt', 'twttr'])
     async def twitter_expand(self, ctx, link):
         """
         expand a twitter link to its images
