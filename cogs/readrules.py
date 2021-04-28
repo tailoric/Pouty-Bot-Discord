@@ -340,11 +340,10 @@ class ReadRules(commands.Cog):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
         forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
-        forbidden_match_name = forbidden_word_pattern.search(after.name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match or forbidden_match_name:
+        elif forbidden_match:
             await after.edit(nick=f"bad_name#{after.discriminator}")
             if self.checkers_channel:
                 await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
@@ -360,11 +359,10 @@ class ReadRules(commands.Cog):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
         forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
-        forbidden_match_name = forbidden_word_pattern.search(after.name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match or forbidden_match_name:
+        elif forbidden_match:
             await after.edit(nick=f"bad_name#{after.discriminator}")
             if self.checkers_channel:
                 await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
