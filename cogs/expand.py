@@ -47,7 +47,7 @@ class LinkExpander(commands.Cog):
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
-    @commands.command(name="pixiv")
+    @commands.command(name="pixiv", aliases=["pix", "pxv"])
     async def pixiv_expand(self, ctx, link):
         """
         expand a pixiv link into the first 10 images of a pixiv gallery/artwork link
