@@ -142,6 +142,7 @@ class LinkExpander(commands.Cog):
                             if ctx.guild:
                                 file_limit = ctx.guild.filesize_limit
                             if file_size > file_limit:
+                                os.remove(f"export/{filename}")
                                 return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
                             file_list.append(discord.File(f'export/{filename}', filename=filename))
                     elif m.get('type') == 'animated_gif':
@@ -247,6 +248,7 @@ class LinkExpander(commands.Cog):
         if ctx.guild:
             file_limit = ctx.guild.filesize_limit
         if file_size > file_limit:
+            os.remove(f"export/{filename}")
             return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
         await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename))
         if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
