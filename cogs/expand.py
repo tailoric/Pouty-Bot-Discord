@@ -110,7 +110,6 @@ class LinkExpander(commands.Cog):
         """
         expand a twitter link to its images
         """
-        breakpoint()
         link, is_spoiler = link
         if not self.twitter_header:
             return await ctx.send("Command disabled since host has no authentication token")
