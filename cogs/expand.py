@@ -142,11 +142,7 @@ class LinkExpander(commands.Cog):
                             if ctx.guild:
                                 file_limit = ctx.guild.filesize_limit
                             if file_size > file_limit:
-                                embed = discord.Embed(title="Extracted video", description=text, url=link, color=discord.Colour(0x5dbaec))
-                                if users:
-                                    user = users[0]
-                                    embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
-                                return await self.upload_to_streamable(ctx, file_size, filename, embed=embed)
+                                return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
                             file_list.append(discord.File(f'export/{filename}', filename=filename))
                     elif m.get('type') == 'animated_gif':
                         with YoutubeDL({'format': 'best'}) as ydl:
@@ -251,7 +247,7 @@ class LinkExpander(commands.Cog):
         if ctx.guild:
             file_limit = ctx.guild.filesize_limit
         if file_size > file_limit:
-            return await self.upload_to_streamable(ctx, file_size, filename, embed)
+            return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
         await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename))
         if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
             await ctx.message.edit(suppress=True)
@@ -270,26 +266,6 @@ class LinkExpander(commands.Cog):
         if status != 1:
             await message.edit(content=message.content + " ")
 
-
-    async def upload_to_streamable(self, ctx, file_size, filename, embed):
-        with open(f'export/{filename}', 'rb') as f:
-            files = {'file' : f}
-            auth = aiohttp.BasicAuth(self.streamable_auth.get('username'), password=self.streamable_auth.get('password'))
-            shortcode = None
-            async with self.session.post("https://api.streamable.com/upload", data=files, auth=auth) as resp:
-                if resp.status < 400:
-                    data = await resp.json()
-                    shortcode = data.get('shortcode')
-        if shortcode:
-            await ctx.send(embed=embed)
-            message = await ctx.send(content=f"https://streamable.com/{shortcode}")
-            self.bot.loop.create_task(self.check_video_status(message=message, vid_id=shortcode))
-            os.remove(f'export/{filename}')
-            if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
-                await ctx.message.edit(suppress=True)
-            return
-        else:
-            return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
 
 def setup(bot):
     bot.add_cog(LinkExpander(bot))
