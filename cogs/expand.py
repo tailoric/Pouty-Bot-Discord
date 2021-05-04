@@ -12,6 +12,16 @@ import json
 import logging
 import os
 
+spoiler_regex = re.compile(r"\|\|\s?(?P<link>.+?)\s?\|\|")
+class SpoilerLinkConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        if (match := spoiler_regex.search(argument)):
+            link = match.group('link')
+            return link.strip("<>"), True
+        else:
+            return argument.strip("<>"), False
+        
+
 class LinkExpander(commands.Cog):
     """
     A cog for expanding links with multiple images
@@ -25,7 +35,7 @@ class LinkExpander(commands.Cog):
                 "Referer" : "https://pixiv.net"
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
-        self.twitter_url_regex = re.compile(r"https://twitter.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?twitter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
@@ -48,11 +58,11 @@ class LinkExpander(commands.Cog):
         self.bot.loop.create_task(self.session.close())
 
     @commands.command(name="pixiv", aliases=["pix", "pxv"])
-    async def pixiv_expand(self, ctx, link):
+    async def pixiv_expand(self, ctx, *, link : SpoilerLinkConverter):
         """
         expand a pixiv link into the first 10 images of a pixiv gallery/artwork link
         """
-        link = link.strip('<>')
+        link, is_spoiler = link
         details_url = "https://www.pixiv.net/touch/ajax/illust/details?illust_id={}"
         match_url= self.pixiv_url_regex.match(link)
         if not match_url:
@@ -84,7 +94,7 @@ class LinkExpander(commands.Cog):
                         filename= img_url.split(r"/")[-1]
                         img_buffer = io.BytesIO(await img.read())
                         img_buffer.seek(0)
-                        file_list.append(discord.File(img_buffer, filename=filename))
+                        file_list.append(discord.File(img_buffer, filename=filename, spoiler=is_spoiler))
                         if len(file_list) == 10:
                             stopped = True
                             break
@@ -96,11 +106,12 @@ class LinkExpander(commands.Cog):
                 await ctx.message.edit(suppress=True)
 
     @commands.command(name="twitter", aliases=['twt', 'twttr'])
-    async def twitter_expand(self, ctx, link):
+    async def twitter_expand(self, ctx, * ,link: SpoilerLinkConverter):
         """
         expand a twitter link to its images
         """
-        link = link.strip('<>')
+        breakpoint()
+        link, is_spoiler = link
         if not self.twitter_header:
             return await ctx.send("Command disabled since host has no authentication token")
         match = self.twitter_url_regex.match(link)
@@ -144,7 +155,7 @@ class LinkExpander(commands.Cog):
                             if file_size > file_limit:
                                 os.remove(f"export/{filename}")
                                 return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
-                            file_list.append(discord.File(f'export/{filename}', filename=filename))
+                            file_list.append(discord.File(f'export/{filename}', filename=filename, spoiler=is_spoiler))
                     elif m.get('type') == 'animated_gif':
                         with YoutubeDL({'format': 'best'}) as ydl:
                             extract = partial(ydl.extract_info, link, download=False)
@@ -160,7 +171,7 @@ class LinkExpander(commands.Cog):
                                     continue
                                 buffer = io.BytesIO(await gif.read())
                                 buffer.seek(0)
-                                file_list.append(discord.File(fp=buffer, filename=filename))
+                                file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
                                 
                     else:
                         async with self.session.get(url=m.get('url')) as img:
@@ -174,8 +185,8 @@ class LinkExpander(commands.Cog):
                                     continue
                                 buffer = io.BytesIO(await img.read())
                                 buffer.seek(0)
-                                file_list.append(discord.File(fp=buffer, filename=filename))
-                embed = discord.Embed(title=f"Extracted {len(file_list)} images", description=text, url=link, color=discord.Colour(0x5dbaec))
+                                file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
+                embed = discord.Embed(title=f"Extracted {len(file_list)} images", description=text.center(len(text) +4, '|') if is_spoiler else text, url=link, color=discord.Colour(0x5dbaec))
                 if users:
                     user = users[0]
                     embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
@@ -193,11 +204,12 @@ class LinkExpander(commands.Cog):
                 return await ctx.send(f"Twitter responded with status code {response.status}")
 
     @commands.command(name="vreddit")
-    async def expand_reddit_video(self, ctx, url):
+    async def expand_reddit_video(self, ctx, *, url : SpoilerLinkConverter):
         """
         reupload a reddit hosted video 
         preferably use the v.redd.it link but it should work with threads too
         """
+        url, is_spoiler = url
         reddit_match = self.reddit_url_regex.match(url)
         if not reddit_match:
             return await ctx.send("Please send a valid reddit link")
@@ -228,7 +240,8 @@ class LinkExpander(commands.Cog):
             post_data = post_data[0]['data']['children'][0]['data']
         embed = None
         if post_data:
-            embed = (discord.Embed(title=post_data.get('title'), url=f"https://reddit.com{post_data.get('permalink')}")
+            title=post_data.get('title')
+            embed = (discord.Embed(title=title.center(len(title)+4, '|') if is_spoiler else title, url=f"https://reddit.com{post_data.get('permalink')}")
                         .set_author(name=post_data.get('subreddit_name_prefixed'),
                             url=f"https://reddit.com/{post_data.get('subreddit_name_prefixed')}")
                         
@@ -250,7 +263,7 @@ class LinkExpander(commands.Cog):
         if file_size > file_limit:
             os.remove(f"export/{filename}")
             return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
-        await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename))
+        await ctx.send(embed=embed, file=discord.File(f'export/{filename}', filename=filename, spoiler=is_spoiler))
         if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
             await ctx.message.edit(suppress=True)
         os.remove(f'export/{filename}')
