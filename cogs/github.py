@@ -12,12 +12,13 @@ class Suggestions(commands.Cog):
         self.token = self.github_data['p_access_token']
         self.session = aiohttp.ClientSession()
 
-    @commands.command(aliases=['suggest', 'suggestion'])
+    @commands.command(name="suggest", aliases=['suggestion', "proposal"])
     @channel_only(191536772352573440, 336912585960194048, 208765039727869954, 390617633147453444)
-    async def proposal(self, ctx, *, title):
-        """creates a track able issue on github
-        so the bot creator can easily list and
-        work with suggestions for the bot"""
+    async def suggest(self, ctx, *, title):
+        """ Write a suggestion for the bot. This command first takes a **title** as input
+            and then asks for a description of your suggestion.
+            refer to the [markdown guide](https://guides.github.com/features/mastering-markdown/) from github for styling and formatting
+        """
         headers = {
             'Accept': 'application/vnd.github.v3+json',
             'User-Agent' : 'PoutyBot Discord Issue Cog',
@@ -35,7 +36,8 @@ class Suggestions(commands.Cog):
 
         def message_check(m):
             return m.author.id == ctx.author.id and m.channel.id == ctx.channel.id
-        await ctx.send("Please write a description for your suggestion\n"
+        await ctx.send("**Title was set.**\nIn your next message "
+                       "write a description for your suggestion\n"
                        "refer to this guide for the formatting\n"
                        "<https://guides.github.com/features/mastering-markdown/>")
         try:
@@ -66,12 +68,13 @@ class Suggestions(commands.Cog):
         async with self.session.post(url='https://api.github.com/repos/tailoric/Pouty-Bot-Discord/issues',
                                      headers=headers, json=data) as resp:
             if resp.status == 201:
-                json_response = await resp.json()
-                await ctx.send("issue was created")
-                owner = self.bot.get_user(self.bot.owner_id)
                 default_issue_url = "https://github.com/tailoric/Pouty-Bot-Discord/issues"
+                json_response = await resp.json()
+                await ctx.send(f"issue was created:\n<{json_response.get('html_url', default_issue_url)}>")
+                owner = self.bot.get_user(self.bot.owner_id)
                 await owner.send(f"a new issue was created by {ctx.author.mention}\n"
-                                 f"{json_response.get('html_url', default_issue_url)}")
+                                 f"{json_response.get('html_url', default_issue_url)}\n"
+                                 f"{ctx.message.jump_url}")
             else:
                 await ctx.send(resp.status)
 
