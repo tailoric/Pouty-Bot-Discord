@@ -45,10 +45,10 @@ class Suggestions(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send(f"{ctx.author.mention} Timeout reached suggestion was not sent")
             return
-        data['body'] = (f"{message.content}\n"
+        data['body'] = (f"{message.clean_content}\n"
                         f"This suggestion was created by a user and sent by the bot:\n"
                         f"{self.bot.user.name}#{self.bot.user.discriminator}")
-        embed = discord.Embed(title=title, description=message.content)
+        embed = discord.Embed(title=title, description=message.clean_content)
         react_mes = await ctx.send(content="This will be the created issue on github, do you want to send?",
                                    embed=embed)
         await react_mes.add_reaction('\N{HEAVY CHECK MARK}')
