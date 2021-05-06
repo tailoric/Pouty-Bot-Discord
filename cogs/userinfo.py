@@ -167,7 +167,7 @@ class Userinfo(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(name="created")
+    @commands.command(name="created", aliases=["age"])
     async def created_at(self, ctx, discord_id: ObjectConverter):
         """
         Provide a mention or id of an discord object (channel, user, message, emote) to find out when it was created
