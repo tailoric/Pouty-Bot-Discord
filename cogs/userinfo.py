@@ -10,6 +10,10 @@ import re
 from typing import Union, Optional
 import json
 
+snowflake_regex = re.compile(r"(\d{17,19})")
+class ObjectConversionError(commands.CheckFailure):
+    pass
+
 class CustomMemberOrUserConverter(commands.MemberConverter):
     async def convert(self, ctx, argument):
         try:
@@ -17,13 +21,22 @@ class CustomMemberOrUserConverter(commands.MemberConverter):
         except (commands.CommandError, commands.BadArgument):
             return await ctx.bot.fetch_user(argument)
 
+class ObjectConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        if(match := snowflake_regex.search(argument)):
+            return discord.Object(int(match.group(1)))
+        else:
+            raise ObjectConversionError("Invalid Discord Id passed")
+
+
+
 class Userinfo(commands.Cog):
     """show infos about the current or other users"""
     def __init__(self, bot):
         self.bot = bot
         self.bot.loop.create_task(self.create_name_tables())
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def userinfo(self,ctx, *, member: Optional[CustomMemberOrUserConverter]):
         """shows the info about yourself or another user"""
         if member is None:
@@ -124,36 +137,45 @@ class Userinfo(commands.Cog):
         else:
             await ctx.send(ctx.author.avatar_url_as(static_format="png"))
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def serverinfo(self, ctx):
         """shows info about the current server"""
-        server = ctx.message.guild
+        guild = ctx.message.guild
         time_fmt = "%d %b %Y %H:%M"
-        creation_time_diff = int(time.time() - time.mktime(server.created_at.timetuple())) // (3600 * 24)
-        users_total = len(server.members)
-        users_online = len([m for m in server.members if m.status == discord.Status.online or
+        creation_time_diff = int(time.time() - time.mktime(guild.created_at.timetuple())) // (3600 * 24)
+        users_total = len(guild.members)
+        users_online = len([m for m in guild.members if m.status == discord.Status.online or
                             m.status == discord.Status.idle])
-        colour = server.me.colour
-        if server.icon:
+        colour = guild.me.colour
+        if guild.icon:
             embed = Embed(description="[{}]({})\nCreated {} ({} days ago)"
-                          .format(server.name, server.icon_url, server.created_at.strftime(time_fmt), creation_time_diff),
+                          .format(guild.name, guild.icon_url, guild.created_at.strftime(time_fmt), creation_time_diff),
                           color=colour)
-            embed.set_thumbnail(url=server.icon_url)
+            embed.set_thumbnail(url=guild.icon_url)
         else:
             embed = Embed(description="{}\nCreated {} ({} days ago)"
-                          .format(server.name, server.created_at.strftime(time_fmt), creation_time_diff))
-        embed.add_field(name="Region", value=str(server.region))
+                          .format(guild.name, guild.created_at.strftime(time_fmt), creation_time_diff))
+        embed.add_field(name="Region", value=str(guild.region))
         embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
         embed.add_field(name="Text Channels", value="{}"
-                        .format(len([x for x in server.channels if type(x) == discord.TextChannel])))
+                        .format(len([x for x in guild.channels if type(x) == discord.TextChannel])))
         embed.add_field(name="Voice Channels", value="{}"
-                        .format(len([x for x in server.channels if type(x) == discord.VoiceChannel])))
-        embed.add_field(name="Roles", value="{}".format(len(server.roles)))
-        embed.add_field(name="Owner", value=str(server.owner))
-        embed.set_footer(text="Server ID: {}".format(server.id))
+                        .format(len([x for x in guild.channels if type(x) == discord.VoiceChannel])))
+        embed.add_field(name="Roles", value="{}".format(len(guild.roles)))
+        embed.add_field(name="Owner", value=str(guild.owner))
+        embed.set_footer(text="guild ID: {}".format(guild.id))
 
         await ctx.send(embed=embed)
 
+    @commands.command(name="created")
+    async def created_at(self, ctx, discord_id: ObjectConverter):
+        """
+        Provide a mention or id of an discord object (channel, user, message, emote) to find out when it was created
+        """
+        time_diff = datetime.utcnow() - discord_id.created_at
+        creation_date_str = discord_id.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+        embed = discord.Embed(title="Age of Discord Object", description=f"This discord object was created at **{creation_date_str}** ({time_diff.days} days ago)", colour=ctx.guild.me.colour)
+        await ctx.send(embed=embed)
 
 
     async def fetch_names(self, member):
