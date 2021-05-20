@@ -3,6 +3,30 @@ from discord.ext import commands
 from .utils import checks, paginator
 from typing import Optional
 from datetime import datetime, timedelta
+from discord.ext import menus
+from asyncpg import Record
+
+class LeaderBoardSource(menus.ListPageSource):
+    def __init__(self, data):
+        super().__init__(data, per_page=10)
+
+    async def format_page(self, menu, entries : Record):
+        offset = menu.current_page * self.per_page
+        embed = discord.Embed(title="Leaderboards", colour=discord.Colour.blurple())
+        for idx,entry in enumerate(entries, start=offset):
+            user = await self.get_user(entry.get('user_id'), menu.ctx)
+            embed.add_field(name=f"{idx+offset+1}. {user.display_name}", value=f"{entry.get('money'):,}", inline=False)
+        return embed
+
+    async def get_user(self, user_id, ctx):
+        user = ctx.guild.get_member(user_id)
+        if not user:
+            user = ctx.bot.get_user(user_id)
+        if not user:
+            user = await ctx.bot.fetch_user(user_id)
+        return user
+
+
 
 
 class Payday(commands.Cog):
@@ -66,7 +90,7 @@ class Payday(commands.Cog):
                 return await statement_set.fetchval(user_id, money)
 
     async def get_leaderboards(self):
-        return await self.bot.db.fetch("SELECT * from payday order by money desc limit 10")
+        return await self.bot.db.fetch("SELECT * from payday order by money desc")
 
     @commands.command(name="payday", aliases=["pd"])
     @commands.guild_only()
@@ -153,20 +177,12 @@ class Payday(commands.Cog):
 
 
     @commands.command(name="leaderboards", aliases=["lb"])
+    @commands.guild_only()
     async def leaderboards_command(self, ctx):
         """see who is the biggest earner on the server"""
         leaderboards = await self.get_leaderboards()
-        pages = []
-        for idx, entry in enumerate(leaderboards):
-            user = ctx.guild.get_member(entry.get("user_id"))
-            if not user:
-                user = await self.bot.fetch_user(entry.get("user_id"))
-                pages.append((f"**{idx+1}**. {user.name}#{user.discriminator}", f"{entry['money']:,}"))
-                continue
-            pages.append((f"**{idx+1}**. {user.display_name}", f"{entry['money']:,}"))
-
-        f_pages = paginator.FieldPages(ctx, entries=pages)
-        await f_pages.paginate()
+        pages = menus.MenuPages(source=LeaderBoardSource(leaderboards), clear_reactions_after=True)
+        await pages.start(ctx)
 
 
 def setup(bot):
