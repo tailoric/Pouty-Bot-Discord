@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from .utils import checks, paginator
 from typing import Optional
+from datetime import datetime, timedelta
 
 
 class Payday(commands.Cog):
@@ -83,8 +84,20 @@ class Payday(commands.Cog):
             await self.insert_new_user(member.id, self.start_amount)
             return await ctx.send(f"New user with starting capital of {self.start_amount}")
         new_balance = await self.add_money(member.id, salary)
-        boosto_bonus_message = " (with a boost loyalty bonus of 50)" if is_boost else ""
-        await ctx.send(f"added {salary} to your account your balance is now {new_balance:,}" + boosto_bonus_message)
+        line_len = max(len(f"{entry['money']:,}"), len(f'+{salary,}'), len(f'{new_balance:,}'))
+        new_bal_str = f"{new_balance:,}".rjust(line_len + 1)
+        old_bal = f"{entry['money']:,}".rjust(line_len + 1)
+        salary_str = "+" + f"{salary:,}".rjust(line_len)
+        if ctx.guild and ctx.guild.me.colour:
+            colour = ctx.guild.me.colour
+        else:
+            colour = discord.Colour.blurple()
+        embed = discord.Embed(title="Payday!", description=f"```\n{old_bal}\n{salary_str}\n{'_' * (line_len+1)}\n{new_bal_str}\n```", colour=colour)
+        if is_boost:
+            embed.add_field(name=f"Bonus for {ctx.guild.premium_subscriber_role.name}", value=50)
+        embed.timestamp = (datetime.utcnow() + timedelta(hours=1))
+        embed.set_footer(text="Next payday at:")
+        await ctx.send(embed=embed)
 
     @payday_command.error
     async def payday_error(self, ctx, error):
@@ -92,7 +105,15 @@ class Payday(commands.Cog):
         if isinstance(error, commands.CommandOnCooldown):
             minutes, seconds = divmod(error.retry_after, 60)
             error.handled = True
-            await ctx.send(f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec")
+            if ctx.guild and ctx.guild.me.colour:
+                colour = ctx.guild.me.colour
+            else:
+                colour = discord.Colour.blurple()
+            await ctx.send(embed=discord.Embed(title="Payday!",
+                description=f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec",
+                timestamp=datetime.utcnow() + timedelta(seconds=error.retry_after),
+                colour=colour
+                ))
 
     @commands.command(name="transfer")
     async def transfer_money(self, ctx, amount: int, *, receiver: discord.Member):
@@ -106,13 +127,13 @@ class Payday(commands.Cog):
         spender_money = await self.subtract_money(spender.id, amount)
         receiver_money = await self.add_money(receiver.id, amount)
 
-        if ctx.guild:
+        if ctx.guild and ctx.guild.me.colour:
             colour = ctx.guild.me.colour
         else:
             colour = discord.Colour.blurple()
-        embed = discord.Embed(title="Money transfer", description=f"{spender.mention} \N{RIGHTWARDS ARROW} {amount} \N{RIGHTWARDS ARROW} {receiver.mention}", colour=colour)
-        embed.add_field(name=f"{spender} balance", value=f"{spender_money+amount} \N{RIGHTWARDS ARROW} {spender_money}")
-        embed.add_field(name=f"{receiver} balance", value=f"{receiver_money-amount} \N{RIGHTWARDS ARROW} {receiver_money}")
+        embed = discord.Embed(title="Money transfer", description=f"{spender.mention} \N{RIGHTWARDS ARROW} {amount:,} \N{RIGHTWARDS ARROW} {receiver.mention}", colour=colour)
+        embed.add_field(name=f"{spender} balance", value=f"{spender_money+amount:,} \N{RIGHTWARDS ARROW} {spender_money:,}")
+        embed.add_field(name=f"{receiver} balance", value=f"{receiver_money-amount:,} \N{RIGHTWARDS ARROW} {receiver_money:,}")
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["bal"])
