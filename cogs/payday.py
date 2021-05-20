@@ -15,7 +15,7 @@ class LeaderBoardSource(menus.ListPageSource):
         embed = discord.Embed(title="Leaderboards", colour=discord.Colour.blurple())
         for idx,entry in enumerate(entries, start=offset):
             user = await self.get_user(entry.get('user_id'), menu.ctx)
-            embed.add_field(name=f"{idx+offset+1}. {user.display_name}", value=f"{entry.get('money'):,}", inline=False)
+            embed.add_field(name=f"{idx+1}. {user.display_name}", value=f"{entry.get('money'):,}", inline=False)
         return embed
 
     async def get_user(self, user_id, ctx):
