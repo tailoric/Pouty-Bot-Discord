@@ -3,6 +3,7 @@ from discord import Embed, Member
 from enum import Enum, auto
 from .utils import checks
 from typing import Optional
+import copy
 import random
 import asyncio
 
@@ -41,6 +42,19 @@ class Card():
         return f"{self.face}{self.color}"
 
 
+def generate_deck():
+    deck = []
+    for color in list(CardColor):
+        deck.append(Card(1, color.value, "A"))
+        deck.append(Card(10, color.value, "J"))
+        deck.append(Card(10, color.value, "Q"))
+        deck.append(Card(10, color.value, "K"))
+        for i in range(2, 11):
+            deck.append(Card(i, color.value, str(i)))
+    return deck
+
+deck = generate_deck()
+
 class BlackJackGame():
     """
     one game of blackjack
@@ -51,7 +65,8 @@ class BlackJackGame():
         self.displaying_help = False
         self.state = GameState.RUNNING
         self.bet = bet
-        self.deck = self.generate_deck()
+        self.deck = copy.copy(deck)
+        random.shuffle(self.deck)
         self.dealer_hand = [self.deck.pop(0), self.deck.pop(0)]
         self.player_hand = [self.deck.pop(0), self.deck.pop(0)]
         if self.player_value == 21:
