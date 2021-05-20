@@ -309,8 +309,13 @@ class BlackJack(commands.Cog):
             await game.message.edit(embed=embed)
             return 
         if self.payday:
-            await self.payday.add_money(game.player.id, int(game.bet * 0.8))
-            await game.message.edit(content=f"You gave up on this game and got 80% ({int(game.bet * 0.8)}) of your bet back, better luck next time.", embed=None)
+            new_amount = await self.payday.add_money(game.player.id, int(game.bet * 0.8))
+            embed = game.message.embeds[0]
+            embed.title="Fold" 
+            embed.description=f"You gave up on this game and got 80% ({int(game.bet * 0.8):,}) of your bet back, better luck next time."
+            embed.clear_fields()
+            embed.add_field(name="New Balance", value=f"{new_amount:,}")
+            await game.message.edit(embed=embed)
             self.folds.append(game.player)
         else:
             await game.message.edit(content="No money was bet but this game still gets stopped, better luck next time.", embed=None)
