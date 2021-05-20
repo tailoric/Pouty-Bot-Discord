@@ -106,9 +106,14 @@ class Payday(commands.Cog):
         spender_money = await self.subtract_money(spender.id, amount)
         receiver_money = await self.add_money(receiver.id, amount)
 
-        await ctx.send(f"{spender.mention} transferred {amount} to {receiver.mention}\n"
-                       f"{spender.mention} balance: {spender_money:,} \n"
-                       f"{receiver.mention} balance: {receiver_money:,}")
+        if ctx.guild:
+            colour = ctx.guild.me.colour
+        else:
+            colour = discord.Colour.blurple()
+        embed = discord.Embed(title="Money transfer", description=f"{spender.mention} \N{RIGHTWARDS ARROW} {amount} \N{RIGHTWARDS ARROW} {receiver.mention}", colour=colour)
+        embed.add_field(name=f"{spender} balance", value=f"{spender_money+amount} \N{RIGHTWARDS ARROW} {spender_money}")
+        embed.add_field(name=f"{receiver} balance", value=f"{receiver_money-amount} \N{RIGHTWARDS ARROW} {receiver_money}")
+        await ctx.send(embed=embed)
 
     @commands.command(aliases=["bal"])
     async def balance(self, ctx, *, member: Optional[discord.Member]):
