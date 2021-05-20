@@ -256,6 +256,7 @@ class Roles(commands.Cog):
             await ctx.send("You either don't have that role or I am not allowed to remove it")
 
     @commands.command(name="assignable_roles", aliases=["asroles", "icanbe"])
+    @channel_only("bot-shenanigans",191536772352573440,390617633147453444)
     async def get_assignable_roles(self, ctx):
         """
         Creates an interactive menu of assignable roles which you can use to assign or remove roles from yourself
