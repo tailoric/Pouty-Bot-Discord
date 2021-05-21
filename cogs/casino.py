@@ -75,18 +75,6 @@ class BlackJackGame():
     def __eq__(self, other):
         return self.player == other.player
 
-    def generate_deck(self):
-        deck = []
-        for color in list(CardColor):
-            deck.append(Card(1, color.value, "A"))
-            deck.append(Card(10, color.value, "J"))
-            deck.append(Card(10, color.value, "Q"))
-            deck.append(Card(10, color.value, "K"))
-            for i in range(2, 11):
-                deck.append(Card(i, color.value, str(i)))
-        random.shuffle(deck)
-        return deck
-
     @property
     def player_value(self):
         total = sum(c.value for c in self.player_hand)
