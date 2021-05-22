@@ -163,7 +163,7 @@ class Wordcloud(commands.Cog):
                 return await ctx.send("This user has not consented to recording their messages, I can't create a word cloud")
             else:
                 return await ctx.send(f"Please first consent to having your messages recorded. using `{ctx.prefix}wc consent`")
-        avatar = ctx.author.avatar_url_as(format='png')
+        avatar = member.avatar_url_as(format='png')
         bAvatar = io.BytesIO(await avatar.read())
         bAvatar.seek(0)
         messages = await self.bot.db.fetch("""
