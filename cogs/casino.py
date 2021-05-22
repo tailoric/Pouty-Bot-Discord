@@ -7,6 +7,30 @@ import copy
 import random
 import asyncio
 
+class BetConversionError(commands.BadArgument):
+    pass
+class Bet(commands.Converter):
+
+    async def convert(self, ctx: commands.Context, argument: str):
+        if not argument.endswith("%"):
+            try:
+                return int(argument)
+            except ValueError as ve:
+                raise BetConversionError("argument was not an integer or percentage.")
+        payday = ctx.bot.get_cog("Payday")
+        amount = None
+        if payday:
+            row = await payday.fetch_money(ctx.author.id)
+            amount = row.get('money')
+        if not amount:
+            raise BetConversionError("couldn't fetch money")
+        try:
+            percentage = int(argument.rstrip("%"))
+            return int(amount * (percentage * 0.01))
+        except ValueError:
+            raise BetConversionError("argument was not an integer or percentage")
+
+
 
 class CardColor(Enum):
     """
@@ -338,7 +362,7 @@ class BlackJack(commands.Cog):
     @commands.group(name="blackjack",invoke_without_command=True, aliases=["bj"])
     @checks.channel_only("test", "bot-shenanigans", 336912585960194048, 248987073124630528)    
     @commands.guild_only()
-    async def blackjack_group(self, ctx, bet:int):
+    async def blackjack_group(self, ctx, bet:Bet):
         """
         very basic implementation of black jack:
         Every game/round starts with a full deck
@@ -346,6 +370,7 @@ class BlackJack(commands.Cog):
         If you win with a Blackjack you get 1.5 times of your bet as payout
         otherwise you get the bet as payout.
         """
+        print(bet)
         balance = None
         if self.payday:
             balance = await self.payday.fetch_money(ctx.author.id)
@@ -629,7 +654,7 @@ class Deathroll(commands.Cog):
 
 
     @commands.group(name="deathroll", aliases=['dr'], invoke_without_command=True)
-    async def deathroll(self, ctx, amount: int, challenger: Optional[Member]):
+    async def deathroll(self, ctx, amount: Bet, challenger: Optional[Member]):
         """
         Starts a game of deathroll
         Rules:
