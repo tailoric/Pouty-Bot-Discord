@@ -1,11 +1,15 @@
 from discord.ext import commands, tasks
 import discord
 from typing import Union, Optional
-from wordcloud import WordCloud, STOPWORDS
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+import typing
 from io import BytesIO
 from functools import partial
 import asyncio
 import re
+import io
+from PIL import Image
+import numpy as np
 class Wordcloud(commands.Cog):
 
     def __init__(self, bot):
@@ -97,7 +101,7 @@ class Wordcloud(commands.Cog):
             text = "\n".join([self.url_regex.sub("", m.clean_content) for m in messages])
             text = self.spoiler_regex.sub("", text)
         if isinstance(target, discord.Member):
-            consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", ctx.author.id)
+            consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", target.id)
 
             if not consent:
                 if not ctx.author == target:
@@ -145,6 +149,43 @@ class Wordcloud(commands.Cog):
                 await con.execute("DELETE FROM wc_consent WHERE user_id = $1", ctx.author.id)
                 await con.execute("DELETE FROM wc_messages WHERE user_id = $1", ctx.author.id)
         await ctx.send("Consent removed, all your recorded messages were deleted")
+
+    @word_cloud.command(name="avatar", aliases=['pfp'])
+    async def word_cloud_avatar(self, ctx, member: typing.Optional[discord.Member]=None, colour: discord.Colour=discord.Colour(0)):
+        """
+        create a word cloud shaped and colored like the user's profile picture allows custom background colour
+        usage: `.wc avatar 0xc0ffee` or `.wc avatar @Member` or `.wc avatar @Member 0xc0ffee`
+        """
+        member = member or ctx.author
+        consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", member.id)
+        if not consent:
+            if not ctx.author == member:
+                return await ctx.send("This user has not consented to recording their messages, I can't create a word cloud")
+            else:
+                return await ctx.send(f"Please first consent to having your messages recorded. using `{ctx.prefix}wc consent`")
+        avatar = ctx.author.avatar_url_as(format='png')
+        bAvatar = io.BytesIO(await avatar.read())
+        bAvatar.seek(0)
+        messages = await self.bot.db.fetch("""
+        SELECT message_content from wc_messages WHERE user_id = $1 LIMIT 500 
+        """, ctx.author.id)
+        text = " ".join([m['message_content'] for m in messages])
+        gen_file = partial(self.generate_with_avatar, bAvatar, text, colour)
+        await ctx.trigger_typing()
+        f = await ctx.bot.loop.run_in_executor(None, gen_file)
+        await ctx.send(file=f)
+
+    def generate_with_avatar(self, avatar: io.BytesIO, text, color):
+        im = np.array(Image.open(avatar))
+        wc = WordCloud(background_color=color.to_rgb(), mask=im)
+        image_colors = ImageColorGenerator(im)
+        wc.generate(text)
+        wc.recolor(color_func=image_colors)
+        im = wc.to_image()
+        img_buf = BytesIO()
+        im.save(img_buf, format='png')
+        img_buf.seek(0)
+        return discord.File(img_buf, "wc.png")
 
     def generate_file_from_text(self, text):
         wc = WordCloud(width=800, height=800)
