@@ -94,7 +94,7 @@ class BlackJackGame():
         self.dealer_hand = [self.deck.pop(0), self.deck.pop(0)]
         self.player_hand = [self.deck.pop(0), self.deck.pop(0)]
         if self.player_value == 21:
-            self.state = GameState.DEALER_PHASE
+            self.state = GameState.GAME_OVER
 
     def __eq__(self, other):
         return self.player == other.player
@@ -378,8 +378,9 @@ class BlackJack(commands.Cog):
                 return await ctx.send("No bank account create one with `.payday`")
             if balance.get("money") < bet:
                 return await ctx.send("You can't bet more than you own!")
+            content = None
         else:
-            await ctx.send("Payday not loaded this game is just for fun")
+            content = "Payday not loaded this game is just for fun"
         if bet < 1:
             return await ctx.send("You can't bet less than 1")
         game = next(iter(x for x in self.games if x.player == ctx.author), None)
@@ -389,12 +390,11 @@ class BlackJack(commands.Cog):
         if self.payday:
             balance = await self.payday.subtract_money(ctx.author.id, bet)
         self.games.append(game)
-        if game.state == GameState.DEALER_PHASE:
-            game.stand()
+        if game.state == GameState.GAME_OVER:
             await self.payout(game, ctx=ctx)
             return
 
-        game.message = await ctx.send(embed=game.build_embed(buttons=self.reaction_buttons))
+        game.message = await ctx.send(content=content, embed=game.build_embed(buttons=self.reaction_buttons))
         for button in self.reaction_buttons.values():
             if button == self.reaction_buttons["double"] and balance is not None and balance < game.bet:
                 continue
