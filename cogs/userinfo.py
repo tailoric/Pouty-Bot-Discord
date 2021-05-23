@@ -94,7 +94,7 @@ class Userinfo(commands.Cog):
                     field_value = f'{activity.emoji.name} '
                 field_value += f'{activity.name}'
             elif isinstance(activity, discord.Spotify):
-                field_value = f'{activity.tile} - {activity.artist}'
+                field_value = f'{activity.title} - {activity.artist}'
             elif isinstance(activity, discord.Activity):
                 since = ''
                 if activity.start:
