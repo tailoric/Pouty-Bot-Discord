@@ -168,7 +168,7 @@ class Wordcloud(commands.Cog):
         bAvatar.seek(0)
         messages = await self.bot.db.fetch("""
         SELECT message_content from wc_messages WHERE user_id = $1 LIMIT 500 
-        """, ctx.author.id)
+        """, member.id)
         text = " ".join([m['message_content'] for m in messages])
         gen_file = partial(self.generate_with_avatar, bAvatar, text, colour)
         await ctx.trigger_typing()
