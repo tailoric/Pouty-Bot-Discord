@@ -1,9 +1,27 @@
 import aiohttp
-from discord.ext import commands
+import discord
 import json
-from bs4 import BeautifulSoup
-from urllib import parse
+import textwrap
 
+from lxml import etree
+from io import BytesIO
+from urllib import parse
+from discord.ext import commands, menus
+
+
+class WolframImageList(menus.ListPageSource):
+    def __init__(self, data, query):
+        self.query = query
+        super().__init__(data, per_page=1)
+
+    async def format_page(self, menu, entry):
+        embed = discord.Embed(title=textwrap.shorten(entry.get('title'), width=256),
+                description=textwrap.shorten(entry.get('alt'), width=2048),
+                url=f"https://www.wolframalpha.com/input/?i={self.query}",
+                colour=discord.Colour(0xff7e00))
+        embed.set_image(url=entry.get('src'))
+        embed.set_footer(text=f"Page {menu.current_page+1}/{self.get_max_pages()}")
+        return embed
 
 class Wolfram(commands.Cog):
     """Wolfram Alpha related commands"""
@@ -11,62 +29,33 @@ class Wolfram(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.json_file = 'data/wolfram.json'
+        with open(self.json_file) as f:
+            self.api_key = json.load(f)['api_key']
         self.session = aiohttp.ClientSession()
 
-    @commands.command()
+    @commands.group(invoke_without_command=True)
     async def wolfram(self,  ctx, *, query: str):
         """
-        gives a wolfram query result
-        :param query: the query you want to search use 'image' as first keywoard to get your result as image
+        Search wolfram alpha for a query 
         """
-        with open(self.json_file) as f:
-            api_key = json.load(f)['api_key']
 
         url = 'http://api.wolframalpha.com/v2/query'
-        want_image = query.split(' ')[0] == 'image'
-        if not want_image:
-            params = {'appid': api_key, 'input': query, 'format': 'plaintext'}
-            async with ctx.typing():
-                async with self.session.get(url=url, params=params) as response:
-                    if response.status == 200:
-                        html = await response.text()
-                        soup = BeautifulSoup(html, 'html.parser')
-                        success = soup.find('queryresult')['success']
-                        if success == 'true':
-                            query_input = soup.find('plaintext').contents
-                            full_response = '<http://www.wolframalpha.com/input/?i={}>'.format(parse.quote_plus(query))
-                            message = '**Full Response:** {} \n'.format(full_response)
-                            message += '**Input:** {} \n'.format(query_input[0])
-                            message += '**Result:** \n' \
-                                       '```\n'
-                            for elem in soup.find_all('plaintext')[1:6]:
-                                if len(elem) > 0:
-                                    message += elem.contents[0] + '\n'
-                            message += '```'
+        params = {'appid': self.api_key, 'input': query, 'format': 'image'}
+        async with ctx.typing():
+            async with self.session.get(url=url, params=params) as response:
+                response.raise_for_status()
+                byio = BytesIO(await response.read())
+                tree = etree.parse(byio)
+                queryresult = tree.getroot()
+                if queryresult.get('success') == "true":
+                    entries = list(queryresult.iter('img'))
+                    query_string = parse.quote_plus(query)
+                    pages = menus.MenuPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
+                    await pages.start(ctx)
+                else:
+                    await ctx.send("No Results for your query try something else.")
 
-                            await ctx.send(message)
-                        else:
-                            await ctx.send('Query was unsuccessful please try something else')
-        else:
-            re_query = query.split(' ')[1:]
-            re_query = ' '.join(re_query)
-            params = {'appid': api_key, 'input': re_query, 'format': 'plaintext,image'}
-            async with ctx.typing():
-                async with self.session.get(url=url, params=params) as response:
-                    if response.status == 200:
-                        soup = BeautifulSoup(await response.text(), 'html.parser')
-                        success = soup.find('queryresult')['success']
-                        if success == 'true':
-                            query_input = soup.find('plaintext').contents
-                            full_response = '<http://www.wolframalpha.com/input/?i={}>'.format(parse.quote_plus(re_query))
-                            message = '**Full Response:** {} \n'.format(full_response)
-                            message += '**Input:** {} \n'.format(query_input[0])
-                            message += '**Result:** \n'
-                            await ctx.send(message)
-                            for elem in soup.find_all('img')[1:5]:
-                                await ctx.send(elem['src'])
-                        else:
-                            await ctx.send('Query was unsuccessful please try something else')
+
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
