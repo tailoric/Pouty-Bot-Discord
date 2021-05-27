@@ -10,6 +10,20 @@ from urllib import parse
 from discord.ext import commands, menus
 
 
+class WolframPages(menus.MenuPages):
+
+    async def send_initial_message(self, ctx: commands.Context, channel: discord.TextChannel) -> discord.Message:
+        """
+        Overwrite to send the second page first (essentially skipping the input)
+        """
+        if self._source.get_max_pages() > 1:
+            page = await self._source.get_page(1)
+            self.current_page = 1
+        else:
+            page = await self._source.get_page(0)
+        kwargs = await self._get_kwargs_from_page(page)
+        return await channel.send(**kwargs)
+
 class WolframImageList(menus.ListPageSource):
     def __init__(self, data: List[etree.ElementTree] , query: str):
         self.query = query
@@ -53,7 +67,7 @@ class Wolfram(commands.Cog):
             if queryresult.get('success') == "true":
                 entries = list(queryresult.iter('pod'))
                 query_string = parse.quote_plus(query)
-                pages = menus.MenuPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
+                pages = WolframPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
                 await pages.start(ctx)
             else:
                 await ctx.send("No Results for your query try something else.")
