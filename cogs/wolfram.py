@@ -15,11 +15,13 @@ class WolframImageList(menus.ListPageSource):
         super().__init__(data, per_page=1)
 
     async def format_page(self, menu, entry):
-        embed = discord.Embed(title=textwrap.shorten(entry.get('title'), width=256),
-                description=textwrap.shorten(entry.get('alt'), width=2048),
+        image = entry.find(".//img")
+        title = entry.get('title') or image.get('title', '\u200b')
+        embed = discord.Embed(title=textwrap.shorten(title, width=256),
+                description=textwrap.shorten(image.get('alt', '\u200b'), width=2048),
                 url=f"https://www.wolframalpha.com/input/?i={self.query}",
                 colour=discord.Colour(0xff7e00))
-        embed.set_image(url=entry.get('src'))
+        embed.set_image(url=image.get('src'))
         embed.set_footer(text=f"Page {menu.current_page+1}/{self.get_max_pages()}")
         return embed
 
@@ -48,7 +50,7 @@ class Wolfram(commands.Cog):
                 tree = etree.parse(byio)
                 queryresult = tree.getroot()
                 if queryresult.get('success') == "true":
-                    entries = list(queryresult.iter('img'))
+                    entries = list(queryresult.iter('pod'))
                     query_string = parse.quote_plus(query)
                     pages = menus.MenuPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
                     await pages.start(ctx)
