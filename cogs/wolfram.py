@@ -4,17 +4,18 @@ import json
 import textwrap
 
 from lxml import etree
+from typing import List
 from io import BytesIO
 from urllib import parse
 from discord.ext import commands, menus
 
 
 class WolframImageList(menus.ListPageSource):
-    def __init__(self, data, query):
+    def __init__(self, data: List[etree.ElementTree] , query: str):
         self.query = query
         super().__init__(data, per_page=1)
 
-    async def format_page(self, menu, entry):
+    async def format_page(self, menu : menus.MenuPages, entry: etree.ElementTree) -> discord.Embed:
         image = entry.find(".//img")
         title = entry.get('title') or image.get('title', '\u200b')
         embed = discord.Embed(title=textwrap.shorten(title, width=256),
@@ -28,34 +29,34 @@ class WolframImageList(menus.ListPageSource):
 class Wolfram(commands.Cog):
     """Wolfram Alpha related commands"""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.json_file = 'data/wolfram.json'
         with open(self.json_file) as f:
             self.api_key = json.load(f)['api_key']
         self.session = aiohttp.ClientSession()
 
-    @commands.group(invoke_without_command=True)
-    async def wolfram(self,  ctx, *, query: str):
+    @commands.command()
+    async def wolfram(self,  ctx: commands.Context, *, query: str):
         """
         Search wolfram alpha for a query 
         """
 
         url = 'http://api.wolframalpha.com/v2/query'
         params = {'appid': self.api_key, 'input': query, 'format': 'image'}
-        async with ctx.typing():
-            async with self.session.get(url=url, params=params) as response:
-                response.raise_for_status()
-                byio = BytesIO(await response.read())
-                tree = etree.parse(byio)
-                queryresult = tree.getroot()
-                if queryresult.get('success') == "true":
-                    entries = list(queryresult.iter('pod'))
-                    query_string = parse.quote_plus(query)
-                    pages = menus.MenuPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
-                    await pages.start(ctx)
-                else:
-                    await ctx.send("No Results for your query try something else.")
+        await ctx.trigger_typing()
+        async with self.session.get(url=url, params=params) as response:
+            response.raise_for_status()
+            byio = BytesIO(await response.read())
+            tree = etree.parse(byio)
+            queryresult = tree.getroot()
+            if queryresult.get('success') == "true":
+                entries = list(queryresult.iter('pod'))
+                query_string = parse.quote_plus(query)
+                pages = menus.MenuPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
+                await pages.start(ctx)
+            else:
+                await ctx.send("No Results for your query try something else.")
 
 
 
