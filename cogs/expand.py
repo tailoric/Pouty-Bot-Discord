@@ -1,16 +1,17 @@
-from discord.ext import commands
-import discord
 import aiohttp
 import asyncio
-from youtube_dl import YoutubeDL, DownloadError
-import re
+import discord
 import io
-from functools import partial 
-from itertools import filterfalse
-from pathlib import Path
 import json
 import logging
 import os
+import re
+from discord.ext import commands
+from functools import partial 
+from itertools import filterfalse
+from pathlib import Path
+from textwrap import shorten
+from youtube_dl import YoutubeDL, DownloadError
 
 spoiler_regex = re.compile(r"\|\|\s?(?P<link>.+?)\s?\|\|")
 class SpoilerLinkConverter(commands.Converter):
@@ -239,7 +240,7 @@ class LinkExpander(commands.Cog):
             post_data = post_data[0]['data']['children'][0]['data']
         embed = None
         if post_data:
-            title=post_data.get('title')
+            title= shorten(post_data.get('title'), 250)
             embed = (discord.Embed(title=title.center(len(title)+4, '|') if is_spoiler else title, url=f"https://reddit.com{post_data.get('permalink')}")
                         .set_author(name=post_data.get('subreddit_name_prefixed'),
                             url=f"https://reddit.com/{post_data.get('subreddit_name_prefixed')}")
