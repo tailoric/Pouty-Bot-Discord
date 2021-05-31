@@ -20,6 +20,7 @@ class SpoilerLinkConverter(commands.Converter):
             link = match.group('link')
             return link.strip("<>"), True
         else:
+            argument = argument.split(" ")[0]
             return argument.strip("<>"), False
         
 
