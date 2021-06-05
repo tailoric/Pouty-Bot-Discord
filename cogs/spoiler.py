@@ -37,6 +37,7 @@ class SpoilerCheck(commands.Cog):
             " (or in the input field of the file upload)")
 
     @commands.command(name="spoiler")
+    @commands.guild_only()
     async def spoiler(self, ctx, link: typing.Optional[SimpleUrlArg], * , source):
         """
         command for reuploading an image or file spoiler tagged (for mobile users)
