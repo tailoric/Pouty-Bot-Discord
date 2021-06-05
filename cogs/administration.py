@@ -262,15 +262,15 @@ class Admin(commands.Cog):
     @_cleanup.command(name="me", aliases=["mine"])
     async def mine(self, ctx, search=5):
         """
-        delete bot messages and command usages in this channel (up to 25)
-        search parameter means this many messages will get searched
-        ignores messages with mentions
+        delete bot messages and your command usages in this channel (up to 25)
+        search parameter means this many messages will get searched not deleted
+        ignores messages with mentions and reactions
         """
         if search > 25:
             search = 25
 
         def check(m):
-            return (m.author == ctx.me or m.content.startswith(tuple(ctx.bot.command_prefix))) and not (m.mentions or m.role_mentions)
+            return (m.author == ctx.me or (m.content.startswith(tuple(ctx.bot.command_prefix) ) and m.author == ctx.author)) and not (m.mentions or m.role_mentions or m.reactions)
 
         deleted = await ctx.channel.purge(limit=search, check=check, before=ctx.message)
         counts = Counter(m.author.display_name for m in deleted)
