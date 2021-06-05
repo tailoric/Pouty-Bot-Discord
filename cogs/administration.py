@@ -13,6 +13,7 @@ import asyncio
 import re
 from fuzzywuzzy import fuzz
 from datetime import datetime, timedelta
+from collections import Counter
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 mention_regex = re.compile('(<@!?)?(\d{17,})>?')
@@ -237,17 +238,20 @@ class Admin(commands.Cog):
             await self.send_ban_embed(ctx, ban)
 
 
-    @commands.has_permissions(manage_messages=True)
-    @commands.group(name="cleanup")
-    async def _cleanup(self, ctx, users: commands.Greedy[SnowflakeUserConverter], number: typing.Optional[int] = 10):
+    @commands.group(name="cleanup", invoke_without_command=True)
+    async def _cleanup(self, ctx: commands.Context, users: commands.Greedy[SnowflakeUserConverter], number: typing.Optional[int] = 10):
         """
         cleanup command that deletes either the last x messages in a channel or the last x messages of one
         or multiple user
         if invoked with username(s), user id(s) or mention(s) then it will delete the user(s) messages:
-            .cleanup test-user1 test-user2 10
+            `.cleanup test-user1 test-user2 10`
         if invoked with only a number then it will delete the last x messages of a channel:
-            .cleanup 10
+            `.cleanup 10`
+        if invoked by a normal user without manage message permissions will search the last x bot command usages of that user (max 25 messages)
         """
+        if not ctx.author.permissions_in(ctx.channel).manage_messages:
+            await ctx.invoke(self.mine, search=number)
+            return
         if users and ctx.invoked_subcommand is None:
             await ctx.invoke(self.user_, number=number, users=users)
             return
@@ -255,6 +259,26 @@ class Admin(commands.Cog):
             await ctx.invoke(self.channel_, number=number)
             return
 
+    @_cleanup.command(name="me", aliases=["mine"])
+    async def mine(self, ctx, search=5):
+        """
+        delete bot messages and command usages in this channel (up to 25)
+        search parameter means this many messages will get searched
+        ignores messages with mentions
+        """
+        if search > 25:
+            search = 25
+
+        def check(m):
+            return (m.author == ctx.me or m.content.startswith(tuple(ctx.bot.command_prefix))) and not (m.mentions or m.role_mentions)
+
+        deleted = await ctx.channel.purge(limit=search, check=check, before=ctx.message)
+        counts = Counter(m.author.display_name for m in deleted)
+        message = [f'{len(deleted)} message{" was" if len(deleted) == 1 else "s were"} removed.' ]
+        message.extend(f'- **{author}**: {count}' for author, count in counts.items())
+        await ctx.send(content='\n'.join(message), delete_after=10)
+
+    @commands.has_permissions(manage_messages=True)
     @_cleanup.command(name="user")
     async def user_(self, ctx, users: commands.Greedy[SnowflakeUserConverter], number=10):
         """
@@ -267,8 +291,12 @@ class Admin(commands.Cog):
         try:
             history_mes = await ctx.channel.history(limit=100).flatten()
             messages_to_delete = [mes for mes in history_mes if mes.author.id in [u.id for u in users]]
-            await ctx.channel.delete_messages(messages_to_delete[:number])
-            await ctx.send(f"deleted {len(messages_to_delete[0:number])} messages")
+            messages_to_delete = messages_to_delete[:number]
+            await ctx.channel.delete_messages(messages_to_delete)
+            counts = Counter(m.author.display_name for m in messages_to_delete)
+            message = [f'{len(messages_to_delete)} message{" was" if len(messages_to_delete) == 1 else "s were"} removed.' ]
+            message.extend(f'- **{author}**: {count}' for author, count in counts.items())
+            await ctx.send('\n'.join(message), delete_after=10)
         except (discord.ClientException, discord.HTTPException, discord.Forbidden) as e:
             raise
         except Exception as ex:
@@ -278,6 +306,7 @@ class Admin(commands.Cog):
                 await owner.send(traceback.format_exc())
             self.error_log.error(traceback.format_exc())
 
+    @commands.has_permissions(manage_messages=True)
     @_cleanup.command(name="channel")
     async def channel_(self, ctx, number=10):
         """
@@ -302,7 +331,7 @@ class Admin(commands.Cog):
 
         try:
             messages = await ctx.channel.purge(limit=number+1)
-            await ctx.send(f"deleted the last {len(messages)-1} messages from this channel")
+            await ctx.send(f"deleted the last {len(messages)-1} messages from this channel", cleanup=10)
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
         except Exception as ex:

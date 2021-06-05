@@ -170,6 +170,8 @@ class Default(commands.Cog):
             self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
 
     async def on_command_error(self, ctx, error):
+        if ctx.command and ctx.command.has_error_handler():
+            return
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, BlackListedException):
