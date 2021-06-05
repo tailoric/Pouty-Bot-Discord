@@ -67,6 +67,8 @@ class SpoilerCheck(commands.Cog):
             await ctx.message.delete()
             await ctx.send(self.missing_source)
             error = None
+        elif isinstance(error, commands.CheckAnyFailure):
+            return
         else:
             error_pages = commands.Paginator()
             lines = traceback.format_exception(type(error), error, error.__traceback__)
