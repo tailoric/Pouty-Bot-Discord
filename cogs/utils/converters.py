@@ -19,7 +19,7 @@ class ReferenceNotFound(commands.BadArgument):
     pass
 class ReferenceOrMessage(commands.MessageConverter):
     @classmethod
-    async def convert(self, ctx, argument):
+    async def convert(cls, ctx, argument):
         """
         Try to fetch the referenced message (reply) from command invocation.
         If a reference exists try best effort to fetch that message, otherwise
@@ -40,7 +40,7 @@ class ReferenceOrMessage(commands.MessageConverter):
                 return referenced.resolved
             else:
                 raise ReferenceDeleted("The replied message was deleted.")
-        elif referenced and referenced.message_id and not reference.resolved:
+        elif referenced and referenced.message_id and not referenced.resolved:
             message = await ctx.channel.fetch_message(referenced.message_id)
             if message:
                 return message
@@ -51,3 +51,13 @@ class ReferenceOrMessage(commands.MessageConverter):
 
 
 
+
+class NotUrlError(commands.CheckFailure):
+    pass
+
+class SimpleUrlArg(commands.Converter):
+    async def convert(self, ctx, argument):
+        if not argument.startswith(("http", "https")):
+            raise NotUrlError("First argument was not an URL.")
+        else:
+            return argument

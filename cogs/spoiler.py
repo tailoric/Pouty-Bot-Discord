@@ -1,10 +1,12 @@
-import discord
-from discord.ext import commands
-import traceback
-import typing
+from .utils.converters import SimpleUrlArg
 from aiohttp import ClientSession
+from discord.ext import commands
+
+import discord
 import io
 import logging
+import traceback
+import typing
 
 class SpoilerArg(commands.Converter):
 
@@ -15,15 +17,6 @@ class SpoilerArg(commands.Converter):
         else:
             raise commands.BadArgument("Could not format spoiler input format is `(source)||phrase||`", argument)
 
-class NotUrlError(commands.CheckFailure):
-    pass
-
-class SimpleUrlArg(commands.Converter):
-    async def convert(self, ctx, argument):
-        if not argument.startswith(("http", "https")):
-            raise NotUrlError("First argument was not an URL.")
-        else:
-            return argument
 
 class SpoilerCheck(commands.Cog):
     def __init__(self, bot):

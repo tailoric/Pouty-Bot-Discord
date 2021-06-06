@@ -44,9 +44,10 @@ class Owner(commands.Cog):
                         modules_to_reload.add(inspect.getmodule(module))
                 except TypeError:
                     continue
+        utils = inspect.getmembers(sys.modules['cogs.utils'])
+        modules_to_reload.update([u[1] for u in utils if any(func(u[1]) for func in funclist)])
         modules_to_reload.discard(module_self)
         for module in modules_to_reload:
-            print(module)
             importlib.reload(module)
 
     #
