@@ -83,6 +83,7 @@ class AniSearch(commands.Cog):
 
     @anilist.error
     async def anilist_error(self, ctx, error):
+        await ctx.send(error)
         logger = logging.getLogger("PoutyBot")
         logger.error(error, exc_info=1)
 
@@ -171,9 +172,12 @@ class AniSearch(commands.Cog):
         await ctx.send(embed=embed)
 
     def remove_html_tags(self, text):
-        s = MLStripper()
-        s.feed(text)
-        return s.get_data()
+        if text:
+            s = MLStripper()
+            s.feed(text)
+            return s.get_data()
+        else:
+            return "\u200b"
 
     async def build_anilist_anime_embed(self, ctx, data):
         title = data.get("title", {}).get('userPreferred', None)
@@ -192,9 +196,10 @@ class AniSearch(commands.Cog):
         embed.set_thumbnail(url=data["coverImage"]["medium"])
         episodes = data["episodes"] if data["episodes"] else "Unknown"
         embed.add_field(name="Episodes", value=episodes)
-        embed.add_field(name="Status", value=data["status"].title())
+        embed.add_field(name="Status", value=data.get("status", "\u200b").title().replace("_", " "))
         embed.add_field(name="Type", value=data["format"])
-        embed.add_field(name="Score", value=f"{data['averageScore']}%")
+        if (score := data.get('averageScore')):
+            embed.add_field(name="Score", value=f"{score}%")
         if data.get("nextAiringEpisode"):
             timer = timedelta(seconds=data["nextAiringEpisode"].get("timeUntilAiring"))
             next_episode = data["nextAiringEpisode"].get("episode")
