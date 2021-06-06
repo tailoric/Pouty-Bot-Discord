@@ -1,21 +1,23 @@
-from email.mime import base
-from discord.ext import commands
-import discord
-import aiohttp
-from bs4 import BeautifulSoup
-import json
-from urllib import parse
-import youtube_dl
-import base64
-import urllib.parse
-import sys
 from PIL import Image
-import mimetypes
-import io
-import asyncio
-import typing
-import logging
+from bs4 import BeautifulSoup
+from discord.ext import commands
+from email.mime import base
 from pathlib import Path
+from urllib import parse
+from .utils.converters import SimpleUrlArg
+
+import aiohttp
+import asyncio
+import base64
+import discord
+import io
+import json
+import logging
+import mimetypes
+import sys
+import typing
+import urllib.parse
+import youtube_dl
 
 
 class SauceNaoResult:
@@ -234,13 +236,12 @@ class Search(commands.Cog):
         self.sauce_nao_settings["short_remaining"] = 6
 
     @commands.command(aliases=["source","saucenao"])
-    async def sauce(self, ctx, link=None, similarity=80):
+    async def sauce(self, ctx, link: typing.Optional[SimpleUrlArg], similarity=80):
         """
        reverse image search via saucenao
        usage:   .sauce <image-link> <similarity (in percent)> or
                 .sauce on image upload comment <similarity (in percent)>
         """
-        self.logger.info("hi")
         file = ctx.message.attachments
         if not link and not file and ctx.message.reference:
             link = self.get_referenced_message_image(ctx)
@@ -249,7 +250,7 @@ class Search(commands.Cog):
         if self.sauce_nao_settings.get("short_remaining") == 0:
             return await ctx.send("Ratelimit reached. Please wait 30 seconds before doing another search")
         if self.sauce_nao_settings.get("long_remaining") == 0:
-            return await ctx.send("No more searches available for toaday. Please wait 24 hours before doing another search")
+            return await ctx.send("No more searches available for today. Please wait 24 hours before doing another search")
         else:
             await ctx.trigger_typing()
             if file:
@@ -270,6 +271,7 @@ class Search(commands.Cog):
                 source = None
                 if response.status == 200:
                     resp = await response.json()
+                    print(json.dumps(resp, indent=4))
                     header = resp['header']
                     results = resp['results']
                     self.sauce_nao_settings['short_remaining'] = header['short_remaining']
