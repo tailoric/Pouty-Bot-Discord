@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import timedelta, datetime
 from .utils import checks 
 from logging import getLogger
-from itertools import filterfalse
+from textwrap import shorten
 import re
 
 text_channel_regex = re.compile(r"<#(\d+)>")
@@ -182,7 +182,8 @@ class Starboard(commands.Cog):
         return len(users_who_reacted)
 
     async def create_starboard_embed(self, message, starboard_message=None):
-        embed = discord.Embed(description=message.content, colour=discord.Colour(0xffac33))
+        message_content = message.content or "\u200b"
+        embed = discord.Embed(description=shorten(message_content, width=2000), colour=discord.Colour(0xffac33))
         embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url_as(format="png"))
         embed.add_field(name="Original", value=f"[Jump!]({message.jump_url})", inline=False)
         if message.attachments:
