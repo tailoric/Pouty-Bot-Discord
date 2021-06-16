@@ -53,9 +53,12 @@ class Boost(commands.Cog):
         color_role_entry = await self.bot.db.fetchrow('''
         SELECT * FROM boost_color WHERE user_id = $1
         ''', ctx.author.id)
+        top_role = ctx.guild.premium_subscriber_role
+        if not top_role:
+            ctx.author.top_role
         if color_role_entry:
             role = ctx.guild.get_role(color_role_entry.get('role_id'))
-            await role.edit(colour=colour)
+            await role.edit(colour=colour, position=top_role.position +1)
         else:
             top_role : discord.Role = ctx.author.top_role
             new_role = await ctx.guild.create_role(name=ctx.author.name, colour=colour)
