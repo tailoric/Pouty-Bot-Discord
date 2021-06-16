@@ -10,6 +10,7 @@ import typing
 import asyncio
 import unicodedata
 from functools import partial
+from itertools import filterfalse
 import aiohttp
 
 from datetime import datetime, timedelta
@@ -398,11 +399,13 @@ class Emoji(commands.Cog):
             return
         if isinstance(emote, str):
             def code_point(c):
-
                 return f'{ord(c):x}'
             def unicode_name(c):
                 return unicodedata.name(c, "??")
-            cp = '-'.join(filter(lambda c: int(c, 16) != 0xfe0f, map(code_point, emote)))
+            code_point_strings = list(map(code_point, emote))
+            if '200d' not in code_point_strings:
+                code_point_strings = filterfalse(lambda c: c == 'fe0f' ,code_point_strings)
+            cp = '-'.join(code_point_strings)
             name = ', '.join(map(unicode_name, emote))
             twitter_emoji_image = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/{cp}.png"
             twitter_emoji_svg = f"https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/{cp}.svg"
