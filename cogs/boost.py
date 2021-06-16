@@ -40,6 +40,7 @@ class Boost(commands.Cog):
         ''')
     @commands.command(name="mycolor", aliases=["mc"])
     @commands.cooldown(rate=1, per=300, type=commands.BucketType.user)
+    @is_boost()
     async def set_boost_color(self, ctx: commands.Context, colour : discord.Colour):
         """
         Set your own colour (Boost exclusive) 
