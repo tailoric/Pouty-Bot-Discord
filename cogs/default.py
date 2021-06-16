@@ -4,6 +4,7 @@ from .utils.dataIO import DataIO
 from .utils.exceptions import *
 from discord.ext.commands import DefaultHelpCommand, Paginator
 from logging.handlers import RotatingFileHandler
+from datetime import datetime, timedelta
 import discord
 import logging
 import traceback
@@ -177,7 +178,15 @@ class Default(commands.Cog):
         if isinstance(error, BlackListedException):
             return
         if isinstance(error, commands.CommandOnCooldown):
-            return
+            minutes, seconds = divmod(error.retry_after, 60)
+            if ctx.guild and ctx.guild.me.colour:
+                colour = ctx.guild.me.colour
+            else:
+                colour = discord.Colour.blurple()
+            return await ctx.send(embed=discord.Embed(title=ctx.command.qualified_name.title(),
+                description=f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec",
+                timestamp=datetime.utcnow() + timedelta(seconds=error.retry_after),
+                colour=colour))
         if isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
