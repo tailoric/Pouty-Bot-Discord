@@ -61,7 +61,6 @@ class Boost(commands.Cog):
             role = ctx.guild.get_role(color_role_entry.get('role_id'))
             await role.edit(colour=colour, position=top_role.position +1)
         else:
-            top_role : discord.Role = ctx.author.top_role
             new_role = await ctx.guild.create_role(name=ctx.author.name, colour=colour)
             if top_role < ctx.guild.me.top_role:
                 await new_role.edit(position=top_role.position + 1)
