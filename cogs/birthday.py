@@ -149,7 +149,7 @@ class Birthday(commands.Cog):
         for removal in to_remove:
             await self.remove_birthday_entry(removal["user_id"])
 
-    @commands.command(name="bdc", aliases=["bdaycolor", "my_colour", "bdaycolour", "my_color"])
+    @commands.command(name="bdc", aliases=["bdaycolor", "my_colour", "bdaycolour"])
     @has_birthday_role()
     async def bday_color_change(self, ctx, color: discord.Color):
         """
