@@ -40,7 +40,6 @@ class Boost(commands.Cog):
         ''')
     @commands.command(name="mycolor", aliases=["mc"])
     @commands.cooldown(rate=1, per=300, type=commands.BucketType.user)
-    @is_boost()
     async def set_boost_color(self, ctx: commands.Context, colour : discord.Colour):
         """
         Set your own colour (Boost exclusive) 
@@ -61,10 +60,10 @@ class Boost(commands.Cog):
             top_role : discord.Role = ctx.author.top_role
             new_role = await ctx.guild.create_role(name=ctx.author.name, colour=colour)
             if top_role < ctx.guild.me.top_role:
-                await new_role.edit(position=top_role.position)
+                await new_role.edit(position=top_role.position + 1)
             else:
                 top_color_role = sorted(filter(lambda r: r.color != discord.Colour.default() ,ctx.author.roles)).pop()
-                await new_role.edit(position=top_color_role.position)
+                await new_role.edit(position=top_color_role.position+1)
             await ctx.author.add_roles(new_role)
             await self.bot.db.execute('''
             INSERT INTO boost_color (user_id, role_id, guild_id, color_val)
