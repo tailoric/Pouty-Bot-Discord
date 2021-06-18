@@ -571,8 +571,11 @@ class Danbooru(commands.Cog):
                     tag_name = discord.utils.escape_markdown(tag_name)
                     key = f"{tag_name} [{types[tag['category']]}]"
                     entries.append((key, value))
-                pages = FieldPages(ctx, entries=entries, per_page=5)
-                await pages.paginate()
+                if entries:
+                    pages = FieldPages(ctx, entries=entries, per_page=5)
+                    await pages.paginate()
+                else:
+                    await ctx.send("Nothing found")
 
 
 
