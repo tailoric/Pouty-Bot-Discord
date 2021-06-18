@@ -10,6 +10,7 @@ import re
 import traceback
 from .utils import checks
 from .utils.paginator import TextPages,FieldPages
+from textwrap import shorten
 import logging
 from os import path
 import typing
@@ -602,7 +603,7 @@ class Danbooru(commands.Cog):
                 description_clean = discord.utils.escape_markdown(description)
                 embed = discord.Embed(title=title,
                                       url=f"https://danbooru.donmai.us/wiki_pages?title={title}",
-                                      description=f"{description_clean[:2040]}..."
+                                      description=shorten(description_clean, 2040)
                                       )
                 if info.get("other_names", None):
                     embed.add_field(name="Other Names", value="\n".join(info["other_names"]))
