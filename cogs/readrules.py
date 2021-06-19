@@ -141,7 +141,7 @@ class ReadRules(commands.Cog):
         """
         set the join limit for this server
         """
-        if self.join_limit < 1:
+        if limit < 1:
             return await ctx.send("please choose a positive number bigger than 0")
         self.join_limit = limit
         await ctx.send(f"limit set to {self.join_limit}")
