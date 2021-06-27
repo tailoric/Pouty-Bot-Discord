@@ -40,23 +40,30 @@ class Boost(commands.Cog):
         ''')
     @commands.command(name="mycolor", aliases=["mc"])
     @commands.cooldown(rate=1, per=300, type=commands.BucketType.user)
-    @is_boost()
+    #@is_boost()
     async def set_boost_color(self, ctx: commands.Context, colour : discord.Colour):
         """
         Set your own colour (Boost exclusive) 
         Will create a role for you 
         """
         h, s ,v = colorsys.rgb_to_hsv(colour.r, colour.g, colour.b)
-        if v < 70 and v > 45 and s < .20:
+        if v < 20:
+            self.set_boost_color.reset_cooldown(ctx)
+            return await ctx.send(f"Colour too dark/too close to discord amoled.")
+        if v < 70 and s < .20:
+            self.set_boost_color.reset_cooldown(ctx)
             return await ctx.send(f"Colour too dark/too close to discord grey.")
         elif v > 229 and s < 0.10:
+            self.set_boost_color.reset_cooldown(ctx)
             return await ctx.send(f"Colour too bright/too close to discord white.")
         color_role_entry = await self.bot.db.fetchrow('''
         SELECT * FROM boost_color WHERE user_id = $1
         ''', ctx.author.id)
         top_role = ctx.guild.premium_subscriber_role
+        print(top_role)
         if not top_role:
-            ctx.author.top_role
+            top_role = ctx.author.top_role
+        print(type(ctx.author))
         if color_role_entry:
             role = ctx.guild.get_role(color_role_entry.get('role_id'))
             await role.edit(colour=colour, position=top_role.position +1)
