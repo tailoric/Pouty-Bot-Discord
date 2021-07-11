@@ -214,6 +214,7 @@ class Roles(commands.Cog):
         with open('data/roles.json', 'w') as file:
             json.dump(self.settable_roles, file)
 
+    @commands.guild_only()
     @commands.command(name="iam")
     async def assign_role(self, ctx, * , role: CustomRoleConverter):
         """
@@ -239,6 +240,7 @@ class Roles(commands.Cog):
             await ctx.send("Sorry I don't have the permission to give you that role")
 
     @commands.command(name="amnot", aliases=["iamnot"])
+    @commands.guild_only()
     async def remove_role(self, ctx, *, role: CustomRoleConverter):
         """removes a role from you"""
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
@@ -257,6 +259,7 @@ class Roles(commands.Cog):
 
     @commands.command(name="assignable_roles", aliases=["asroles", "icanbe"])
     @channel_only("bot-shenanigans",191536772352573440,390617633147453444)
+    @commands.guild_only()
     async def get_assignable_roles(self, ctx):
         """
         Creates an interactive menu of assignable roles which you can use to assign or remove roles from yourself
@@ -271,6 +274,7 @@ class Roles(commands.Cog):
 
 
     @commands.command()
+    @commands.guild_only()
     async def roleinfo(self, ctx, * ,role: typing.Optional[CustomRoleConverter]):
         """shows information about the server roles or a certain role"""
         server = ctx.message.guild
@@ -296,6 +300,7 @@ class Roles(commands.Cog):
 
     @commands.has_permissions(manage_roles=True)
     @commands.group(name="roles", pass_context=True, aliases=['role'])
+    @commands.guild_only()
     async def roles(self, ctx):
         """
         administrative commands for the roles
@@ -313,6 +318,7 @@ class Roles(commands.Cog):
 
     @checks.is_owner_or_moderator()
     @commands.command(name="mention")
+    @commands.guild_only()
     async def roles_ping(self, ctx, role: discord.Role):
         """
         ping the role by making it mentionable for the ping and remove
@@ -326,6 +332,7 @@ class Roles(commands.Cog):
             await ctx.send("I am not allowed to edit this role")
 
     @roles.command(name="add")
+    @commands.guild_only()
     async def _add_role(self, ctx, role_name: str, mentionable=True, colour=None):
         """
         add a role the bot can edit
@@ -343,6 +350,7 @@ class Roles(commands.Cog):
             await ctx.send("Sorry I don't have the permission add a role")
 
     @roles.command(name="remove", pass_context=True)
+    @commands.guild_only()
     async def _remove_role(self, ctx, role_name: str):
         """
         remove a role the bot can edit
@@ -359,6 +367,7 @@ class Roles(commands.Cog):
             await ctx.send("Sorry I don't have the permission to remove that role")
 
     @commands.command(aliases=["color","colour"])
+    @commands.guild_only()
     @channel_only(582894980436328449, 208765039727869954, 390617633147453444)
     async def random_colors(self, ctx, hexcode : typing.Optional[discord.Color]):
         rng = random.Random()

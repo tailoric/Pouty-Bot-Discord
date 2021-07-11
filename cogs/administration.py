@@ -239,6 +239,7 @@ class Admin(commands.Cog):
 
 
     @commands.group(name="cleanup", invoke_without_command=True)
+    @commands.guild_only()
     async def _cleanup(self, ctx: commands.Context, users: commands.Greedy[SnowflakeUserConverter], number: typing.Optional[int] = 10):
         """
         cleanup command that deletes either the last x messages in a channel or the last x messages of one
@@ -260,6 +261,7 @@ class Admin(commands.Cog):
             return
 
     @_cleanup.command(name="me", aliases=["mine"])
+    @commands.guild_only()
     async def mine(self, ctx, search=5):
         """
         delete bot messages and your command usages in this channel (up to 25)
@@ -280,6 +282,7 @@ class Admin(commands.Cog):
 
     @commands.has_permissions(manage_messages=True)
     @_cleanup.command(name="user")
+    @commands.guild_only()
     async def user_(self, ctx, users: commands.Greedy[SnowflakeUserConverter], number=10):
         """
         removes the last x messages of one or multiple users in this channel (defaults to 10)
@@ -308,6 +311,7 @@ class Admin(commands.Cog):
 
     @commands.has_permissions(manage_messages=True)
     @_cleanup.command(name="channel")
+    @commands.guild_only()
     async def channel_(self, ctx, number=10):
         """
         removes the last x messages from the channel it was called in (defaults to 10)
