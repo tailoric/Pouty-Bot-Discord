@@ -13,7 +13,7 @@ from functools import partial
 from itertools import filterfalse
 import aiohttp
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .utils import paginator
 from .utils.converters import ReferenceOrMessage
 from textwrap import shorten
@@ -41,9 +41,9 @@ class RemindMe(commands.Cog):
     def __init__(self, bot : commands.Bot):
         self.bot = bot
         self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
-        self.check_reminders.start()
-        self.bot.loop.create_task(self.create_remindme_table())
+        self.table_create = self.bot.loop.create_task(self.create_remindme_table())
         self.bot.loop.create_task(self.load_and_delete_old_json_file( ))
+        self.check_reminders.start()
 
     async def load_and_delete_old_json_file(self):
         if not os.path.exists('data/remindme/reminders.json'):
@@ -66,14 +66,20 @@ class RemindMe(commands.Cog):
                      user_id BIGINT,
                      reminder TEXT,
                      channel_id BIGINT,
+                     message_id BIGINT,
                      reminder_ts TIMESTAMP)
         '''
+        migration_query = ("""
+            ALTER TABLE reminders 
+            ADD COLUMN IF NOT EXISTS message_id BIGINT
+            """)
         await self.bot.db.execute(query)
+        await self.bot.db.execute(migration_query)
 
     async def all_reminders(self):
         async with self.bot.db.acquire() as con:
             query = '''
-                SELECT r_id, user_id, reminder, channel_id, reminder_ts 
+                SELECT r_id, user_id, reminder, channel_id, message_id, reminder_ts 
                 FROM reminders
                 ORDER BY reminder_ts
             '''
@@ -120,7 +126,7 @@ class RemindMe(commands.Cog):
             async with con.transaction():
                 await statement.fetch(r_id)
 
-    async def insert_remindme(self, user_id, text, date):
+    async def insert_remindme(self, user_id, text, date: datetime):
         async with self.bot.db.acquire() as con:
             query = '''
                 INSERT INTO reminders(user_id, reminder, reminder_ts)
@@ -129,18 +135,18 @@ class RemindMe(commands.Cog):
             '''
             statement = await con.prepare(query)
             async with con.transaction():
-                await statement.fetch(user_id, text, date)
+                await statement.fetch(user_id, text, date.replace(tzinfo=None))
 
-    async def insert_reminder(self, user_id, text, channel_id, date):
+    async def insert_reminder(self, user_id, text, channel_id, message_id, date):
         async with self.bot.db.acquire() as con:
             query = '''
-                INSERT INTO reminders(user_id, reminder, channel_id, reminder_ts)
+                INSERT INTO reminders(user_id, reminder, channel_id, message_id, reminder_ts)
                 VALUES
-                    ($1, $2, $3, $4)
+                    ($1, $2, $3, $4 , $5)
             '''
             statement = await con.prepare(query)
             async with con.transaction():
-                await statement.fetch(user_id, text, channel_id,date)
+                await statement.fetch(user_id, text, channel_id, message_id, date.replace(tzinfo=None))
 
     def cog_unload(self):
         self.check_reminders.cancel()
@@ -159,7 +165,7 @@ class RemindMe(commands.Cog):
                 value = int(''.join(filter(str.isdigit, value)))
             timer_inputs[key] = value
         delta = timedelta(**timer_inputs)
-        return datetime.utcnow() + delta
+        return datetime.now(timezone.utc) + delta
 
     @commands.command()
     async def remindme(self, ctx,  timer, *, text : str):
@@ -173,7 +179,7 @@ class RemindMe(commands.Cog):
         if not end_timestamp: 
             return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
                                   ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
-        difference = end_timestamp - datetime.utcnow()
+        difference = end_timestamp - datetime.now(timezone.utc)
         if len(text) > 1960:
             await ctx.send("Text is too long.")
             return
@@ -181,7 +187,7 @@ class RemindMe(commands.Cog):
             await ctx.send("Please use realistic time frames")
             return
         await self.insert_remindme(ctx.author.id, text, end_timestamp)
-        await ctx.send(f"I will DM you a reminder of this in {difference}")
+        await ctx.send(f"I will DM you a reminder of this <t:{int(end_timestamp.timestamp())}:R>")
 
     @commands.command()
     async def reminder(self, ctx, timer, *, text: commands.clean_content()):
@@ -193,15 +199,15 @@ class RemindMe(commands.Cog):
         if not end_timestamp: 
             return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
                                   ".reminder 1h20m reminder in 1 hour and 20 minutes\n```")
-        difference = end_timestamp - datetime.utcnow()
+        difference = end_timestamp - datetime.now(timezone.utc)
         if len(text) > 1024:
             await ctx.send("Text is too long.")
             return
         if difference.seconds > 157788000:
             await ctx.send("Please use realistic time frames")
             return
-        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, end_timestamp)
-        await ctx.send(f"I will send a reminder in this channel in {difference}")
+        await self.insert_reminder(ctx.author.id, text, ctx.channel.id, ctx.message.id, end_timestamp)
+        await ctx.send(f"I will send a reminder in this channel <t:{int(end_timestamp.timestamp())}:R>")
 
     @commands.command()
     async def rlist(self, ctx):
@@ -240,6 +246,7 @@ class RemindMe(commands.Cog):
 
     @tasks.loop(seconds=5)
     async def check_reminders(self):
+        await asyncio.wait_for(self.table_create, timeout=None)
         to_remove = []
         reminders = await self.all_reminders()
         for reminder in reminders:
@@ -250,9 +257,10 @@ class RemindMe(commands.Cog):
                         to_remove.append(reminder)
                         continue
                     if reminder.get("channel_id", None):
-                        channel = self.bot.get_channel(reminder["channel_id"])
+                        channel : discord.TextChannel = self.bot.get_channel(reminder["channel_id"])
+                        message = discord.MessageReference(message_id=reminder.get("message_id"),channel_id=channel.id)
                         the_reminder = reminder["reminder"]
-                        await channel.send(f"{user.mention} set a reminder for this channel:\n{the_reminder}")
+                        await channel.send(f"Reminder for this channel:\n{the_reminder}", reference=message)
                     else:
                         await user.send("You asked me to remind you of this:\n{}".format(reminder["reminder"]))
                     to_remove.append(reminder)
