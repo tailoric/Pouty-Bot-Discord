@@ -6,6 +6,7 @@ from logging.handlers import RotatingFileHandler
 import asyncpg
 import sys
 import asyncio
+import aiohttp
 
 if 'win32' in sys.platform:
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -32,7 +33,9 @@ async def connect_db_and_start_bot():
 
     try:
         bot.load_extension("cogs.default")
-        await bot.start(token)
+        async with aiohttp.ClientSession() as session:
+            bot.session = session
+            await bot.start(token)
     except KeyboardInterrupt:
         print("closing connection")
         await bot.db.close()
