@@ -258,15 +258,21 @@ class RemindMe(commands.Cog):
                         continue
                     if reminder.get("channel_id", None):
                         channel : discord.TextChannel = self.bot.get_channel(reminder["channel_id"])
-                        message = discord.MessageReference(message_id=reminder.get("message_id"),channel_id=channel.id)
+                        mention = ''
+                        message = None
+                        try:
+                            message = await channel.fetch_message(reminder.get("message_id"))
+                        except discord.NotFound as nf:
+                            mention = f"<@{reminder.get('user_id')}> "
                         the_reminder = reminder["reminder"]
-                        await channel.send(f"Reminder for this channel:\n{the_reminder}", reference=message)
+                        await channel.send(f"{mention}Reminder for this channel:\n>>> {the_reminder}", reference=message)
                     else:
-                        await user.send("You asked me to remind you of this:\n{}".format(reminder["reminder"]))
+                        await user.send("You asked me to remind you of this:\n>>> {}".format(reminder["reminder"]))
                     to_remove.append(reminder)
-                except (discord.errors.Forbidden, discord.errors.NotFound):
+                except (discord.Forbidden, discord.NotFound) as e:
+                    logger.error(f"{e}: for reminder {reminder['r_id']}, {reminder['reminder']}")
                     to_remove.append(reminder)
-                except discord.errors.HTTPException as e:
+                except discord.HTTPException as e:
                     logger.error(f"{e}: for reminder {reminder['r_id']}, {reminder['reminder']}")
                 else:
                     to_remove.append(reminder)
