@@ -3,7 +3,8 @@ from discord.ext import commands
 import typing
 import asyncio
 from pytz import timezone, UnknownTimeZoneError
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+import re
 
 class BadTimeString(commands.BadArgument):
     pass
@@ -25,6 +26,21 @@ class TimeStringConverter(commands.Converter):
         else:
             return today_at
 
+class RelativeTime(commands.Converter):
+    units = {
+            "d": 3600 * 24,
+            "h": 3600,
+            "m": 60,
+            "s": 1
+            }
+    async def convert(self, ctx: commands.Context, argument: str):
+        total_seconds = 0
+        for match in re.finditer(r"(?P<amount>\d+)\s?(?P<unit>\w+)", argument):
+            amount = match.group("amount")
+            unit = match.group("unit").lower()[0]
+            total_seconds += int(amount) * self.units.get(unit, 0)
+        return datetime.now(timezone.utc) + timedelta(seconds=total_seconds)
+
 
 class Time(commands.Cog):
     def __init__(self, bot):
@@ -34,6 +50,44 @@ class Time(commands.Cog):
         self.unknown_tz = ("Unknown timezone please refer to this table to find your correct one: "
                 "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
                 "the format is usually `Region/City`")
+
+    def build_timer_response(self, when: datetime, format_: typing.Optional[str]):
+        if format_:
+            format_ = f":{format_}"
+        else:
+            format_ = ""
+        return {
+                "content": f"`<t:{int(when.timestamp())}{format_}>`", 
+                "embed": discord.Embed(description=f"<t:{int(when.timestamp())}{format_}>")
+                }
+    @commands.group(name="countdown", aliases=["timer"], invoke_without_command=True)
+    async def timer(self, ctx: commands.Context, * ,when: RelativeTime):
+        """
+        Commands for creating a discord time mention give a relative time in format
+        `.timer 1h 20m 50s`
+        """
+        await ctx.send(**self.build_timer_response(when, "R"))
+
+    @timer.command()
+    async def default(self, ctx, *, when: RelativeTime):
+        """
+        create a default time mention (date + time)
+        """
+        await ctx.send(**self.build_timer_response(when, None))
+
+    @timer.command()
+    async def short(self, ctx, *, when: RelativeTime):
+        """
+        create a short time mention (just time without date)
+        """
+        await ctx.send(**self.build_timer_response(when, "T"))
+
+    @timer.command()
+    async def long(self, ctx, *, when: RelativeTime):
+        """
+        create a long time mention (weekday, date and time)
+        """
+        await ctx.send(**self.build_timer_response(when, "F"))
 
     async def create_user_time_entries(self):
         await self.bot.db.execute("""
