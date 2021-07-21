@@ -3,7 +3,8 @@ from discord.ext import commands
 import typing
 import asyncio
 from pytz import timezone, UnknownTimeZoneError
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from datetime import timezone as tz
 import re
 
 class BadTimeString(commands.BadArgument):
@@ -39,7 +40,7 @@ class RelativeTime(commands.Converter):
             amount = match.group("amount")
             unit = match.group("unit").lower()[0]
             total_seconds += int(amount) * self.units.get(unit, 0)
-        return datetime.now(timezone.utc) + timedelta(seconds=total_seconds)
+        return datetime.now(tz.utc) + timedelta(seconds=total_seconds)
 
 
 class Time(commands.Cog):
