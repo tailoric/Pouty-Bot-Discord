@@ -621,14 +621,14 @@ class Danbooru(commands.Cog):
         if ctx.channel.id not in [d["channel"] for d in self.danbooru_channels]:
             return await ctx.send("Please use the command in the danbooru channel")
         deleted_counter = 0
-        if message and message.author == message.guild.me and "donmai" in message.content:
+        if message and message.author == message.guild.me and "http" in message.content:
             await message.delete()
             return await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
         elif number:
             messages = await ctx.channel.history(limit=100, before=ctx.message).flatten()
             to_delete = []
             for index, msg in enumerate(messages):
-                if msg.author.id == ctx.author.id and "donmai" in messages[index -1].content:
+                if msg.author.id == ctx.author.id and "http" in messages[index -1].content:
                     to_delete.append(messages[index-1])
                     deleted_counter += 1
                     if not number and deleted_counter == 1:
