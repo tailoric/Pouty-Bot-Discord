@@ -615,22 +615,37 @@ class Danbooru(commands.Cog):
 
 
     @commands.command(name="danu", aliases=["danundo", "dundo", "dan_undo", "danremove", "danrm"])
-    async def dan_undo(self, ctx, number: typing.Optional[int]):
+    @commands.guild_only()
+    async def dan_undo(self, ctx, message: typing.Optional[discord.Message], number: typing.Optional[int]):
         """removes the last image or the last x images you requested from the bot"""
         if ctx.channel.id not in [d["channel"] for d in self.danbooru_channels]:
-            await ctx.send("Please use the command in the danbooru channel")
+            return await ctx.send("Please use the command in the danbooru channel")
         deleted_counter = 0
-        messages = await ctx.channel.history(limit=100, before=ctx.message).flatten()
-        to_delete = []
-        for index, message in enumerate(messages):
-            if message.author.id == ctx.author.id and "donmai" in messages[index -1].content:
-                to_delete.append(messages[index-1])
-                deleted_counter += 1
-                if not number and deleted_counter == 1:
-                    break
-                elif number <= deleted_counter:
-                    break
-        await ctx.channel.delete_messages(to_delete)
+        if message and message.author == message.guild.me and "donmai" in message.content:
+            await message.delete()
+            return await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+        elif number:
+            messages = await ctx.channel.history(limit=100, before=ctx.message).flatten()
+            to_delete = []
+            for index, msg in enumerate(messages):
+                if msg.author.id == ctx.author.id and "donmai" in messages[index -1].content:
+                    to_delete.append(messages[index-1])
+                    deleted_counter += 1
+                    if not number and deleted_counter == 1:
+                        break
+                    elif number <= deleted_counter:
+                        break
+            await ctx.channel.delete_messages(to_delete)
+            await ctx.send(f"Deleted {deleted_counter} images", delete_after=5)
+        elif not number and not message:
+            replied = ctx.message.reference
+            if not replied:
+                await ctx.send("No valid message specified")
+            elif isinstance(replied.resolved, discord.Message):
+                await replied.resolved.delete()
+                return await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+            else:
+                return await ctx.send("Could not fetch reply")
 
     @commands.command(pass_context=True)
     async def danr(self, ctx, *, tags: str = ""):
