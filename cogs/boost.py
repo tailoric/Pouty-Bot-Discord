@@ -60,10 +60,8 @@ class Boost(commands.Cog):
         SELECT * FROM boost_color WHERE user_id = $1
         ''', ctx.author.id)
         top_role = ctx.guild.premium_subscriber_role
-        print(top_role)
         if not top_role:
             top_role = ctx.author.top_role
-        print(type(ctx.author))
         if color_role_entry:
             role = ctx.guild.get_role(color_role_entry.get('role_id'))
             await role.edit(colour=colour, position=top_role.position +1)
@@ -80,7 +78,16 @@ class Boost(commands.Cog):
             VALUES ($1, $2, $3, $4)
             ''', ctx.author.id, new_role.id, ctx.guild.id, colour.value)
         await ctx.send("New color assigned")
-    
+
+    @set_boost_color.error
+    async def boost_error(self, ctx, error):
+        default = self.bot.get_cog("Default")
+        if isinstance(error, commands.CommandOnCooldown):
+            await default.cooldown_embed(ctx, error)
+        else:
+            self.set_boost_color.reset_cooldown(ctx)
+            await default.create_and_send_traceback(ctx, error)    
+
     @tasks.loop(hours=1)
     async def clean_non_boost_roles(self):
         boost_roles = await self.bot.db.fetch("""

@@ -88,7 +88,10 @@ class CustomHelpCommand(DefaultHelpCommand):
 
     async def send_group_help(self, group):
         embed = discord.Embed()
-        embed.title = f"{self.clean_prefix}{group.qualified_name} {group.signature}"
+        if group.usage:
+            embed.title = f"{self.clean_prefix}{group.usage}"
+        else:
+            embed.title = f"{self.clean_prefix}{group.qualified_name} {group.signature}"
         embed.description = group.help if group.help else discord.Embed.Empty
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if group.aliases:
@@ -178,15 +181,7 @@ class Default(commands.Cog):
         if isinstance(error, BlackListedException):
             return
         if isinstance(error, commands.CommandOnCooldown):
-            minutes, seconds = divmod(error.retry_after, 60)
-            if ctx.guild and ctx.guild.me.colour:
-                colour = ctx.guild.me.colour
-            else:
-                colour = discord.Colour.blurple()
-            return await ctx.send(embed=discord.Embed(title=ctx.command.qualified_name.title(),
-                description=f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec",
-                timestamp=datetime.utcnow() + timedelta(seconds=error.retry_after),
-                colour=colour))
+            await self.cooldown_embed(ctx, error)
         if isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
@@ -199,37 +194,37 @@ class Default(commands.Cog):
             await ctx.send(error)
             return
         elif isinstance(error, commands.CommandInvokeError):
-            error_pages = Paginator()
-            lines = traceback.format_exception(type(error.original), error.original, error.original.__traceback__)
-            [error_pages.add_line(e) for e in lines]
-            if hasattr(self.bot, 'debug') and self.bot.debug:
-                for line in error_pages.pages:
-                    await ctx.send(line)
-            else:
-                await ctx.send(error.original)
-            error_msg = ""
-            if hasattr(ctx.command, 'name'):
-                error_msg += f"{ctx.command.name} error:\n"
-            error_msg += '\n'.join(lines) + '\n'
-            error_msg += f"message jump url: {ctx.message.jump_url}\n"
-            error_msg += f"message content: {ctx.message.content}\n"
-            self.logger.error(error_msg)
+            await self.create_and_send_traceback(ctx, error.original)
         else:
-            error_pages = Paginator()
-            lines = traceback.format_exception(type(error), error, error.__traceback__)
-            [error_pages.add_line(e) for e in lines]
-            if hasattr(self.bot, 'debug') and self.bot.debug:
-                for line in error_pages.pages:
-                    await ctx.send(line)
+            await self.create_and_send_traceback(ctx, error)
+
+    async def cooldown_embed(self, ctx, error):
+            minutes, seconds = divmod(error.retry_after, 60)
+            if ctx.guild and ctx.guild.me.colour:
+                colour = ctx.guild.me.colour
             else:
-                await ctx.send(error)
-            error_msg = ""
-            if hasattr(ctx.command, 'name'):
-                error_msg += f"{ctx.command.name} error:\n"
-            error_msg += "\n".join(lines)
-            error_msg += f"\nmessage jump url: {ctx.message.jump_url}\n"
-            error_msg += f"message content: {ctx.message.content}\n"
-            self.logger.error(error_msg)
+                colour = discord.Colour.blurple()
+            return await ctx.send(embed=discord.Embed(title=ctx.command.qualified_name.title(),
+                description=f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec",
+                timestamp=datetime.utcnow() + timedelta(seconds=error.retry_after),
+                colour=colour))
+
+    async def create_and_send_traceback(self, ctx, error):
+        error_pages = Paginator()
+        lines = traceback.format_exception(type(error), error, error.__traceback__)
+        [error_pages.add_line(e) for e in lines]
+        if hasattr(self.bot, 'debug') and self.bot.debug:
+            for line in error_pages.pages:
+                await ctx.send(line)
+        else:
+            await ctx.send(error)
+        error_msg = ""
+        if hasattr(ctx.command, 'name'):
+            error_msg += f"{ctx.command.name} error:\n"
+        error_msg += "\n".join(lines)
+        error_msg += f"\nmessage jump url: {ctx.message.jump_url}\n"
+        error_msg += f"message content: {ctx.message.content}\n"
+        self.logger.error(error_msg)
 
     async def check_disabled_command(self, ctx):
         owner_cog = self.bot.get_cog("Owner")
