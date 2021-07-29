@@ -11,6 +11,8 @@ import asyncio
 import re
 
 
+green = 0x76d16a
+red = 0xd16a76
 LOOP_TIME = 30 * 60 # 30 minutes
 class Thread(commands.Cog):
     """
@@ -49,6 +51,52 @@ class Thread(commands.Cog):
                 json.dump(self.settings,f)
 
         self.create_thread_table = self.bot.loop.create_task(self.create_thread_log())
+        self.create_thread_table = self.bot.loop.create_task(self.create_discord_thread_log())
+
+    @commands.Cog.listener('on_thread_join')
+    async def add_thread_to_list(self, thread: discord.Thread):
+        if thread.is_private():
+            return
+        thread_list_channel : discord.TextChannel = self.bot.get_channel(self.settings.get("thread_list_channel"))
+
+        embed = discord.Embed(title=f"Thread: {thread.name} \N{OPEN LOCK}", 
+                description=f"Discord thread {thread.mention} open", 
+                colour=discord.Colour(green))
+        msg = await thread_list_channel.send(content=thread.mention, embed=embed)
+        await self.bot.db.execute("""
+            INSERT INTO discord_threads (thread_id, guild_id, parent_id, thread_list_msg_id, thread_list_id)
+            VALUES ($1, $2, $3, $4, $5)
+            """, thread.id, thread.guild.id, thread.parent_id, msg.id, thread_list_channel.id)
+
+    @commands.Cog.listener("on_thread_delete")
+    async def thread_delete(self, thread: discord.Thread) -> None:
+        entry = await self.bot.db.fetchrow("""
+        SELECT * from discord_threads WHERE thread_id = $1
+        """, thread.id)
+        thread_list_channel = self.bot.get_channel(entry.get("thread_list_id"))
+        message = thread_list_channel.get_partial_message(entry.get("thread_list_msg_id"))
+        embed = discord.Embed(title=f"Thread: {thread.name} \N{LOCK}", description="thread deleted", colour=discord.Colour(red))
+        await message.edit(embed=embed)
+        await self.bot.db.execute("""
+        DELETE FROM discord_threads WHERE thread_id = $1
+        """, thread.id)
+
+    @commands.Cog.listener("on_thread_update")
+    async def thread_update(self, before: discord.Thread, after: discord.Thread):
+        entry = await self.bot.db.fetchrow("""
+        SELECT * from discord_threads WHERE thread_id = $1
+        """, after.id)
+        thread_list_channel = self.bot.get_channel(entry.get("thread_list_id"))
+        message = thread_list_channel.get_partial_message(entry.get("thread_list_msg_id"))
+        if not before.archived and after.archived:
+            embed = discord.Embed(title=f"Thread: {after.name} \N{LOCK}", description=f"thread {after.mention} archived", colour=discord.Colour(red))
+            await message.edit(content=after.mention, embed=embed)
+        elif before.archived and not after.archived:
+            embed = discord.Embed(title=f"Thread: {after.name} \N{OPEN LOCK}", 
+                description=f"Discord thread {after.mention} open", 
+                colour=discord.Colour(green))
+            await message.edit(content=after.mention, embed=embed)
+
 
     async def get_attachment_links(self, message):
         attachment_string_format = "\t[attachments: {}]\n" 
@@ -91,6 +139,17 @@ class Thread(commands.Cog):
         for task in self.scheduled_tasks:
             task.cancel()
 
+    async def create_discord_thread_log(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS discord_threads(
+            thread_id BIGINT NOT NULL,
+            guild_id BIGINT NOT NULL,
+            parent_id BIGINT NOT NULL,
+            thread_list_msg_id BIGINT NOT NULL,
+            thread_list_id BIGINT NOT NULL
+        )
+        """)
+
     async def create_thread_log(self):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS thread_channels(
@@ -127,7 +186,7 @@ class Thread(commands.Cog):
         await disc_channel.set_permissions(ctx.author, read_messages=True)
         embed = discord.Embed(title=f"Thread: {topic} \N{OPEN LOCK}", 
                 description=f"To join the channel {disc_channel.mention} react with {self.settings.get('join_reaction')}\nremove reaction to leave", 
-                colour=discord.Colour(0x76d16a))
+                colour=discord.Colour(green))
         thread_start = await ctx.send(embed=embed)
         thread_list_copy = await thread_list_channel.send(embed=embed)
         await disc_channel.send(textwrap.dedent(self.thread_rule.format(topic)))
@@ -255,7 +314,7 @@ class Thread(commands.Cog):
             if hours >= round(livetime *  (2/3)):
                 embed.colour = discord.Colour(0xd89849)
             else:
-                embed.colour = discord.Colour(0x76d16a)
+                embed.colour = discord.Colour(green)
             embed.set_footer(text=f"Channel deletion at (if inactive for another {current_livetime} hour(s))")
             embed.timestamp = delete_at
             await full_message.edit(embed=embed)
@@ -305,7 +364,7 @@ class Thread(commands.Cog):
             return None
         chat_log = await self.generate_file(thread_channel)
         chat_log_message = await self.attachments_backlog.send(file=discord.File(chat_log, filename=f"{thread_channel.name}.txt"))
-        embed = discord.Embed(title=f"Thread: {thread.get('thread_title')} \N{LOCK}", description="channel closed see the below text file for a chat log", colour=discord.Colour(0xd16a76))
+        embed = discord.Embed(title=f"Thread: {thread.get('thread_title')} \N{LOCK}", description="channel closed see the below text file for a chat log", colour=discord.Colour(red))
         embed.add_field(name="Chat log", value=f"[{thread_channel.name}.txt]({chat_log_message.attachments[0].url})")
         await thread_message.edit(embed=embed)
         await copy_message.edit(embed=embed)
