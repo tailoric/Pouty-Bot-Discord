@@ -8,6 +8,29 @@ import textwrap
 from os import path
 import json
 import io
+import asyncio
+
+class JoinButton(discord.ui.Button):
+    def __init__(self, thread):
+        self.thread = thread
+        super().__init__(label="Join", style=discord.ButtonStyle.blurple, custom_id=f"join_view:{self.thread.id}")
+
+    async def callback(self, interaction: discord.Interaction):
+        thread = self.thread.guild.get_thread(self.thread.id)
+        if thread.archived or thread.locked:
+            await self.thread.edit(archived=False, locked=False)
+            await self.thread.add_user(user=interaction.user)
+            await self.thread.edit(archived=True, locked=False)
+        else:
+            await self.thread.add_user(user=interaction.user)
+
+
+class JoinView(discord.ui.View):
+    def __init__(self, thread: discord.Thread):
+        super().__init__(timeout=None)
+        self.thread = thread
+        self.add_item(JoinButton(thread))
+
 
 class GroupWatch(commands.Cog):
 
@@ -19,14 +42,35 @@ class GroupWatch(commands.Cog):
         self.end_message = None
         groupwatch_settings = "config/groupwatch.json"
         self.muted_channel = None
-        if not path.exists(groupwatch_settings):
-            with open(groupwatch_settings, 'w') as f:
-                settings = {"backlog_channel": None}
-                json.dump(settings, f)
-        with open(groupwatch_settings, 'r') as f:
-            settings = json.load(f)
-            self.attachments_backlog = self.bot.get_channel(settings.get("backlog_channel", None))
-            
+        self.initialize_table = self.bot.loop.create_task(self.groupwatch_threads_table())
+        self.view_initializiation = self.bot.loop.create_task(self.initialize_views())
+
+    async def groupwatch_threads_table(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS groupwatches(
+            thread_id BIGINT NOT NULL,
+            message_id BIGINT NOT NULL,
+            channel_id BIGINT NOT NULL,
+            guild_id BIGINT NOT NULL
+        )
+        """)
+    async def initialize_views(self):
+        await asyncio.wait_for(self.initialize_table, timeout=None)
+        entries = await self.bot.db.fetch("""
+        SELECT * FROM groupwatches
+        """)
+        all_threads = list()
+        for entry in entries:
+            guild = self.bot.get_guild(entry.get("guild_id"))
+            channel = guild.get_channel(entry.get("channel_id"))
+            thread = channel.get_thread(entry.get("thread_id"))
+            if not thread:
+                archived_threads = channel.archived_threads(limit=None)
+                thread = await archived_threads.find(lambda t: t.id == entry.get("thread_id"))
+            if thread:
+                self.bot.add_view(JoinView(thread), message_id=entry.get("message_id"))
+        print(self.bot.persistent_views)
+        self.bot.groupwatch_views_added = True
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -73,16 +117,23 @@ class GroupWatch(commands.Cog):
             overwrites_gw.read_messages = True
             await ctx.channel.set_permissions(self.groupwatch_role,
                                           overwrite=overwrites_gw)
-        if start_message:
-            self.start_message = start_message[0]
-            await ctx.send(f"start message set. Title: {self.title}")
+        if ctx.guild.premium_tier >= 2:
+            thread_type = discord.ChannelType.private_thread
         else:
-            self.start_message = await ctx.send("start message set.")
+            thread_type = discord.ChannelType.public_thread
+        embed = discord.Embed(title=self.title, description="Groupwatch thread created join via button", colour=self.groupwatch_role.colour)
+        self.groupwatch_thread = await ctx.channel.start_thread(name=self.title, type=thread_type, auto_archive_duration=60)
+        self.groupwatch_view = JoinView(self.groupwatch_thread)
+        self.start_message = await ctx.send(embed=embed, view=self.groupwatch_view)
+        await self.bot.db.execute("""
+        INSERT INTO groupwatches(thread_id, message_id, channel_id, guild_id) 
+        VALUES ($1, $2, $3, $4)
+        """, self.groupwatch_thread.id, self.start_message.id, self.start_message.channel.id, self.start_message.guild.id)
 
 
     @groupwatch.command(name="end")
     @checks.is_owner_or_moderator()
-    async def gw_end(self, ctx, end_message: typing.Optional[discord.Message]):
+    async def gw_end(self, ctx):
         """
         set the endpoint of the groupwatch and upload a text file of the chat log
         """ 
@@ -98,24 +149,12 @@ class GroupWatch(commands.Cog):
             overwrites_gw.read_messages = False
             await ctx.channel.set_permissions(self.groupwatch_role,
                                           overwrite=overwrites_gw)
-        if end_message:
-            self.end_message = end_message
-        else:
-            self.end_message = ctx.message
-        async with ctx.typing():
-            chatlog = await self.generate_chatlog(ctx)
-        filename = self.title+".txt" if self.title else None
-        log_entry = await self.attachments_backlog.send(file=discord.File(chatlog, filename=filename))
-        embed = discord.Embed(title=f"{self.title} chatlog", description=f"[{filename}]({log_entry.attachments[0].url})", colour=self.groupwatch_role.colour)
-        await ctx.send(embed=embed)
-        if self.muted_channel:
-            overwrite_default = self.muted_channel.overwrites_for(ctx.guild.default_role)
-            overwrite_default.speak = None
-            await self.muted_channel.set_permissions(ctx.guild.default_role, overwrite=overwrite_default)
-            self.muted_channel = None
-        self.title = None
+        await self.groupwatch_thread.edit(archived=True)
+        await self.start_message.edit(content="Groupwatch ended", view=self.groupwatch_view)
         self.start_message = None
-        self.end_message = None
+        self.groupwatch_view = None
+        self.groupwatch_thread = None
+        
 
     async def generate_chatlog(self, ctx):
             f = io.StringIO()
