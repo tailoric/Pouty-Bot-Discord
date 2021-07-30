@@ -28,7 +28,10 @@ class ObjectConverter(commands.Converter):
         else:
             raise ObjectConversionError("Invalid Discord Id passed")
 
-
+def format_dt(dt: datetime, /, style: str=None) -> str:
+    if not style:
+        style="f"
+    return f"<t:{int(dt.timestamp())}:{style}>"
 
 class Userinfo(commands.Cog):
     """show infos about the current or other users"""
@@ -42,16 +45,12 @@ class Userinfo(commands.Cog):
         if member is None:
             member = ctx.message.author
         time_fmt = "%d %b %Y %H:%M"
-        created_at = member.created_at
-        created_number_of_days_diff = (datetime.utcnow() - created_at).days
-        avatar_url = member.default_avatar_url
         if member.avatar_url:
             avatar_url = member.avatar_url
         if isinstance(member, discord.User):
             embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, member.avatar_url))
             embed.add_field(name="Joined Discord on",
-                            value="{}\n({} days ago)".format(member.created_at.strftime(time_fmt),
-                                                             created_number_of_days_diff))
+                            value=f"{format_dt(member.created_at)}({format_dt(member.created_at, 'R')})")
             embed.add_field(name="Mention", value=member.mention)
             embed.add_field(name="ID", value=member.id)
             embed.set_thumbnail(url=avatar_url)
@@ -63,7 +62,6 @@ class Userinfo(commands.Cog):
             nick = member.nick
         else:
             nick = member.name
-        joined_number_of_days_diff = (datetime.utcnow() - join_date).days
         member_number = 1
         if ctx.guild:
             server = ctx.message.guild
@@ -71,15 +69,11 @@ class Userinfo(commands.Cog):
         embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar_url), color=user_color)
         embed.set_thumbnail(url=avatar_url)
         embed.add_field(name="Joined Discord on",
-                        value="{}\n({} days ago)".format(member.created_at.strftime(time_fmt),
-                                                        created_number_of_days_diff),
-                        inline=True)
+                value=f"{format_dt(member.created_at)}({format_dt(member.created_at, style='R')})",
+                inline=True)
         embed.add_field(name="Joined Server on",
-                        value="{}\n({} days ago)".format(member.joined_at.strftime(time_fmt),
-                                                        joined_number_of_days_diff),
-                        inline=True)
-
-
+                value=f"{format_dt(member.joined_at)}({format_dt(member.joined_at, style='R')})",
+                inline=True)
         user_roles.pop(0)
         if member.activity:
             print(member.activities)
@@ -142,19 +136,15 @@ class Userinfo(commands.Cog):
         """shows info about the current server"""
         guild = ctx.message.guild
         time_fmt = "%d %b %Y %H:%M"
-        creation_time_diff = int(time.time() - time.mktime(guild.created_at.timetuple())) // (3600 * 24)
         users_total = len(guild.members)
         users_online = len([m for m in guild.members if m.status == discord.Status.online or
                             m.status == discord.Status.idle])
         colour = guild.me.colour
+        embed = Embed(description="[{}]({})\nCreated {} ({})"
+                      .format(guild.name, guild.icon_url, format_dt(guild.created_at), format_dt(guild.created_at,'R')),
+                      color=colour)
         if guild.icon:
-            embed = Embed(description="[{}]({})\nCreated {} ({} days ago)"
-                          .format(guild.name, guild.icon_url, guild.created_at.strftime(time_fmt), creation_time_diff),
-                          color=colour)
             embed.set_thumbnail(url=guild.icon_url)
-        else:
-            embed = Embed(description="{}\nCreated {} ({} days ago)"
-                          .format(guild.name, guild.created_at.strftime(time_fmt), creation_time_diff))
         embed.add_field(name="Region", value=str(guild.region))
         embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
         embed.add_field(name="Text Channels", value="{}"
@@ -162,8 +152,8 @@ class Userinfo(commands.Cog):
         embed.add_field(name="Voice Channels", value="{}"
                         .format(len([x for x in guild.channels if type(x) == discord.VoiceChannel])))
         embed.add_field(name="Roles", value="{}".format(len(guild.roles)))
-        embed.add_field(name="Owner", value=str(guild.owner))
-        embed.set_footer(text="guild ID: {}".format(guild.id))
+        embed.add_field(name="Owner", value=guild.owner.mention)
+        embed.set_footer(text="Guild ID: {}".format(guild.id))
 
         await ctx.send(embed=embed)
 
