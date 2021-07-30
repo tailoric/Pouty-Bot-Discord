@@ -20,7 +20,7 @@ class SpoilerLinkConverter(commands.Converter):
             link = match.group('link')
             return link.strip("<>"), True
         else:
-            argument = argument.split(" ")[0]
+            argument = re.split(r"\s", argument)[0]
             return argument.strip("<>"), False
         
 
@@ -48,13 +48,13 @@ class LinkExpander(commands.Cog):
                 self.twitter_header = {
                         "Authorization" : f"Bearer {self.twitter_settings.get('token')}"
                         }
-        if path_streamable.exists():
-            with path_streamable.open('r') as f:
-                self.streamable_auth = json.load(f)
         else:
             self.logger.warn("No twitter configs found")
             self.twitter_settings = None
             self.twitter_header = None           
+        if path_streamable.exists():
+            with path_streamable.open('r') as f:
+                self.streamable_auth = json.load(f)
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
