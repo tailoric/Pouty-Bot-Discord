@@ -44,7 +44,6 @@ class Userinfo(commands.Cog):
         """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
-        time_fmt = "%d %b %Y %H:%M"
         if member.avatar_url:
             avatar_url = member.avatar_url
         if isinstance(member, discord.User):
@@ -76,7 +75,6 @@ class Userinfo(commands.Cog):
                 inline=True)
         user_roles.pop(0)
         if member.activity:
-            print(member.activities)
             activity = member.activity
             field_value = '\u200b'
             if isinstance(activity, discord.Game):
@@ -102,12 +100,12 @@ class Userinfo(commands.Cog):
                 title = activity.type.name.title()
                 if activity.type == discord.ActivityType.custom:
                     title = "Status"
-                embed.add_field(name=title, value=field_value)
+                embed.add_field(name=title, value=field_value, inline=False)
             else:
-                embed.add_field(name="Status", value=field_value)
+                embed.add_field(name="Status", value=field_value, inline=False)
 
         if user_roles:
-            embed.add_field(name="Roles", value=", ".join([x.mention for x in user_roles]), inline=True)
+            embed.add_field(name="Roles", value=", ".join([x.mention for x in user_roles]), inline=False)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
         await ctx.send(embed=embed)
 
