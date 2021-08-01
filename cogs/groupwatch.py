@@ -16,8 +16,7 @@ class JoinButton(discord.ui.Button):
         super().__init__(label="Join", style=discord.ButtonStyle.blurple, custom_id=f"join_view:{self.thread.id}")
 
     async def callback(self, interaction: discord.Interaction):
-        thread = self.thread.guild.get_thread(self.thread.id)
-        if thread.archived or thread.locked:
+        if self.thread.archived or self.thread.locked:
             await self.thread.edit(archived=False, locked=False)
             await self.thread.add_user(user=interaction.user)
             await self.thread.edit(archived=True, locked=False)
@@ -59,7 +58,6 @@ class GroupWatch(commands.Cog):
         entries = await self.bot.db.fetch("""
         SELECT * FROM groupwatches
         """)
-        all_threads = list()
         for entry in entries:
             guild = self.bot.get_guild(entry.get("guild_id"))
             channel = guild.get_channel(entry.get("channel_id"))
