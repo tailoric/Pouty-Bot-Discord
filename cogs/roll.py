@@ -1,6 +1,39 @@
+import discord
 from discord.ext import commands
 import random
+import re
+import textwrap
+from dataclasses import dataclass
 
+dice_regex = re.compile(r"(?P<number>\d*)d(?P<sides>\d+)((?P<sign>[+-])(?P<modifier>\d+))?", re.I)
+
+class DiceConversionError(commands.BadArgument):
+    pass
+@dataclass
+class Dice:
+    number : int
+    sides : int
+    sign : str
+    modifier: int
+class DiceConverter(commands.Converter):
+    
+    async def convert(self, ctx: commands.Context, argument: str):
+        match = dice_regex.match(argument)
+        if match:
+            modifier = match.group("modifier") or 0
+            number = match.group("number") or 1
+            if match.group("sign") and match.group("sign") not in ["+", "-"]:
+                raise DiceConversionError("Could not parse dice notation the format is `ndm` where n is the amount of dice and m is the amount of sides. Example: `2d20` for two d20\n"
+                                          "Modifiers can only contain a `+` or `-`")
+
+            return Dice(
+                    number=int(number),
+                    sides=int(match.group("sides")),
+                    sign=match.group("sign"),
+                    modifier=int(modifier)
+                    )
+        else:
+            raise DiceConversionError("Could not parse dice notation the format is `ndm` where n is the amount of dice and m is the amount of sides. Example: `2d20` for two d20 ")
 
 class Roll(commands.Cog):
     """
@@ -12,55 +45,22 @@ class Roll(commands.Cog):
         self.char_limit = 2000
 
     @commands.command()
-    async def roll(self, ctx, roll:str):
+    async def roll(self, ctx, dice: DiceConverter):
         """
         roll one or multiple die
         example: .roll 1d6 for a 6-sided die
         """
-        if 'd' not in roll:
-            await ctx.send('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.')
-        else:
-            number, sides = roll.split('d')
-            modifier = 0
-            is_plus = False
-            if '+' in sides:
-                sides, modifier = sides.split('+')
-                modifier = int(modifier)
-                is_plus = True
-            elif '-' in sides:
-                sides, modifier = sides.split('-')
-                modifier = -1 * int(modifier)
-            try:
-                sides = int(sides)
-                if number:
-                    number = int(number)
-                else:
-                    number = 1
-            except ValueError as ve:
-                await ctx.send('not correct format\nexample: `.roll 1d6` to roll one 6-sided die.\n(modifier allowed too)')
-                return
+        results = [random.randint(1,dice.sides) for i in range(dice.number)]
+        dice_text = "dice" if dice.number == 1 else "die"
+        embed = discord.Embed(title=f"Rolling {dice.number} {dice_text} with {dice.sides} sides", colour=ctx.guild.me.colour)
+        sum_results = sum(results)
+        if dice.modifier:
+            embed.title += f" with a modifier of {dice.sign}{dice.modifier}"
+            sum_results = sum_results + dice.modifier if dice.sign == "+" else sum_results - dice.modifier
+        embed.add_field(name="Result", value=f"{sum_results:,}", inline=False)
+        embed.add_field(name="Rolls", value=textwrap.shorten(" ".join(f"[{r}]" for r in results), 1024), inline=False)
+        await ctx.send(embed=embed)
 
-            results = []
-            sum = 0
-            for i in range(number):
-                throw_result = random.randint(1, sides)
-                sum += throw_result
-                results.append(str(throw_result))
-
-        answer_text = 'you have rolled the following results:\n\n' + ', '.join(results)
-        if is_plus:
-            answer_text += '\nSum: '+str(sum + modifier) + ' ({}+{})'.format(sum, modifier)
-        else:
-            if modifier == 0:
-                answer_text += '\nSum: '+str(sum + modifier)
-            else:
-                answer_text += '\nSum: '+str(sum + modifier) + ' ({}{})'.format(sum, modifier)
-        if len(answer_text) > self.char_limit:
-            last_pos = answer_text[:2000].rfind(',')
-            await ctx.send(answer_text[0:last_pos])
-            await ctx.send('character limit reached, stopping dice throws to reduce spam')
-        else:
-            await ctx.send(answer_text)
 
 
 def setup(bot):
