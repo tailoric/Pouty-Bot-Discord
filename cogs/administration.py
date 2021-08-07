@@ -194,13 +194,13 @@ class Admin(commands.Cog):
         embed = discord.Embed(title=f"{ban.user.name}#{ban.user.discriminator}", description=ban.reason)
         embed.add_field(name="Mention", value=ban.user.mention)
         embed.add_field(name="id", value=ban.user.id)
-        embed.set_thumbnail(url=ban.user.avatar_url)
+        embed.set_thumbnail(url=ban.user.avatar.url)
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
-    async def banlist(self, ctx, *, username=None):
+    async def banlist(self, ctx, *, username):
         """search for user in the ban list"""
         bans = await ctx.guild.bans()
         match = mention_regex.match(username)
