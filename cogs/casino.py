@@ -182,7 +182,7 @@ class BlackJackGame():
         player_hand = (f"{', '.join([str(x) for x in self.player_hand])}\ntotal: {self.player_value}")
         dealer_hand = (f"{', '.join([str(x) for x in self.dealer_hand[:dealer_stop]])}{hidden_card}\ntotal: {self.dealer_value}")
         game_embed = Embed(color=self.player.color)
-        game_embed.set_author(name=player_name, icon_url=self.player.avatar_url_as(format="png"))
+        game_embed.set_author(name=player_name, icon_url=self.player.avatar.replace(format="png"))
         game_embed.add_field(name="Dealer's Hand", value=dealer_hand, inline=True)
         game_embed.add_field(name=f"{player_name}'s Hand", value=player_hand, inline=True)
         game_embed.add_field(name="Bet", value=f"{self.bet:,}", inline=False)
