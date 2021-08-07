@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from .utils import checks, paginator
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from discord.ext import menus
 from asyncpg import Record
 
@@ -119,7 +119,7 @@ class Payday(commands.Cog):
         embed = discord.Embed(title="Payday!", description=f"```\n{old_bal}\n{salary_str}\n{'_' * (line_len+1)}\n{new_bal_str}\n```", colour=colour)
         if is_boost:
             embed.add_field(name=f"Bonus for {ctx.guild.premium_subscriber_role.name}", value=50)
-        embed.timestamp = (datetime.utcnow() + timedelta(hours=1))
+        embed.timestamp = (datetime.now(timezone.utc) + timedelta(hours=1))
         embed.set_footer(text="Next payday at:")
         await ctx.send(embed=embed)
 
@@ -135,7 +135,7 @@ class Payday(commands.Cog):
                 colour = discord.Colour.blurple()
             await ctx.send(embed=discord.Embed(title="Payday!",
                 description=f"On cooldown retry after {int(minutes)} min and {int(seconds)} sec",
-                timestamp=datetime.utcnow() + timedelta(seconds=error.retry_after),
+                timestamp=datetime.now(timezone.utc) + timedelta(seconds=error.retry_after),
                 colour=colour
                 ))
 
