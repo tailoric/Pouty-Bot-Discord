@@ -116,7 +116,7 @@ class FriendCodes(commands.Cog):
                 if k != "user_id" and row.get(k, None):
                     embed.add_field(name=k.replace("_"," ").title(),value=row[k], inline=False)
 
-            embed.set_thumbnail(url=user.avatar_url_as())
+            embed.set_thumbnail(url=user.avatar.url)
             return await ctx.send(embed=embed)
         if len(message_parts) > 1 and ctx.invoked_subcommand is None:
             return await ctx.send(f"No user `{message_parts[1]}` found, use `{ctx.prefix}help fc ` for more help.")
@@ -135,7 +135,7 @@ class FriendCodes(commands.Cog):
             return await ctx.send(f"Set your {column} code to {code}")
         if user:
             embed = discord.Embed(title=user.display_name, colour=user.colour)
-            embed.set_thumbnail(url=user.avatar_url_as())
+            embed.set_thumbnail(url=user.avatar.url)
             game = await self.fetch_game_code(user.id, ctx.command.name)
             if game:
                 embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
