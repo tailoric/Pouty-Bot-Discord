@@ -53,51 +53,6 @@ class Thread(commands.Cog):
         self.create_thread_table = self.bot.loop.create_task(self.create_thread_log())
         self.create_thread_table = self.bot.loop.create_task(self.create_discord_thread_log())
 
-    @commands.Cog.listener('on_thread_join')
-    async def add_thread_to_list(self, thread: discord.Thread):
-        if thread.is_private():
-            return
-        thread_list_channel : discord.TextChannel = self.bot.get_channel(self.settings.get("thread_list_channel"))
-
-        embed = discord.Embed(title=f"Thread: {thread.name} \N{OPEN LOCK}", 
-                description=f"Discord thread {thread.mention} open", 
-                colour=discord.Colour(green))
-        msg = await thread_list_channel.send(content=thread.mention, embed=embed)
-        await self.bot.db.execute("""
-            INSERT INTO discord_threads (thread_id, guild_id, parent_id, thread_list_msg_id, thread_list_id)
-            VALUES ($1, $2, $3, $4, $5)
-            """, thread.id, thread.guild.id, thread.parent_id, msg.id, thread_list_channel.id)
-
-    @commands.Cog.listener("on_thread_delete")
-    async def thread_delete(self, thread: discord.Thread) -> None:
-        entry = await self.bot.db.fetchrow("""
-        SELECT * from discord_threads WHERE thread_id = $1
-        """, thread.id)
-        thread_list_channel = self.bot.get_channel(entry.get("thread_list_id"))
-        message = thread_list_channel.get_partial_message(entry.get("thread_list_msg_id"))
-        embed = discord.Embed(title=f"Thread: {thread.name} \N{LOCK}", description="thread deleted", colour=discord.Colour(red))
-        await message.edit(embed=embed)
-        await self.bot.db.execute("""
-        DELETE FROM discord_threads WHERE thread_id = $1
-        """, thread.id)
-
-    @commands.Cog.listener("on_thread_update")
-    async def thread_update(self, before: discord.Thread, after: discord.Thread):
-        entry = await self.bot.db.fetchrow("""
-        SELECT * from discord_threads WHERE thread_id = $1
-        """, after.id)
-        thread_list_channel = self.bot.get_channel(entry.get("thread_list_id"))
-        message = thread_list_channel.get_partial_message(entry.get("thread_list_msg_id"))
-        if not before.archived and after.archived:
-            embed = discord.Embed(title=f"Thread: {after.name} \N{LOCK}", description=f"thread {after.mention} archived", colour=discord.Colour(red))
-            await message.edit(content=after.mention, embed=embed)
-        elif before.archived and not after.archived:
-            embed = discord.Embed(title=f"Thread: {after.name} \N{OPEN LOCK}", 
-                description=f"Discord thread {after.mention} open", 
-                colour=discord.Colour(green))
-            await message.edit(content=after.mention, embed=embed)
-
-
     async def get_attachment_links(self, message):
         attachment_string_format = "\t[attachments: {}]\n" 
         if not self.attachments_backlog:
