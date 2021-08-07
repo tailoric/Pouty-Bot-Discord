@@ -184,7 +184,7 @@ class Starboard(commands.Cog):
     async def create_starboard_embed(self, message, starboard_message=None):
         message_content = message.content or "\u200b"
         embed = discord.Embed(description=shorten(message_content, width=2000), colour=discord.Colour(0xffac33))
-        embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url_as(format="png"))
+        embed.set_author(name=message.author.display_name, icon_url=message.author.avatar.replace(format="png"))
         embed.add_field(name="Original", value=f"[Jump!]({message.jump_url})", inline=False)
         if message.attachments:
             file = message.attachments[0]
