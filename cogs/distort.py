@@ -79,11 +79,11 @@ class Distort(commands.Cog):
         """
         distort your user profile pic
         """
-        if ctx.author.is_avatar_animated():
-            asset = ctx.author.avatar_url_as(format="gif")
+        if ctx.author.avatar.is_animated():
+            asset = ctx.author.avatar.replace(size=512, format="gif")
             filetype = ".gif"
         else:
-            asset = ctx.author.avatar_url_as(format="png")
+            asset = ctx.author.avatar.replace(size=512, format="png")
             filetype = ".png"
         async with ctx.typing():
             filename = f"{ctx.author.id}{filetype}"
@@ -128,12 +128,12 @@ class Distort(commands.Cog):
             filename = f"{link.name}{filetype}"
             await link.url.save(f"data/{filename}")
         elif isinstance(link, Member):
-            asset = link.avatar_url_as(format="png")
+            asset = link.avatar.replace(size=512, format="png")
             filetype = ".png"
             filename = str(ctx.author.id) + filetype
             await asset.save(f"data/{ctx.author.id}{filetype}")
         elif link is None or link.lower() == "me":
-            asset = ctx.author.avatar_url_as(format="png")
+            asset = ctx.author.avatar.replace(size=512, format="png")
             filetype = ".png"
             filename = str(ctx.author.id) + filetype
             await asset.save(f"data/{ctx.author.id}{filetype}")
