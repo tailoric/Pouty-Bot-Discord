@@ -44,10 +44,10 @@ class Userinfo(commands.Cog):
         """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
-        if member.avatar_url:
-            avatar_url = member.avatar_url
+        if member.avatar.url:
+            avatar_url = member.avatar.url
         if isinstance(member, discord.User):
-            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, member.avatar_url))
+            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, member.avatar.url))
             embed.add_field(name="Joined Discord on",
                             value=f"{format_dt(member.created_at)}({format_dt(member.created_at, 'R')})")
             embed.add_field(name="Mention", value=member.mention)
@@ -65,7 +65,7 @@ class Userinfo(commands.Cog):
         if ctx.guild:
             server = ctx.message.guild
             member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
-        embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar_url), color=user_color)
+        embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar.url), color=user_color)
         embed.set_thumbnail(url=avatar_url)
         embed.add_field(name="Joined Discord on",
                 value=f"{format_dt(member.created_at)}({format_dt(member.created_at, style='R')})",
@@ -110,24 +110,13 @@ class Userinfo(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["avi", "profile_pic"])
-    async def pfp(self, ctx, member: Union[discord.Member, str] = None):
+    async def pfp(self, ctx, member: Union[discord.Member, discord.User] = None):
         """
         makes the bot post the pfp of a member
         """
-        if isinstance(member, discord.Member):
-            await ctx.send(member.avatar_url_as(static_format="png"))
-        elif isinstance(member, str):
-            pattern = re.compile(r'(<@!?)?(\d{17,})>?')
-            match = pattern.match(member)
-            if match and match.group(2):
-                user = await self.bot.fetch_user(int(match.group(2)))
-                if user:
-                    await ctx.send(user.avatar_url_as(static_format="png"))
-            else:
-                await ctx.send("Not a valid user ID or mention")
-
-        else:
-            await ctx.send(ctx.author.avatar_url_as(static_format="png"))
+        if not member:
+            member = ctx.author
+        await ctx.send(member.avatar.replace(static_format="png"))
 
     @commands.command()
     async def serverinfo(self, ctx):
