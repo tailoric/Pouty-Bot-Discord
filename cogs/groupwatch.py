@@ -63,7 +63,7 @@ class GroupWatch(commands.Cog):
             channel = guild.get_channel(entry.get("channel_id"))
             thread = channel.get_thread(entry.get("thread_id"))
             if not thread:
-                archived_threads = channel.archived_threads(limit=None)
+                archived_threads = channel.archived_threads(limit=100)
                 thread = await archived_threads.find(lambda t: t.id == entry.get("thread_id"))
             if thread:
                 self.bot.add_view(JoinView(thread), message_id=entry.get("message_id"))
