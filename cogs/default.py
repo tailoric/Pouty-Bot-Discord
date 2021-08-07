@@ -77,9 +77,9 @@ class CustomHelpCommand(DefaultHelpCommand):
     async def send_command_help(self, command):
         embed = discord.Embed()
         if not command.usage:
-            embed.title = f"{self.clean_prefix}{command.qualified_name} {command.signature}"
+            embed.title = f"{self.context.clean_prefix}{command.qualified_name} {command.signature}"
         else:
-            embed.title = f"{self.clean_prefix}{command.usage}"
+            embed.title = f"{self.context.clean_prefix}{command.usage}"
         embed.description = command.help if command.help else discord.Embed.Empty
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if command.aliases:
@@ -89,9 +89,9 @@ class CustomHelpCommand(DefaultHelpCommand):
     async def send_group_help(self, group):
         embed = discord.Embed()
         if group.usage:
-            embed.title = f"{self.clean_prefix}{group.usage}"
+            embed.title = f"{self.context.clean_prefix}{group.usage}"
         else:
-            embed.title = f"{self.clean_prefix}{group.qualified_name} {group.signature}"
+            embed.title = f"{self.context.clean_prefix}{group.qualified_name} {group.signature}"
         embed.description = group.help if group.help else discord.Embed.Empty
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional")
         if group.aliases:
@@ -100,7 +100,7 @@ class CustomHelpCommand(DefaultHelpCommand):
             embed.add_field(name="usage", value=group.usage, inline=False)
         if group.commands:
             embed.add_field(name="Commands", value=f"\n"
-                            .join([f"`{self.clean_prefix}{command.qualified_name}`: {command.short_doc}" for command in group.commands]),
+                            .join([f"`{self.context.clean_prefix}{command.qualified_name}`: {command.short_doc}" for command in group.commands]),
                             inline=False)
         await self.get_destination().send(embed=embed)
 
