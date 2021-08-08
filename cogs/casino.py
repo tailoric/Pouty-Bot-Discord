@@ -103,6 +103,11 @@ class BlackJackGame(discord.ui.View):
     def __eq__(self, other):
         return self.player == other.player
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.player.id == interaction.user.id:
+            return True
+        else:
+            await interaction.response.send_message("Not your game", ephemeral=True)
     @discord.ui.button(label="Hit", style=discord.ButtonStyle.primary)
     async def button_hit(self, button, interaction):
         await self.handle_hit()
