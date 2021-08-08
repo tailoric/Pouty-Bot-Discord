@@ -197,7 +197,7 @@ class Owner(commands.Cog):
         mes = await ctx.send(prompt_text, view=confirm)
         await confirm.wait()
         if not confirm.is_confirmed:
-            return await mes.edit("Won't reload")
+            return
         statuses = []
         for is_submodule, module in modules:
             if is_submodule:
