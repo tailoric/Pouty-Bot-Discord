@@ -4,7 +4,7 @@ from .utils import checks
 from .utils.dataIO import DataIO
 from discord import Member, User, Embed, Role, utils, ActivityType
 import discord
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta, timezone
 import time
 import re
 from typing import Union, Optional
@@ -90,7 +90,7 @@ class Userinfo(commands.Cog):
             elif isinstance(activity, discord.Activity):
                 since = ''
                 if activity.start:
-                    time_diff = datetime.utcnow().replace(microsecond=0) - activity.start.replace(microsecond=0)
+                    time_diff = datetime.now(timezone.utc).replace(microsecond=0) - activity.start.replace(microsecond=0)
                     since = f'For {time_diff}'
 
                 field_value = f'**{activity.name}**: {activity.details}\n{since}'
@@ -110,7 +110,7 @@ class Userinfo(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["avi", "profile_pic"])
-    async def pfp(self, ctx, member: Union[discord.Member, discord.User] = None):
+    async def pfp(self, ctx, *, member: Union[discord.Member, discord.User] = None):
         """
         makes the bot post the pfp of a member
         """
