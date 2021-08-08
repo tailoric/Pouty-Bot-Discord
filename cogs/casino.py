@@ -104,7 +104,7 @@ class BlackJackGame(discord.ui.View):
         return self.player == other.player
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if self.player.id == interaction.user.id:
+        if interaction.user is not None and self.player.id == interaction.user.id:
             return True
         else:
             await interaction.response.send_message("Not your game", ephemeral=True)
