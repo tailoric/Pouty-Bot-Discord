@@ -18,6 +18,8 @@ class Confirm(discord.ui.View):
         self.user_id = user_id
         self.bot = bot
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user is not None and interaction.user.id == self.user_id
 
     @discord.ui.button(emoji="\N{THUMBS UP SIGN}", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
