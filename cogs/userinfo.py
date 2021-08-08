@@ -116,7 +116,7 @@ class Userinfo(commands.Cog):
         """
         if not member:
             member = ctx.author
-        await ctx.send(member.avatar.replace(static_format="png"))
+        await ctx.send(member.avatar.replace(size=1024, static_format="png"))
 
     @commands.command()
     async def serverinfo(self, ctx):
