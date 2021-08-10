@@ -219,7 +219,7 @@ class GroupWatch(commands.Cog):
         """, ctx.guild.id)
         groupwatch_threads : List[discord.Thread] = []
         if len(groupwatches) == 0:
-            return await ctx.send("There are now groupwatches active, create one with `gw create`")
+            return await ctx.send("There are no groupwatches active, create one with `gw create`")
         for groupwatch in groupwatches:
             thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
             if thread:
