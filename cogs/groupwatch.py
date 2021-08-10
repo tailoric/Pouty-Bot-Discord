@@ -1,14 +1,12 @@
-from discord.ext import commands
-import discord
-from discord.utils import find
-from .utils import checks
-from aiohttp import ClientSession
-import typing
-import textwrap
-from os import path
-import json
-import io
 import asyncio
+import textwrap
+import typing
+from typing import Dict, List, Optional
+
+import discord
+from discord.ext import commands
+
+from .utils import checks
 
 class JoinButton(discord.ui.Button):
     def __init__(self, thread):
@@ -16,33 +14,131 @@ class JoinButton(discord.ui.Button):
         super().__init__(label="Join", style=discord.ButtonStyle.blurple, custom_id=f"join_view:{self.thread.id}")
 
     async def callback(self, interaction: discord.Interaction):
-        if self.thread.archived or self.thread.locked:
-            await self.thread.edit(archived=False, locked=False)
-            await self.thread.add_user(user=interaction.user)
-            await self.thread.edit(archived=True, locked=False)
-        else:
-            await self.thread.add_user(user=interaction.user)
+        await self.thread.edit(archived=False, locked=False)
+        await self.thread.add_user(user=interaction.user)
+        if self.view and self.view.cog:
+            self.view.cog.open_threads[self.thread.id] = self.thread
 
 
 class JoinView(discord.ui.View):
+
     def __init__(self, thread: discord.Thread):
         super().__init__(timeout=None)
         self.thread = thread
         self.add_item(JoinButton(thread))
+        self.cog = None
 
+
+class GroupwatchSelect(discord.ui.Select):
+
+    def __init__(self, threads: List[discord.Thread], is_open: bool):
+        options = [discord.SelectOption(label=textwrap.shorten(thread.name, 25), value=str(thread.id)) for thread in threads]
+        self.threads = {t.id : t for t in threads}
+        self.is_open = is_open
+        if is_open:
+            placeholder = "Choose which groupwatch to start"
+        else:
+            placeholder = "Choose which groupwatch to end"
+        super().__init__(placeholder=placeholder, options=options, max_values=1)
+
+    async def callback(self, interaction : discord.Interaction):
+        thread = self.threads.get(int(self.values.pop()))
+        if not thread:
+            return await interaction.response.send_message("Something went wrong could not find thread")
+        if self.is_open:
+            embed = discord.Embed(title=thread.name, description="Groupwatch thread created join via button", colour=thread.guild.me.colour)
+            view = JoinView(thread)
+            view.cog = self.view.cog
+            await interaction.response.send_message(embed=embed, view=view)
+            await thread.edit(archived=False)
+            if self.view:
+                self.view.cog.open_threads[thread.id] = thread
+        else:
+            await thread.edit(archived=True)
+            if self.view:
+                self.view.cog.open_threads.pop(thread.id)
+                self.disabled = True
+                await interaction.response.edit_message(view=self.view)
+                self.view.stop()
+
+
+class ArchiveSelect(discord.ui.Select):
+    def __init__(self, threads: List[discord.Thread]):
+        options = [discord.SelectOption(label=textwrap.shorten(thread.name, 25), value=str(thread.id)) for thread in threads]
+        self.threads = {t.id : t for t in threads}
+        super().__init__(placeholder="choose which groupwatch to end permanently", options=options)
+
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.view:
+            self.view.chosen = int(self.values[0])
+            self.disabled = True
+            await interaction.response.edit_message(view=self.view)
+            self.view.stop()
+
+
+class GroupwatchesSelectView(discord.ui.View):
+
+    def __init__(self, threads: List[discord.Thread], author: discord.Member, cog : 'GroupWatch', is_open: bool,*args, **kwargs):
+        super().__init__(timeout=None, *args, **kwargs)
+        self.author = author
+        self.cog = cog
+        self.add_item(GroupwatchSelect(threads, is_open=is_open))
+
+
+    async def interaction_check(self, interaction : discord.Interaction):
+        if interaction.user and interaction.user.id == self.author.id:
+            return True
+        else:
+            return False
+
+class GroupWatchJoinSelectView(discord.ui.View):
+
+    def __init__(self, threads: List[discord.Thread]):
+        super().__init__(timeout=None)
+        self.add_item(GroupwatchJoinSelect(threads))
+
+class GroupwatchJoinSelect(discord.ui.Select):
+
+    def __init__(self, threads: List[discord.Thread]):
+        options = [discord.SelectOption(label=textwrap.shorten(thread.name, 25), value=str(thread.id)) for thread in threads]
+        self.threads = {t.id : t for t in threads}
+        placeholder = "Choose which groupwatch thread to join"
+        super().__init__(placeholder=placeholder, options=options, max_values=1)
+
+    async def callback(self, interaction : discord.Interaction):
+        thread = self.threads.get(int(self.values.pop()))
+        if not thread:
+            return await interaction.response.send_message("Something went wrong could not find thread")
+        if interaction.user:
+            if thread.archived:
+                await thread.edit(archived=False)
+            await thread.add_user(interaction.user)
+            if thread.archived:
+                await thread.edit(archived=True)
+                await interaction.response.send_message("You have been added to the thread but it is currently archived you will see it when the channel is opened again", ephemeral=True)
+
+class ArchiveSelectView(discord.ui.View):
+    def __init__(self, threads: List[discord.Thread], author: discord.Member):
+        super().__init__()
+        self.chosen = None
+        self.author = author
+        self.add_item(ArchiveSelect(threads))
+
+    async def interaction_check(self, interaction : discord.Interaction):
+        if interaction.user and interaction.user.id == self.author.id:
+            return True
+        else:
+            return False
 
 class GroupWatch(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.start_message = None
-        self.session = ClientSession()
-        self.title = None
-        self.end_message = None
-        groupwatch_settings = "config/groupwatch.json"
-        self.muted_channel = None
         self.initialize_table = self.bot.loop.create_task(self.groupwatch_threads_table())
         self.view_initializiation = self.bot.loop.create_task(self.initialize_views())
+        self.open_threads : Dict[int, discord.Thread]= {}
 
     async def groupwatch_threads_table(self):
         await self.bot.db.execute("""
@@ -50,159 +146,128 @@ class GroupWatch(commands.Cog):
             thread_id BIGINT NOT NULL,
             message_id BIGINT NOT NULL,
             channel_id BIGINT NOT NULL,
+            title TEXT NOT NULL,
             guild_id BIGINT NOT NULL
         )
         """)
+
     async def initialize_views(self):
         await asyncio.wait_for(self.initialize_table, timeout=None)
         entries = await self.bot.db.fetch("""
         SELECT * FROM groupwatches
         """)
         for entry in entries:
-            guild = self.bot.get_guild(entry.get("guild_id"))
-            channel = guild.get_channel(entry.get("channel_id"))
-            thread = channel.get_thread(entry.get("thread_id"))
-            if not thread:
-                archived_threads = channel.archived_threads(limit=100)
-                thread = await archived_threads.find(lambda t: t.id == entry.get("thread_id"))
-            if thread:
-                self.bot.add_view(JoinView(thread), message_id=entry.get("message_id"))
-        print(self.bot.persistent_views)
-        self.bot.groupwatch_views_added = True
+            guild : discord.Guild = self.bot.get_guild(entry.get("guild_id"))
+            thread : Optional[discord.Thread] = guild.get_thread(entry.get("thread_id"))
+            if thread and not thread.archived:
+                self.open_threads[thread.id] = thread
 
-    def cog_unload(self):
-        self.bot.loop.create_task(self.session.close())
 
     @commands.group(name="groupwatch", aliases=["gw"], invoke_without_command=True)
-    @checks.is_owner_or_moderator()
     async def groupwatch(self, ctx):
         """
-        groupwatch commands mostly for deleting all the messages
+        groupwatch commands, for creating long running threads that can be opened and closed whenever a groupwatch is happening
         """
         await ctx.send_help(self.groupwatch)
 
-    @groupwatch.command(name="start")
+    
+    @groupwatch.command(name="join")
+    async def gw_join(self, ctx: commands.Context):
+        """
+        Join any currently running groupwatch
+        """
+        groupwatches = await self.bot.db.fetch("""
+        SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
+        """, ctx.guild.id)
+        groupwatch_threads : List[discord.Thread] = []
+        for groupwatch in groupwatches:
+            thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
+            if thread:
+                groupwatch_threads.append(thread)
+
+        await ctx.send("Please choose which groupwatch to join", view=GroupWatchJoinSelectView(groupwatch_threads))
+    @groupwatch.command(name="create")
     @checks.is_owner_or_moderator()
-    async def gw_start(self, ctx, start_message: typing.Optional[discord.Message], mute: typing.Optional[str], *, title: typing.Optional[str]=""):
+    async def gw_create(self, ctx, *, title):
         """
-        set the start point of the groupwatch messages after this one will be deleted after groupwatch is over
-        if mute is written before the title then the speak permission of the channel is set to False
+        Create a groupwatch thread and add it to the database
         """
-        if mute and mute.lower() in ("mute", "m"):
-            if not ctx.author.voice:
-                await ctx.send("Could not change permissions because you are not in a voice channel")
-            else:
-                vc = ctx.author.voice.channel
-                overwrite_default = vc.overwrites_for(ctx.guild.default_role)
-                overwrite_default.speak = False
-                await vc.set_permissions(ctx.guild.default_role, overwrite=overwrite_default)
-                self.muted_channel = vc
-        else:
-            if mute is None:
-                mute = "groupwatch"
-            title = f"{mute} {title}"
-        self.groupwatch_channel = ctx.channel
-        self.groupwatch_role = find(lambda r: r.name == "Groupwatch", ctx.guild.roles)
-        if title:
-            self.title = "".join([c for c in title if c.isalpha() or c.isdigit() or c ==' ']).rstrip()
-        else: 
-            self.title = None
-        if not self.groupwatch_role:
-            await ctx.send("Could not find Groupwatch role. "
-                           "Therefore now permissions changed")
-        else:
-            overwrites_gw = ctx.channel.overwrites_for(self.groupwatch_role)
-            overwrites_gw.read_messages = True
-            await ctx.channel.set_permissions(self.groupwatch_role,
-                                          overwrite=overwrites_gw)
         if ctx.guild.premium_tier >= 2:
             thread_type = discord.ChannelType.private_thread
         else:
             thread_type = discord.ChannelType.public_thread
-        embed = discord.Embed(title=self.title, description="Groupwatch thread created join via button", colour=self.groupwatch_role.colour)
-        self.groupwatch_thread = await ctx.channel.start_thread(name=self.title, type=thread_type, auto_archive_duration=60)
-        self.groupwatch_view = JoinView(self.groupwatch_thread)
-        self.start_message = await ctx.send(embed=embed, view=self.groupwatch_view)
+        embed = discord.Embed(title=title, description="Groupwatch thread created join via button", colour=ctx.guild.me.colour)
+        groupwatch_thread = await ctx.channel.start_thread(name=title, type=thread_type, auto_archive_duration=60)
+        groupwatch_view = JoinView(groupwatch_thread)
+        groupwatch_view.cog = self
+        start_message = await ctx.send(embed=embed, view=groupwatch_view)
+        self.open_threads[groupwatch_thread.id] = groupwatch_thread
         await self.bot.db.execute("""
-        INSERT INTO groupwatches(thread_id, message_id, channel_id, guild_id) 
-        VALUES ($1, $2, $3, $4)
-        """, self.groupwatch_thread.id, self.start_message.id, self.start_message.channel.id, self.start_message.guild.id)
+        INSERT INTO groupwatches(thread_id, title, message_id, channel_id, guild_id) 
+        VALUES ($1, $2, $3, $4, $5)
+        """, groupwatch_thread.id, title, start_message.id, start_message.channel.id, start_message.guild.id)
 
+
+    @groupwatch.command(name="start")
+    @checks.is_owner_or_moderator()
+    async def gw_start(self, ctx: commands.Context):
+        """
+        start a groupwatch by selecting one of the currently active groupwatches from the dropdown
+        """
+        groupwatches = await self.bot.db.fetch("""
+        SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
+        """, ctx.guild.id)
+        groupwatch_threads : List[discord.Thread] = []
+        if len(groupwatches) == 0:
+            return await ctx.send("There are now groupwatches active, create one with `gw create`")
+        for groupwatch in groupwatches:
+            thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
+            if thread:
+                groupwatch_threads.append(thread)
+
+        await ctx.send("Please choose which groupwatch to start", view=GroupwatchesSelectView(groupwatch_threads, ctx.author, self, is_open=True))
 
     @groupwatch.command(name="end")
     @checks.is_owner_or_moderator()
-    async def gw_end(self, ctx):
+    async def gw_end(self, ctx: commands.Context):
         """
-        set the endpoint of the groupwatch and upload a text file of the chat log
-        """ 
-        if not self.start_message:
-            return await ctx.send("No start message set, use `.gw start`")
-        self.groupwatch_channel = ctx.channel
-        self.groupwatch_role = find(lambda r: r.name == "Groupwatch", ctx.guild.roles)
-        if not self.groupwatch_role:
-            await ctx.send("Could not find Groupwatch role. "
-                           "Therefore now permissions changed")
+        end the current groupwatch or select one groupwatch to end for this episode/view session
+        """
+        if len(self.open_threads) == 0:
+            await ctx.send("No groupwatch running")
+        elif len(self.open_threads) == 1:
+            thread_id, thread =  self.open_threads.popitem()
+            await thread.edit(archived=True)
         else:
-            overwrites_gw = ctx.channel.overwrites_for(self.groupwatch_role)
-            overwrites_gw.read_messages = False
-            await ctx.channel.set_permissions(self.groupwatch_role,
-                                          overwrite=overwrites_gw)
-        await self.groupwatch_thread.edit(archived=True)
-        await self.start_message.edit(content="Groupwatch ended", view=self.groupwatch_view)
-        self.start_message = None
-        self.groupwatch_view = None
-        self.groupwatch_thread = None
+            await ctx.send("Please choose which groupwatch to end", view=GroupwatchesSelectView(list(self.open_threads.values()), ctx.author, self, is_open=False))
+
+    @groupwatch.command(name="complete", aliases=["over", "finish"])
+    @checks.is_owner_or_moderator()
+    async def gw_archive(self, ctx):
+        """
+        Finish a groupwatch and remove it from the list of active groupwatches
+        """ 
+        groupwatches = await self.bot.db.fetch("""
+        SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
+        """, ctx.guild.id)
+        if len(groupwatches) == 0:
+            return await ctx.send("No active groupwatches in the list, create one with `gw create`")
+        threads = []
+        for groupwatch in groupwatches:
+            threads.append(await self.bot.fetch_channel(groupwatch.get("thread_id")))
+        archive = ArchiveSelectView(threads, ctx.author)
+        await ctx.send("Choose a groupwatch to archive", view=archive)
+        await archive.wait()
+        if archive.chosen:
+            await self.bot.db.execute("""
+            DELETE FROM groupwatches WHERE thread_id = $1
+            """, archive.chosen)
+            thread = await self.bot.fetch_channel(archive.chosen)
+            await thread.edit(archived=True)
+
+
         
 
-    async def generate_chatlog(self, ctx):
-            f = io.StringIO()
-            await self.generate_file(ctx, f)
-            f.seek(0)
-            return f
-    async def get_attachment_links(self, ctx, message):
-        attachment_string_format = "\t[attachments: {}]\n" 
-        if not self.attachments_backlog:
-            urls = [a.url for a in message.attachments]
-            return attachment_string_format.format(','.join(urls)) if urls else ""
-        attachment_list = []
-        for attach in message.attachments:
-            if attach.size > self.attachments_backlog.guild.filesize_limit:
-                attach.url += "(FILE TOO BIG)" 
-                attachment_list.append(attach)
-                continue
-            img = io.BytesIO()
-            await attach.save(img)
-            reupload = await self.attachments_backlog.send(file=discord.File(img, filename=attach.filename))
-            attachment_list.extend(reupload.attachments)
-        urls = [a.url for a in attachment_list]
-        return attachment_string_format.format(','.join(urls))if attachment_list else ""
 
-
-    async def generate_file(self, ctx, f):
-        async for message in ctx.channel.history(after=self.start_message, before=self.end_message, limit=None):
-            attachments = await self.get_attachment_links(ctx, message)
-            time_and_author = f"{message.created_at.strftime('%Y-%m-%d %H:%M:%S %Z')} @{message.author}: "
-            indent_len = len(time_and_author)
-            lines = textwrap.fill(message.clean_content, width=120).splitlines(True)
-            if lines:
-                first_line = f"{time_and_author}{lines[0]}"
-                the_rest = textwrap.indent(''.join(lines[1:]), indent_len * ' ')
-                f.write(f"{first_line}{the_rest}\n"
-                        f"{attachments}")
-            elif attachments:
-                f.write(f"{time_and_author}\n{attachments}")
-        await ctx.channel.purge(after=self.start_message, before=self.end_message, limit=None)
-        f.seek(0)
-        chat_msg = f.read()
-        return chat_msg
-
-    async def upload_to_hastebin(self, ctx, chat_message):
-        async with self.session.post(url=f"https://hastebin.com/documents", data=chat_message) as resp:
-            filename = self.title+".txt" if self.title else None
-            if resp.status == 200:
-                data = await resp.json()
-                await ctx.send(f"https://hastebin.com/{data.get('key')}", file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
-            else:
-                await ctx.send(content=f"Could not create file on hastebin\nreason: `{resp.reason}`", file=discord.File("data/groupwatch_chatlog.txt", filename=filename))
 def setup(bot):
     bot.add_cog(GroupWatch(bot))
