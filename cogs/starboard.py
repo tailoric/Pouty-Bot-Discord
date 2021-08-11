@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from typing import Optional
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from .utils import checks 
 from logging import getLogger
 from textwrap import shorten
@@ -226,7 +226,7 @@ class Starboard(commands.Cog):
             return
         starboard_entry = await self.fetch_starboard_entry(payload.message_id, payload.guild_id)
         if not starboard_entry:
-            time_diff = datetime.utcnow() -  message.created_at 
+            time_diff = datetime.now(timezone.utc) -  message.created_at 
             star_num = await self.get_star_emoji_number(message)
             if  star_num < starboard.get("threshold") or time_diff > starboard.get("max_age"):
                 return
