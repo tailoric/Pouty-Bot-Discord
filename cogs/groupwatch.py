@@ -263,6 +263,7 @@ class GroupWatch(commands.Cog):
             DELETE FROM groupwatches WHERE thread_id = $1
             """, archive.chosen)
             thread = await self.bot.fetch_channel(archive.chosen)
+            self.open_threads.pop(thread.id)
             await thread.edit(archived=True)
 
 
