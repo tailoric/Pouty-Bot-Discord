@@ -127,11 +127,11 @@ class Starboard(commands.Cog):
         """
         show a starboard entry by message id (original message not the one on the starboard)
         """
-        entry = await self.fetch_starboard_entry(entry_id, ctx.guild.id)
+        entry = await self.fetch_starboard_entry(message_id, ctx.guild.id)
         if not entry:
             return await ctx.send("this message is not starred")
         channel = self.bot.get_channel(entry.get("channel_id"))
-        message = await channel.fetch_message(entry_id)
+        message = await channel.fetch_message(message_id)
         await ctx.send(embed= await self.create_starboard_embed(message))
 
 
