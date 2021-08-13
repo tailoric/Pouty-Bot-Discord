@@ -124,6 +124,9 @@ class Starboard(commands.Cog):
 
     @starboard.command(name="show")
     async def sb_show(self, ctx, entry_id: int):
+        """
+        show a starboard entry by message id (original message not the one on the starboard)
+        """
         entry = await self.fetch_starboard_entry(entry_id, ctx.guild.id)
         channel = self.bot.get_channel(entry.get("channel_id"))
         message = await channel.fetch_message(entry_id)
