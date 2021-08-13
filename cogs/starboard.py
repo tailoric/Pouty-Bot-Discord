@@ -201,7 +201,11 @@ class Starboard(commands.Cog):
         if message.reference and message.reference.resolved:
             replied_to = message.reference.resolved
             if isinstance(replied_to, discord.Message):
-                embed.add_field(name=f"Reply to {replied_to.author}", value=f"[{shorten(replied_to.content, 50) or 'click to view'}]({replied_to.jump_url})", inline=False)
+                content = replied_to.content
+                match = re.search(r'||\w+||', content)
+                if match:
+                    content = ""
+                embed.add_field(name=f"Reply to {replied_to.author}", value=f"[{shorten(content, 50) or 'click to view'}]({replied_to.jump_url})", inline=False)
         if message.attachments:
             file = message.attachments[0]
             spoiler = file.is_spoiler()
