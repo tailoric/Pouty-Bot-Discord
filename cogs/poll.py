@@ -1,15 +1,20 @@
 from datetime import datetime, timedelta
 from discord.ext import commands, tasks
 from discord import Embed, Message, NotFound, Forbidden, HTTPException
-from discord.utils import find
+from discord.utils import find, utcnow
 from .utils.checks import is_owner_or_moderator
-from .utils.converters import ReferenceOrMessage
-from typing import Optional
+from .utils.converters import ReferenceOrMessage, TimeConverter
+from typing import Optional, List
 import logging
 import re
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
+
+class PollFlags(commands.FlagConverter):
+    title: str
+    duration: TimeConverter
+    options: List[str] = commands.flag(name="option", aliases=['o'], max_args=10)
 
 class Poll(commands.Cog):
 
@@ -95,7 +100,7 @@ class Poll(commands.Cog):
             CREATE TABLE IF NOT EXISTS polls (
                 message_id BIGINT PRIMARY KEY,
                 channel_id BIGINT,
-                end_ts TIMESTAMP,
+                end_ts TIMESTAMP WITH TIME ZONE,
                 multi BOOLEAN
                 )
         """
@@ -140,27 +145,31 @@ class Poll(commands.Cog):
             async with con.transaction():
                 await statement.fetch(message_id)
 
-    @commands.group(invoke_without_command=True)
-    async def poll(self, ctx, title, timer, *options):
+    @commands.group(invoke_without_command=True, usage="poll `title:` Title of Poll `duration:` 24h `option:` option 1 `o:` option 2")
+    async def poll(self, ctx, *, flags: PollFlags):
         """
         create a single choice poll (at most 10 choices possible)
-        example:
-        `.poll "This is the title" "2 days" "this is option 1" "this is option 2"`
+        **flags**:
+        `title:` The title of the poll
+        `duration:` the duration of the poll (`2 days 4 hours` for example) can accept days hours minutes and seconds
+        `o[ption]:` the poll options flag can be written short with `o:` every option must preceed with this flag
+        example `option: option number 1 o: option number 2`
+
         """
         if ctx.invoked_subcommand:
             return
-        end_timestamp = self.parse_timer(timer)
+        end_timestamp = flags.duration
         if not end_timestamp:
             return await ctx.send("incorrect time format: a valid example is `2d20h30m10s` for 2 days 20 hours 30 minutes and 10 seconds")
-        if len(options) > 10:
+        if len(flags.options) > 10:
             return await ctx.send("No more than 10 choices allowed!")
         description = ''
         reactions = []
-        for index, option in enumerate(options):
+        for index, option in enumerate(flags.options):
             reactions.append(self.option_labels[index])
             description += f"{self.option_labels[index]}: {option}\n"
         embed = Embed(
-                    title=title,
+                    title=flags.title,
                     description=description
                 )
         poll_msg = await ctx.send(embed=embed)
@@ -168,23 +177,21 @@ class Poll(commands.Cog):
             await poll_msg.add_reaction(reaction)
         await self.insert_poll(poll_msg.id, poll_msg.channel.id, end_timestamp)
 
-    @poll.command()
-    async def multi(self, ctx, title, timer, *options):
+    @poll.command(usage="poll multi `title:` Title of Poll `duration:` 24h `option:` option 1 `o:` option 2")
+    async def multi(self, ctx, title, * ,flags: PollFlags):
         """
         create a multiple choice poll
-        example:
-        `.poll multi "This is the title" "2 days" "this is option 1" "this is option 2"`
         """
         if ctx.invoked_subcommand:
             return
-        end_timestamp = self.parse_timer(timer)
+        end_timestamp = flags.duration
         if not end_timestamp:
             return await ctx.send("incorrect time format: a valid example is `2d20h30m10s` for 2 days 20 hours 30 minutes and 10 seconds")
-        if len(options) > 10:
+        if len(flags.options) > 10:
             return await ctx.send("No more than 10 choices allowed!")
         description = ''
         reactions = []
-        for index, option in enumerate(options):
+        for index, option in enumerate(flags.options):
             reactions.append(self.option_labels[index])
             description += f"{self.option_labels[index]}: {option}\n"
         embed = Embed(
@@ -232,7 +239,7 @@ class Poll(commands.Cog):
         if not poll:
             return await ctx.send("Message was not a poll")
         end = poll.get("end_ts")
-        await ctx.send(str(end - datetime.utcnow()))
+        await ctx.send(str(end - utcnow()))
 
     def parse_timer(self, timer):
         match = timing_regex.match(timer)
