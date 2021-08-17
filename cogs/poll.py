@@ -64,7 +64,7 @@ class Poll(commands.Cog):
         if not polls:
             return
         for poll in polls:
-            if poll.get("end_ts") > datetime.utcnow():
+            if poll.get("end_ts") > utcnow():
                 continue
             try:
                 poll_channel = self.bot.get_channel(poll.get("channel_id"))
@@ -240,22 +240,6 @@ class Poll(commands.Cog):
             return await ctx.send("Message was not a poll")
         end = poll.get("end_ts")
         await ctx.send(str(end - utcnow()))
-
-    def parse_timer(self, timer):
-        match = timing_regex.match(timer)
-        if not match:
-            return None
-        if not any(match.groupdict().values()):
-            return None
-        timer_inputs = match.groupdict()
-        for key, value in timer_inputs.items():
-            if value is None:
-                value = 0
-            else:
-                value = int(''.join(filter(str.isdigit, value)))
-            timer_inputs[key] = value
-        delta = timedelta(**timer_inputs)
-        return datetime.utcnow() + delta
 
 
 def setup(bot):
