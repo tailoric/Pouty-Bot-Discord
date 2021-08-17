@@ -204,7 +204,7 @@ class Starboard(commands.Cog):
             replied_to = message.reference.resolved
             if isinstance(replied_to, discord.Message):
                 content = replied_to.content
-                match = re.search(r'||\w+||', content)
+                match = re.search(r'\|\|\s?\w+\s?\|\|', content)
                 if match:
                     content = ""
                 embed.add_field(name=f"Reply to {replied_to.author}", value=f"[{shorten(content, 50) or 'click to view'}]({replied_to.jump_url})", inline=False)
