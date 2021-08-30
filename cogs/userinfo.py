@@ -128,10 +128,10 @@ class Userinfo(commands.Cog):
                             m.status == discord.Status.idle])
         colour = guild.me.colour
         embed = Embed(description="[{}]({})\nCreated {} ({})"
-                      .format(guild.name, guild.icon_url, format_dt(guild.created_at), format_dt(guild.created_at,'R')),
+                      .format(guild.name, guild.icon, format_dt(guild.created_at), format_dt(guild.created_at,'R')),
                       color=colour)
         if guild.icon:
-            embed.set_thumbnail(url=guild.icon_url)
+            embed.set_thumbnail(url=guild.icon.url)
         embed.add_field(name="Region", value=str(guild.region))
         embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
         embed.add_field(name="Text Channels", value="{}"
