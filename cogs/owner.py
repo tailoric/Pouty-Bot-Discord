@@ -128,7 +128,7 @@ class Owner(commands.Cog):
     async def _shutdown(self, ctx):
         """Shutdown bot"""
         await ctx.send('Shutting down...')
-        await self.bot.logout()
+        await self.bot.close()
 
     @commands.group(pass_context=True, aliases=['bl'])
     @checks.is_owner_or_moderator()
