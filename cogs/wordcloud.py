@@ -10,6 +10,29 @@ import re
 import io
 from PIL import Image
 import numpy as np
+
+class Confirm(discord.ui.View):
+
+    def __init__(self, user_id: int, bot: commands.Bot, *, timeout: Optional[float]):
+        super().__init__(timeout=timeout)
+        self.user_id = user_id
+        self.bot = bot
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user is not None and interaction.user.id == self.user_id
+
+    @discord.ui.button(emoji="\N{THUMBS UP SIGN}", style=discord.ButtonStyle.green)
+    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await self.bot.db.execute("INSERT INTO wc_consent VALUES ($1) ON CONFLICT DO NOTHING", self.user_id)
+        self.clear_items()
+        await interaction.response.edit_message(content="Consent given, I am now starting to collect messages you send"
+                "\nI won't collect messages you have sent before the consent.", view=self)
+        
+    @discord.ui.button(emoji="\N{THUMBS DOWN SIGN}", style=discord.ButtonStyle.danger)
+    async def deny(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.clear_items()
+        await interaction.response.edit_message(content="No consent for recording messages, you won't be able to create a word cloud", view=self)
+
 class Wordcloud(commands.Cog):
 
     def __init__(self, bot):
@@ -30,7 +53,7 @@ class Wordcloud(commands.Cog):
                     user_id BIGINT,
                     message_id BIGINT ,
                     message_content TEXT NOT NULL,
-                    message_time TIMESTAMP NOT NULL,
+                    message_time TIMESTAMP WITH TIME ZONE NOT NULL,
                     PRIMARY KEY (user_id, message_id)
                 )
                 """)
@@ -126,18 +149,7 @@ class Wordcloud(commands.Cog):
         """
         consent_message = await ctx.send("I will record any message you send from now on even deleted once, "
                 "I only keep your last 500 messages (I won't record DMs either). You can remove your consent any time (using `wc delete`) "
-                "react with \N{THUMBS UP SIGN} to confirm or \N{THUMBS DOWN SIGN} to decline")
-        await consent_message.add_reaction("\N{THUMBS UP SIGN}")
-        await consent_message.add_reaction("\N{THUMBS DOWN SIGN}")
-        def check(reaction, user):
-            return reaction.message == consent_message and user == ctx.author and reaction.emoji in ('\N{THUMBS UP SIGN}','\N{THUMBS DOWN SIGN}')
-        reaction, user = await self.bot.wait_for("reaction_add", check=check)
-        if reaction.emoji == "\N{THUMBS UP SIGN}":
-            await self.bot.db.execute("INSERT INTO wc_consent VALUES ($1) ON CONFLICT DO NOTHING", ctx.author.id)
-            await consent_message.edit(content="Consent given, I am now starting to collect messages you send"
-                    "\nI won't collect messages you have sent before the consent.")
-        else:
-            await consent_message.edit(content="No consent for recording messages, you won't be able to create a word cloud")
+                "click  on the  \N{THUMBS UP SIGN} button to confirm or \N{THUMBS DOWN SIGN} to decline", view=Confirm(ctx.author.id, self.bot, timeout=60))
 
     @word_cloud.command(name="delete")
     async def word_cloud_delete(self, ctx):
@@ -163,7 +175,7 @@ class Wordcloud(commands.Cog):
                 return await ctx.send("This user has not consented to recording their messages, I can't create a word cloud")
             else:
                 return await ctx.send(f"Please first consent to having your messages recorded. using `{ctx.prefix}wc consent`")
-        avatar = member.avatar_url_as(format='png')
+        avatar = member.avatar.replace(size=1024, format='png')
         bAvatar = io.BytesIO(await avatar.read())
         bAvatar.seek(0)
         messages = await self.bot.db.fetch("""

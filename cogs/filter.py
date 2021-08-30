@@ -26,6 +26,8 @@ class Filter(commands.Cog):
                     self.settings = json.load(filter_file)
                     self.blacklisted_channels = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("gif_filter_channel")]
                     self.blacklisted_categories = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("gif_filter_category")]
+                    self.sticker_blacklist_channels = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("sticker_filter_channel")]
+                    self.sticker_blacklist_categories = [self.bot.get_channel(ch_id) for ch_id in self.settings.get("sticker_filter_category")]
                 except json.JSONDecodeError:
                     self.settings = None
                     self.blacklisted_channels = []
@@ -34,14 +36,24 @@ class Filter(commands.Cog):
             with open(self.filter_file_path, 'w') as f:
                 self.settings = { 
                         "gif_filter_channel": [], 
-                        "gif_filter_category": []
+                        "gif_filter_category": [],
+                        "sticker_filter_channel": [],
+                        "sticker_filter_category": [],
                                 }
                 json.dump(self.settings, f)
             self.blacklisted_channels = []
             self.blacklisted_categories = []
+            self.sticker_blacklist_channels = []
+            self.sticker_blacklist_categories = []
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
+
+    @commands.Cog.listener("on_message")
+    async def filter_stickers(self, message):
+        if message.channel in self.sticker_blacklist_channels or message.channel.category in self.sticker_blacklist_categories:
+            if message.stickers:
+                await message.delete()
 
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
@@ -68,6 +80,56 @@ class Filter(commands.Cog):
                     await admin_cog.check_channel.send(f"deleted nhentai link by {message.author.mention} "
                                                         f"because it contained a banned tag: {tag}")
 
+
+    @is_owner_or_moderator()
+    @commands.group(name="blsticker", aliases=["sticker"])
+    async def sticker_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
+        """
+        add a channel or category to the blacklist to filter stickers
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        if not self.settings:
+            return await ctx.send("settings not loaded")
+        if isinstance(channel, discord.CategoryChannel):
+            self.sticker_blacklist_categories.append(channel)
+            self.settings.get("sticker_filter_category").append(channel.id)
+        elif isinstance(channel, discord.TextChannel):
+            self.sticker_blacklist_channels.append(channel)
+            self.settings.get("sticker_filter_channel").append(channel.id)
+        with open(self.filter_file_path, "w") as f:
+            json.dump(self.settings, f)
+        await ctx.send("channel added successfully")
+
+    @sticker_filter.command(name="delete")
+    async def sticker_filter_delete(self, ctx, channel: Union[discord.TextChannel, discord.CategoryChannel]):
+        """
+        remove a channel or category from the blacklist
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+        if not self.settings:
+            return await ctx.send("settings not loaded")
+        if isinstance(channel, discord.CategoryChannel):
+            self.sticker_blacklist_channels.remove(channel)
+            self.settings.get("sticker_filter_category", []).remove(channel.id)
+        elif isinstance(channel, discord.TextChannel):
+            self.sticker_blacklist_channels.remove(channel)
+            self.settings.get("sticker_filter_channel",[]).remove(channel.id)
+        with open(self.filter_file_path, "w") as f:
+            json.dump(self.settings, f)
+        await ctx.send("channel removed successfully")
+
+    @sticker_filter.command(name="list")
+    async def sticker_filter_list(self, ctx):
+        """
+        list all channels that have a sticker blacklist
+        """
+        entries = [(c.name, c.mention) for c in self.sticker_blacklist_channels]
+        entries.extend((c.name, ','.join(channel.mention for channel in c.channels)) for c in self.sticker_blacklist_categories)
+        paginator = FieldPages(ctx, entries=entries)
+        paginator.embed.title = "List of blacklisted channels"
+        await paginator.paginate()
 
     @is_owner_or_moderator()
     @commands.group(name="bltenor", aliases=["tenor", "giphy"])

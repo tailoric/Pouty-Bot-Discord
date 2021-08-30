@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from typing import Optional
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from .utils import checks 
 from logging import getLogger
 from textwrap import shorten
@@ -75,7 +75,7 @@ class Starboard(commands.Cog):
             except TypeError:
                 raise commands.CommandError("could not convert interval please write it in the form `{number} {unit}s` for example `7 days` (always plural)")
 
-    @commands.group(aliases=['sb'], invoke_without_command=True)
+    @commands.group(aliases=['sb', 'star'], invoke_without_command=True)
     @checks.is_owner_or_moderator()
     async def starboard(self, ctx, channel: discord.TextChannel, threshold: Optional[int] = 5, *, max_age: Optional[str] = '7 days'):
         """
@@ -121,6 +121,20 @@ class Starboard(commands.Cog):
             return await ctx.send(f"no starboard config found please set it up with `{ctx.prefix}{self.starboard.name}`")
         await self.bot.db.execute("UPDATE starboard_config SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
         await ctx.send(f"Set the starboard channel to {channel.mention}")
+
+    @starboard.command(name="show")
+    async def sb_show(self, ctx, message_id: int):
+        """
+        show a starboard entry by message id (original message not the one on the starboard)
+        """
+        entry = await self.fetch_starboard_entry(message_id, ctx.guild.id)
+        if not entry:
+            return await ctx.send("this message is not starred")
+        channel = self.bot.get_channel(entry.get("channel_id"))
+        message = await channel.fetch_message(message_id)
+        await ctx.send(embed= await self.create_starboard_embed(message))
+
+
 
     @starboard.command(name="threshold")
     @checks.is_owner_or_moderator()
@@ -184,8 +198,16 @@ class Starboard(commands.Cog):
     async def create_starboard_embed(self, message, starboard_message=None):
         message_content = message.content or "\u200b"
         embed = discord.Embed(description=shorten(message_content, width=2000), colour=discord.Colour(0xffac33))
-        embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url_as(format="png"))
+        embed.set_author(name=message.author.display_name, icon_url=message.author.avatar.replace(format="png"))
         embed.add_field(name="Original", value=f"[Jump!]({message.jump_url})", inline=False)
+        if message.reference and message.reference.resolved:
+            replied_to = message.reference.resolved
+            if isinstance(replied_to, discord.Message):
+                content = replied_to.content
+                match = re.search(r'\|\|\s?\w+\s?\|\|', content)
+                if match:
+                    content = ""
+                embed.add_field(name=f"Reply to {replied_to.author}", value=f"[{shorten(content, 50) or 'click to view'}]({replied_to.jump_url})", inline=False)
         if message.attachments:
             file = message.attachments[0]
             spoiler = file.is_spoiler()
@@ -226,12 +248,12 @@ class Starboard(commands.Cog):
             return
         starboard_entry = await self.fetch_starboard_entry(payload.message_id, payload.guild_id)
         if not starboard_entry:
-            time_diff = datetime.utcnow() -  message.created_at 
+            time_diff = datetime.now(timezone.utc) -  message.created_at 
             star_num = await self.get_star_emoji_number(message)
             if  star_num < starboard.get("threshold") or time_diff > starboard.get("max_age"):
                 return
             embed = await self.create_starboard_embed(message)       
-            bot_message = await sb_channel.send(embed=embed)
+            bot_message = await sb_channel.send(content=f"id: {message.id}", embed=embed)
             await bot_message.add_reaction("\N{WHITE MEDIUM STAR}")
             async with self.bot.db.acquire() as con:
                 await con.execute("""

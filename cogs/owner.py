@@ -1,6 +1,6 @@
 from discord.ext import commands
 from discord import User
-from .utils import checks
+from .utils import checks, views
 import traceback
 import json
 import subprocess
@@ -128,7 +128,7 @@ class Owner(commands.Cog):
     async def _shutdown(self, ctx):
         """Shutdown bot"""
         await ctx.send('Shutting down...')
-        await self.bot.logout()
+        await self.bot.close()
 
     @commands.group(pass_context=True, aliases=['bl'])
     @checks.is_owner_or_moderator()
@@ -193,16 +193,11 @@ class Owner(commands.Cog):
         modules = self.find_modules_from_git(stdout)
         mods_text = '\n'.join(f'{index}. `{module}`' for index, (_, module) in enumerate(modules, start=1))
         prompt_text = f'This will update the following modules, are you sure?\n{mods_text}'
-        mes = await ctx.send(prompt_text)
-
-        def user_check(reaction, user_):
-            return reaction.emoji in self.confirmation_reacts and ctx.author.id == user_.id
-        for reactions in self.confirmation_reacts:
-            await mes.add_reaction(reactions)
-        confirm, user = await self.bot.wait_for('reaction_add', check=user_check, timeout=60)
-        if confirm.emoji == self.confirmation_reacts[1]:
-            return await ctx.send('Aborting.')
-
+        confirm = views.Confirm(ctx)
+        mes = await ctx.send(prompt_text, view=confirm)
+        await confirm.wait()
+        if not confirm.is_confirmed:
+            return
         statuses = []
         for is_submodule, module in modules:
             if is_submodule:

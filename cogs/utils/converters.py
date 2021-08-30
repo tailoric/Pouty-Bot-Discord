@@ -2,6 +2,8 @@ from discord.ext import commands
 from discord.utils import find
 from discord.ext.commands.errors import BadArgument
 from discord import Message
+from datetime import timedelta, datetime, timezone
+import re
 
 
 class RoleConverter(commands.Converter):
@@ -49,6 +51,25 @@ class ReferenceOrMessage(commands.MessageConverter):
         else:
             await super().convert(ctx, argument)
 
+timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
+
+class TimeConverter(commands.Converter):
+
+    async def convert(self, ctx: commands.Context, argument: str):
+        match = timing_regex.match(argument)
+        if not match:
+            return None
+        if not any(match.groupdict().values()):
+            return None
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return datetime.now(timezone.utc) + delta
 
 
 

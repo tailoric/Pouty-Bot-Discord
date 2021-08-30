@@ -11,6 +11,8 @@ import asyncio
 import re
 
 
+green = 0x76d16a
+red = 0xd16a76
 LOOP_TIME = 30 * 60 # 30 minutes
 class Thread(commands.Cog):
     """
@@ -49,6 +51,7 @@ class Thread(commands.Cog):
                 json.dump(self.settings,f)
 
         self.create_thread_table = self.bot.loop.create_task(self.create_thread_log())
+        self.create_thread_table = self.bot.loop.create_task(self.create_discord_thread_log())
 
     async def get_attachment_links(self, message):
         attachment_string_format = "\t[attachments: {}]\n" 
@@ -91,6 +94,17 @@ class Thread(commands.Cog):
         for task in self.scheduled_tasks:
             task.cancel()
 
+    async def create_discord_thread_log(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS discord_threads(
+            thread_id BIGINT NOT NULL,
+            guild_id BIGINT NOT NULL,
+            parent_id BIGINT NOT NULL,
+            thread_list_msg_id BIGINT NOT NULL,
+            thread_list_id BIGINT NOT NULL
+        )
+        """)
+
     async def create_thread_log(self):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS thread_channels(
@@ -127,7 +141,7 @@ class Thread(commands.Cog):
         await disc_channel.set_permissions(ctx.author, read_messages=True)
         embed = discord.Embed(title=f"Thread: {topic} \N{OPEN LOCK}", 
                 description=f"To join the channel {disc_channel.mention} react with {self.settings.get('join_reaction')}\nremove reaction to leave", 
-                colour=discord.Colour(0x76d16a))
+                colour=discord.Colour(green))
         thread_start = await ctx.send(embed=embed)
         thread_list_copy = await thread_list_channel.send(embed=embed)
         await disc_channel.send(textwrap.dedent(self.thread_rule.format(topic)))
@@ -255,7 +269,7 @@ class Thread(commands.Cog):
             if hours >= round(livetime *  (2/3)):
                 embed.colour = discord.Colour(0xd89849)
             else:
-                embed.colour = discord.Colour(0x76d16a)
+                embed.colour = discord.Colour(green)
             embed.set_footer(text=f"Channel deletion at (if inactive for another {current_livetime} hour(s))")
             embed.timestamp = delete_at
             await full_message.edit(embed=embed)
@@ -305,7 +319,7 @@ class Thread(commands.Cog):
             return None
         chat_log = await self.generate_file(thread_channel)
         chat_log_message = await self.attachments_backlog.send(file=discord.File(chat_log, filename=f"{thread_channel.name}.txt"))
-        embed = discord.Embed(title=f"Thread: {thread.get('thread_title')} \N{LOCK}", description="channel closed see the below text file for a chat log", colour=discord.Colour(0xd16a76))
+        embed = discord.Embed(title=f"Thread: {thread.get('thread_title')} \N{LOCK}", description="channel closed see the below text file for a chat log", colour=discord.Colour(red))
         embed.add_field(name="Chat log", value=f"[{thread_channel.name}.txt]({chat_log_message.attachments[0].url})")
         await thread_message.edit(embed=embed)
         await copy_message.edit(embed=embed)
