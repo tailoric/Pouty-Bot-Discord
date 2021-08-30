@@ -197,7 +197,7 @@ class GroupWatch(commands.Cog):
         else:
             thread_type = discord.ChannelType.public_thread
         embed = discord.Embed(title=title, description="Groupwatch thread created join via button", colour=ctx.guild.me.colour)
-        groupwatch_thread = await ctx.channel.start_thread(name=title, type=thread_type, auto_archive_duration=60)
+        groupwatch_thread = await ctx.channel.create_thread(name=title, type=thread_type, auto_archive_duration=60)
         groupwatch_view = JoinView(groupwatch_thread)
         groupwatch_view.cog = self
         start_message = await ctx.send(embed=embed, view=groupwatch_view)
