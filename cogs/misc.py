@@ -252,7 +252,7 @@ class RemindMe(commands.Cog):
         for reminder in reminders:
             if reminder["reminder_ts"] <= datetime.utcnow():
                 try:
-                    user = self.bot.get_user(id=reminder["user_id"])
+                    user = self.bot.get_user(reminder["user_id"])
                     if not user:
                         to_remove.append(reminder)
                         continue
