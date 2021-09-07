@@ -48,7 +48,7 @@ class Distort(commands.Cog):
             elif isinstance(link, PartialEmoji):
                 filetype = str(link.url)[str(link.url).rfind("."):]
                 filename = f"{link.name}{filetype}"
-                await link.url.save(f"data/{filename}")
+                await link.save(f"data/{filename}")
             elif isinstance(link, Member):
                 ctx.author = link
                 await ctx.invoke(self._me)
