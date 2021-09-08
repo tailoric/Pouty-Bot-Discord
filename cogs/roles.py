@@ -14,136 +14,90 @@ import re
 from math import ceil
 from random import randint
 
-class RoleMenu(menus.Menu):
-    def __init__(self, role_list, **kwargs):
+class RoleSelect(discord.ui.Select):
+    def __init__(self, roles: typing.List[discord.Role]):
+        self.roles = roles
+        options = list(discord.SelectOption(label=role.name, value=str(role.id)) for role in roles)           
+        super().__init__(placeholder="Please select a role", options=options, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        selection = None
+        if not isinstance(interaction.user, discord.Member):
+            return
+        if self.values:
+            selection = self.values[0]
+        if selection and self.view:
+            user_roles = []
+            if interaction.user:
+                user_roles = list(r.id for r in interaction.user.roles)
+            if int(self.values[0]) in user_roles:
+                await interaction.user.remove_roles(discord.Object(int(self.values[0])))
+            else:
+                await interaction.user.add_roles(discord.Object(int(self.values[0])))
+            await self.view.show_page(self.view.current_page)
+            
+class RoleMenu(discord.ui.View):
+    def __init__(self, role_list: typing.List[discord.Role], context: commands.Context, **kwargs):
+        super().__init__(**kwargs)
         self.role_list = role_list
+        self.ctx = context
+        if role_list:
+            self.guild = role_list[0].guild
         self.current_page = 0
         self.page_size = 5
         self.max_page = ceil(len(self.role_list) / self.page_size) 
-        self.button_emotes = [
-                '1\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}',
-                '2\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}',
-                '3\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}',
-                '4\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}',
-                '5\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}'
-                ]
-        self.role_mapping = list(zip(self.button_emotes, self.role_list))
-        super().__init__(**kwargs)
 
-    async def send_initial_message(self, ctx, channel):
-        self.role_mapping = list(zip(self.button_emotes, self.role_list))
-        embed = await self.build_embed()
-        embed.set_footer(text=f"Page {self.current_page+1}/{self.max_page}")
-        return await ctx.send(embed=embed)
+        left = self.current_page * self.page_size
+        right = (self.current_page + 1)* self.page_size
 
-    async def build_embed(self):
+        self.displayed_roles = self.role_list[left:right]
+        self.dropdown = RoleSelect(self.displayed_roles)
+        self.add_item(self.dropdown)
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        return self.ctx.author == interaction.user
+
+    async def start(self, ctx):
+        self.message = await ctx.send(embed=await self.embed(), view=self)
+
+    async def embed(self):
         description = (f"""
-        Assign or remove a role from yourself by clicking on the number of the role in the list.
+        Assign or remove a role from yourself by selecting the role from the dropdown.
         To change pages use \N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16} and \N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}
-        (Adding **and** removing a reaction will count as a button click)
         """)
-        embed = discord.Embed(title="Assignable Roles", description=description)
+        embed = discord.Embed(title="Assignable Roles", description=description, colour=discord.Colour.blurple())
         embed.set_footer(text=f"Page {self.current_page+1}/{self.max_page}")
-
-        for entry in self.role_mapping:
-            emoji = entry[0]
-            role = entry[1]
+        for role in self.displayed_roles:
             checkmark = '\N{WHITE HEAVY CHECK MARK}' if role in self.ctx.author.roles else ''
-            role_description = await self.bot.db.fetchval("SELECT description FROM role_info WHERE role_id = $1", role.id) or '\u200b'
-            embed.add_field(name=f"{emoji}: {role.name} {checkmark}", value=role_description, inline=False)
+            role_description = await self.ctx.bot.db.fetchval("SELECT description FROM role_info WHERE role_id = $1", role.id) or '\u200b'
+            embed.add_field(name=f"{role.name} {checkmark}", value=role_description, inline=False)
         return embed
 
-    async def assign_role(self, role_idx):
-        role = self.role_list[self.current_page * self.page_size + role_idx]
-        role_description = await self.bot.db.fetchval("SELECT description FROM role_info WHERE role_id = $1", role.id) or '\u200b'
-        await self.ctx.author.add_roles(role)
-        embed = self.message.embeds[0]
-        embed = embed.set_field_at(role_idx, name=f"{self.button_emotes[role_idx]}: {role.name} \N{WHITE HEAVY CHECK MARK}", value=role_description, inline=False)
-        await self.message.edit(embed=embed)
+    async def show_page(self, page):
+        left = page * self.page_size
+        right = (page + 1) * self.page_size 
+        self.displayed_roles = self.role_list[left:right]
+        self.remove_item(self.dropdown)
+        self.dropdown = RoleSelect(self.displayed_roles)
+        self.add_item(self.dropdown)
+        embed = await self.embed()
+        await self.message.edit(embed=embed, view=self)
 
-    async def remove_role(self, role_idx):
-        role = self.role_list[self.current_page * self.page_size + role_idx]
-        role_description = await self.bot.db.fetchval("SELECT description FROM role_info WHERE role_id = $1", role.id) or '\u200b'
-        await self.ctx.author.remove_roles(role)
-        embed = self.message.embeds[0]
-        embed = embed.set_field_at(role_idx, name=f"{self.button_emotes[role_idx]}: {role.name}", value=role_description, inline=False)
-        await self.message.edit(embed=embed)
 
-    async def on_menu_button_error(self, exc):
-        import traceback
-        traceback.print_exc()
-
-    @menus.button('\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}')
-    async def page_back(self, payload):
+    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}', row=2)
+    async def page_back(self, button, interaction):
         if self.current_page < 1:
             return
         self.current_page -= 1
-        left = self.current_page * self.page_size
-        right = (self.current_page + 1 ) * self.page_size
-        self.role_mapping = list(zip(self.button_emotes, self.role_list[left:right]))
-        embed = await self.build_embed()
-        embed.set_footer(text=f"Page {self.current_page+1}/{self.max_page}")
-        await self.message.edit(embed=embed)
+        await self.show_page(self.current_page)
 
-    @menus.button('1\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}')
-    async def assign_role_one(self, payload):
-        role = self.role_list[self.current_page * self.page_size + 0]
-        if role not in self.ctx.author.roles:
-            await self.assign_role(0)
-        else:
-            await self.remove_role(0)
 
-    @menus.button('2\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}')
-    async def assign_role_two(self, payload):
-        if len(self.role_mapping) < 2:
-            return
-        role = self.role_list[self.current_page * self.page_size + 1]
-        if role not in self.ctx.author.roles:
-            await self.assign_role(1)
-        else:
-            await self.remove_role(1)
-
-    @menus.button('3\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}')
-    async def assign_role_three(self, payload):
-        if len(self.role_mapping) < 3:
-            return
-        role = self.role_list[self.current_page * self.page_size + 2]
-        if role not in self.ctx.author.roles:
-            await self.assign_role(2)
-        else:
-            await self.remove_role(2)
-
-    @menus.button('4\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}')
-    async def assign_role_four(self, payload):
-        if len(self.role_mapping) < 4:
-            return
-        role = self.role_list[self.current_page * self.page_size + 3]
-        if role not in self.ctx.author.roles:
-            await self.assign_role(3)
-        else:
-            await self.remove_role(3)
-
-    @menus.button('5\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}')
-    async def assign_role_five(self, payload):
-        if len(self.role_mapping) < 5:
-            return
-        role = self.role_list[self.current_page * self.page_size + 4]
-        if role not in self.ctx.author.roles:
-            await self.assign_role(4)
-        else:
-            await self.remove_role(4)
-
-    @menus.button('\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}')
-    async def page_forward(self, payload):
+    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}', row=2)
+    async def page_forward(self, button, interaction):
         if self.current_page >= self.max_page-1:
             return
         self.current_page += 1
-        left = self.current_page * self.page_size
-        right = (self.current_page + 1 ) * self.page_size
-        self.role_mapping = list(zip(self.button_emotes, self.role_list[left:right]))
-        embed = await self.build_embed()
-        embed.set_footer(text=f"Page {self.current_page+1}/{self.max_page}")
-        await self.message.edit(embed=embed)
+        await self.show_page(self.current_page)
 
 class CustomRoleConverter(commands.RoleConverter):
     """
@@ -267,8 +221,9 @@ class Roles(commands.Cog):
         """
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
         assignable_roles = [r for r in ctx.guild.roles if r.position <= settable_role.position]
+        print(assignable_roles)
         assignable_roles.remove(ctx.guild.default_role)
-        role_menu = RoleMenu(assignable_roles, clear_reactions_after=True, timeout=60.0)
+        role_menu = RoleMenu(assignable_roles, ctx, timeout=180)
         await role_menu.start(ctx)
 
 
