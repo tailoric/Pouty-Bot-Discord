@@ -107,4 +107,5 @@ class PaginatedView(discord.ui.View):
     async def stop_pages(self, button, interaction):
         """stops the pagination session."""
         self.clear_items()
+        await self.message.edit(view=self)
         self.stop()
