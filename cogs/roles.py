@@ -221,7 +221,6 @@ class Roles(commands.Cog):
         """
         settable_role = find(lambda r: r.id in self.settable_roles, ctx.guild.roles)
         assignable_roles = [r for r in ctx.guild.roles if r.position <= settable_role.position]
-        print(assignable_roles)
         assignable_roles.remove(ctx.guild.default_role)
         role_menu = RoleMenu(assignable_roles, ctx, timeout=180)
         await role_menu.start(ctx)
