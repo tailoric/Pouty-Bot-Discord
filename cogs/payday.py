@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from .utils import checks, paginator
+from .utils import checks, paginator, views
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from discord.ext import menus
@@ -14,7 +14,7 @@ class LeaderBoardSource(menus.ListPageSource):
         offset = menu.current_page * self.per_page
         embed = discord.Embed(title="Leaderboards", colour=discord.Colour.blurple())
         for idx,entry in enumerate(entries, start=offset):
-            user = await self.get_user(entry.get('user_id'), menu.ctx)
+            user = await self.get_user(entry.get('user_id'), menu.context)
             embed.add_field(name=f"{idx+1}. {user.display_name}", value=f"{entry.get('money'):,}", inline=False)
         return embed
 
@@ -181,7 +181,7 @@ class Payday(commands.Cog):
     async def leaderboards_command(self, ctx):
         """see who is the biggest earner on the server"""
         leaderboards = await self.get_leaderboards()
-        pages = menus.MenuPages(source=LeaderBoardSource(leaderboards), clear_reactions_after=True)
+        pages = views.PaginatedView(source=LeaderBoardSource(leaderboards))
         await pages.start(ctx)
 
 

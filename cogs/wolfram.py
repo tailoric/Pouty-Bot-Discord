@@ -8,6 +8,7 @@ from typing import List
 from io import BytesIO
 from urllib import parse
 from discord.ext import commands, menus
+from .utils import views
 
 
 class WolframPages(menus.MenuPages):
@@ -29,7 +30,7 @@ class WolframImageList(menus.ListPageSource):
         self.query = query
         super().__init__(data, per_page=1)
 
-    async def format_page(self, menu : menus.MenuPages, entry: etree.ElementTree) -> discord.Embed:
+    async def format_page(self, menu : views.PaginatedView, entry: etree.ElementTree) -> discord.Embed:
         image = entry.find(".//img")
         title = entry.get('title') or image.get('title', '\u200b')
         embed = discord.Embed(title=textwrap.shorten(title, width=256),
@@ -67,8 +68,8 @@ class Wolfram(commands.Cog):
             if queryresult.get('success') == "true":
                 entries = list(queryresult.iter('pod'))
                 query_string = parse.quote_plus(query)
-                pages = WolframPages(source=WolframImageList(entries, query_string), clear_reactions_after=True)
-                await pages.start(ctx)
+                view = views.PaginatedView(source=WolframImageList(entries, query_string), timeout=180)
+                await view.start(ctx)
             else:
                 await ctx.send("No Results for your query try something else.")
 
