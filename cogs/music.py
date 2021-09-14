@@ -327,19 +327,6 @@ class Music(commands.Cog):
                                f"more vote(s) needed "
                                f"for skip")
 
-    @commands.command()
-    @can_stop()
-    async def stop(self, ctx):
-        """ Stops the player and clears its queue. """
-        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
-
-        if not player.is_playing:
-            return await ctx.send('Not playing.')
-
-        player.queue.clear()
-        await player.stop()
-        await ctx.send('⏹ | Stopped.')
-
     @commands.command(aliases=['np', 'n', 'playing'])
     async def now(self, ctx):
         """ Shows some stats about the currently playing song. """
@@ -568,7 +555,7 @@ class Music(commands.Cog):
         await self.cog_before_invoke(ctx)
         await ctx.invoke(self.play, query=tracks[result_number-1]['info']['uri'])
 
-    @commands.command(aliases=['dc'])
+    @commands.command(aliases=['dc','stop','leave','quit'])
     @can_stop()
     async def disconnect(self, ctx: commands.Context):
         """ Disconnects the player from the voice channel and clears its queue. """
