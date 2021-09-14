@@ -13,8 +13,47 @@ from discord.ext import menus
 from .utils import checks
 from typing import List
 import asyncio
+import logging
 
 url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
+
+class LavalinkVoiceClient(discord.VoiceClient):
+
+    def __init__(self, client: discord.Client, channel: discord.abc.Connectable):
+        self.client = client
+        self.channel = channel
+        try:
+            self.lavalink : lavalink.Client = self.client.lavalink
+        except AttributeError:
+            self.client.lavalink = self.lavalink = lavalink.Client(client.user.id)
+            bot.lavalink.add_node(
+                    'localhost',
+                    2333,
+                    'youshallnotpass',
+                    'us',
+                    'default-node')
+
+    async def on_voice_server_update(self, data):
+        lavalink_data = {
+                't': 'VOICE_SERVER_UPDATE',
+                'd': data
+                }
+        await self.lavalink.voice_update_handler(lavalink_data)
+
+    async def on_voice_state_update(self, data):
+        lavalink_data = {
+                't': 'VOICE_STATE_UPDATE',
+                'd': data
+                }
+        await self.lavalink.voice_update_handler(lavalink_data)
+
+    async def connect(self, *, timeout: float, reconnect: bool) -> None:
+        player = self.lavalink.player_manager.create(self.channel.guild.id)
+        await self.channel.guild.change_voice_state(channel=self.channel)
+
+    async def disconnect(self, *, force: bool) -> None:
+        await self.channel.guild.change_voice_state(channel=None)
+        self.cleanup()
 
 class MusicQueue(menus.ListPageSource):
     def __init__(self, data: List[lavalink.AudioTrack] , ctx: commands.Context, player):
@@ -58,8 +97,6 @@ def can_stop():
                     )
     return commands.check(predicate)
 
-
-
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -73,8 +110,6 @@ class Music(commands.Cog):
                     'youshallnotpass',
                     'us',
                     'default-node')
-            bot.add_listener(bot.lavalink.voice_update_handler,
-                             'on_socket_response')
 
         bot.lavalink.add_event_hook(self.track_hook)
         self.pages = {}
@@ -119,7 +154,8 @@ class Music(commands.Cog):
     async def track_hook(self, event):
         if isinstance(event, lavalink.events.QueueEndEvent):
             guild_id = int(event.player.guild_id)
-            await self.connect_to(guild_id, None)
+            guild : discord.Guild = self.bot.get_guild(guild_id)
+            await guild.voice_client.disconnect(force=True)
             # Disconnect from the channel -- there's nothing else to play.
         if isinstance(event, lavalink.events.TrackEndEvent):
             if self.skip_votes and guild_id in self.skip_votes.keys():
@@ -133,15 +169,6 @@ class Music(commands.Cog):
             await channel.send(f"Error while playing Track: "
                                f"**{event.track.title}**:"
                                f"\n`{event.exception}`")
-
-    async def connect_to(self, guild_id: int, channel_id: str):
-        """ Connects to the given voicechannel ID.
-        A channel_id of `None` means disconnect. """
-        ws = self.bot._connection._get_websocket(guild_id)
-        await ws.voice_state(str(guild_id), channel_id)
-        # The above looks dirty,
-        # we could alternatively use `bot.shards[shard_id].ws` but that assumes
-        # the bot instance is an AutoShardedBot.
 
     @commands.command()
     async def junbi_ok(self, ctx):
@@ -543,7 +570,7 @@ class Music(commands.Cog):
 
     @commands.command(aliases=['dc'])
     @can_stop()
-    async def disconnect(self, ctx):
+    async def disconnect(self, ctx: commands.Context):
         """ Disconnects the player from the voice channel and clears its queue. """
         player = self.bot.lavalink.player_manager.get(ctx.guild.id)
 
@@ -552,7 +579,7 @@ class Music(commands.Cog):
 
         player.queue.clear()
         await player.stop()
-        await self.connect_to(ctx.guild.id, None)
+        await ctx.voice_client.disconnect(force=True)
         await ctx.send('*⃣ | Disconnected.')
 
     async def ensure_voice(self, ctx):
@@ -578,7 +605,7 @@ class Music(commands.Cog):
                 raise commands.CheckFailure('Not connected.')
 
             player.store('channel', ctx.channel)
-            await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
+            await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
         elif player.is_connected and not self.current_voice_channel(ctx):
             self.bot.lavalink.player_manager.remove(ctx.guild.id)
             player = self.bot.lavalink.player_manager.create(ctx.guild.id)
@@ -586,7 +613,7 @@ class Music(commands.Cog):
                 raise commands.CheckFailure('Not connected.')
 
             player.store('channel', ctx.channel)
-            await self.connect_to(ctx.guild.id, str(ctx.author.voice.channel.id))
+            await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
         else:
             if int(player.channel_id) != ctx.author.voice.channel.id:
                 raise commands.CheckFailure('You need to be in my voicechannel.')
