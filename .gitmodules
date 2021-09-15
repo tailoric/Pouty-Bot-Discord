@@ -1,3 +1,6 @@
 [submodule "lavalinkpy"]
 	path = lavalinkpy
 	url = https://github.com/Devoxin/Lavalink.py
+[submodule "discord.py"]
+	path = discord.py
+	url = git@github.com:tailoric/discord.py.git
