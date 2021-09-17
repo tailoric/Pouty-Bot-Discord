@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands, tasks
+from .utils.checks import is_owner_or_moderator
 from logging import getLogger
+from typing import Optional
 
 class ThreadConversionException(commands.BadArgument):
     pass
@@ -16,6 +18,7 @@ class ThreadFetch(commands.ThreadConverter):
                 return await ctx.guild.fetch_channel(thread_id)
             except ValueError:
                 raise ThreadConversionException("could not fetch thread")
+
 class ThreadJoinView(discord.ui.View):
 
     def __init__(self, thread: discord.Thread):
@@ -25,10 +28,11 @@ class ThreadJoinView(discord.ui.View):
     @discord.ui.button(label="Join", style=discord.ButtonStyle.primary)
     async def join_thread(self, button : discord.ui.Button, interaction: discord.Interaction):
         if interaction.user:
+            if not self.thread.archived:
+                self.thread = await self.thread.guild.fetch_channel(thread_id)
             if self.thread.archived:
                 await self.thread.edit(archived=False, locked=False)
             await self.thread.add_user(interaction.user)
-
 
 
 class Thread(commands.Cog):
@@ -48,7 +52,6 @@ class Thread(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger= getLogger("PoutyBot")
-        self.admin_cog = self.bot.get_cog("Admin")
 
 
     @commands.group(invoke_without_command=True)
@@ -76,13 +79,29 @@ class Thread(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
     @commands.guild_only()
-    @thread.command(name="close")
-    async def thread_close(self, ctx: commands.Context, thread: ThreadFetch):
+    @thread.group(name="close", invoke_without_command=True)
+    async def thread_close(self, ctx: commands.Context, thread: Optional[ThreadFetch]):
         """
         Close a thread channel before its livetime is over
         """
+        if not thread and isinstance(ctx.channel, discord.Thread):
+            thread = ctx.channel
+        await thread.edit(archived=True, locked=False)
+        if ctx.channel != thread:
+            await ctx.message.add_reaction("\N{OK HAND SIGN}")
+
+    @commands.guild_only()
+    @is_owner_or_moderator()
+    @thread_close.command(name="lock")
+    async def thread_close_lock(self, ctx: commands.Context, thread: Optional[ThreadFetch]):
+        """
+        Close and lock a thread channel before its livetime is over
+        """
+        if not thread and isinstance(ctx.channel, discord.Thread):
+            thread = ctx.channel
         await thread.edit(archived=True, locked=True)
-        await ctx.message.add_reaction("\N{OK HAND SIGN}")
+        if ctx.channel != thread:
+            await ctx.message.add_reaction("\N{OK HAND SIGN}")
 
 def setup(bot):
     bot.add_cog(Thread(bot))
