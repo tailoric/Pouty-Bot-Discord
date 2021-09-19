@@ -240,7 +240,7 @@ class LinkExpander(commands.Cog):
         headers = {'User-Agent': 'Discord Bot by /u/Saikimo',
                                 'Content-Type': 'application/json'}
         if self.bot.get_cog('Reddit'):
-            cog = self('Reddit') 
+            cog = self.bot.get_cog('Reddit') 
             auth = aiohttp.BasicAuth(cog.client_id, cog.secret) 
 
 
