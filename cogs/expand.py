@@ -236,7 +236,7 @@ class LinkExpander(commands.Cog):
         
 
         post_data = {}
-        async with self.session.get(url=reddit_request) as resp:
+        async with self.session.get(url=reddit request, raise_for_status=True) as resp:
             post_data = await resp.json()
             post_data = post_data[0]['data']['children'][0]['data']
         embed = None
