@@ -236,7 +236,8 @@ class LinkExpander(commands.Cog):
         
 
         post_data = {}
-        async with self.session.get(url=reddit_request, raise_for_status=True) as resp:
+        headers = {'User-Agent': 'Discord Bot by /u/Saikimo'} 
+        async with self.session.get(url=reddit_request, headers=headers, raise_for_status=True) as resp:
             post_data = await resp.json()
             post_data = post_data[0]['data']['children'][0]['data']
         embed = None
