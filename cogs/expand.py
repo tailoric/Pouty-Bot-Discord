@@ -236,7 +236,14 @@ class LinkExpander(commands.Cog):
         
 
         post_data = {}
-        headers = {'User-Agent': 'Discord Bot by /u/Saikimo'} 
+        auth = None
+        headers = {'User-Agent': 'Discord Bot by /u/Saikimo',
+                                'Content-Type': 'application/json'}
+        if bot.get_cog('Reddit'):
+            cog = bot.get_cog('Reddit') 
+            auth = aiohttp.BasicAuth(cog.client_id, cog.secret) 
+
+
         async with self.session.get(url=reddit_request, headers=headers, raise_for_status=True) as resp:
             post_data = await resp.json()
             post_data = post_data[0]['data']['children'][0]['data']
