@@ -29,7 +29,7 @@ class ThreadJoinView(discord.ui.View):
     async def join_thread(self, button : discord.ui.Button, interaction: discord.Interaction):
         if interaction.user:
             if not self.thread.archived:
-                self.thread = await self.thread.guild.fetch_channel(thread.id)
+                self.thread = await self.thread.guild.fetch_channel(self.thread.id)
             if self.thread.archived:
                 await self.thread.edit(archived=False, locked=False)
             await self.thread.add_user(interaction.user)
