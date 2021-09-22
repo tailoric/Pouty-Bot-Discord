@@ -105,7 +105,7 @@ class Starboard(commands.Cog):
         sb_message_count = await self.bot.db.fetchval("""
         SELECT COUNT(*) as star_counts FROM starboard_entries WHERE guild_id = $1
         """, ctx.guild.id)
-        sb_channel = self.bot.get_channel(starboard.get("channel_id"))
+        sb_channel = self.bot.get_channel_or_thread(starboard.get("channel_id"))
         embed.add_field(name="Channel",value=sb_channel.mention)
         embed.add_field(name="Threshold",value=starboard.get("threshold"))
         embed.add_field(name="Max age",value=starboard.get("max_age"))
