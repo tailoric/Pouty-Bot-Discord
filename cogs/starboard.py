@@ -105,7 +105,7 @@ class Starboard(commands.Cog):
         sb_message_count = await self.bot.db.fetchval("""
         SELECT COUNT(*) as star_counts FROM starboard_entries WHERE guild_id = $1
         """, ctx.guild.id)
-        sb_channel = self.bot.get_channel_or_thread(starboard.get("channel_id"))
+        sb_channel = self.bot.get_channel(starboard.get("channel_id"))
         embed.add_field(name="Channel",value=sb_channel.mention)
         embed.add_field(name="Threshold",value=starboard.get("threshold"))
         embed.add_field(name="Max age",value=starboard.get("max_age"))
@@ -239,7 +239,7 @@ class Starboard(commands.Cog):
             return
         guild = self.bot.get_guild(starboard.get("guild_id"))
         sb_channel = guild.get_channel(starboard.get("channel_id"))
-        reaction_channel = guild.get_channel(payload.channel_id)
+        reaction_channel = guild.get_channel_or_thread(payload.channel_id)
         message = None
         try:
             message = await reaction_channel.fetch_message(payload.message_id)
@@ -301,7 +301,7 @@ class Starboard(commands.Cog):
             return
         guild = self.bot.get_guild(starboard.get("guild_id"))
         sb_channel = guild.get_channel(starboard.get("channel_id"))
-        reaction_channel = guild.get_channel(payload.channel_id)
+        reaction_channel = guild.get_channel_or_thread(payload.channel_id)
         starboard_entry = await self.fetch_starboard_entry(payload.message_id, payload.guild_id)
         if not starboard_entry:
             return
