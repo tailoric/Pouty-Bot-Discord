@@ -221,10 +221,17 @@ class GroupWatch(commands.Cog):
         if len(groupwatches) == 0:
             return await ctx.send("There are no groupwatches active, create one with `gw create`")
         for groupwatch in groupwatches:
-            thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
-            if thread:
-                groupwatch_threads.append(thread)
+            try:
+                thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
+                if thread:
+                    groupwatch_threads.append(thread)
+            except discord.NotFound:
+                await self.bot.db.execute("""
+                DELETE FROM groupwatches WHERE thread_id = $1
+                """, groupwatch.get('thread_id'))
 
+        if(len(groupwatch_threads) == 0):
+            return await ctx.send("There are no groupwatches active, create one with `gw create`")
         await ctx.send("Please choose which groupwatch to start", view=GroupwatchesSelectView(groupwatch_threads, ctx.author, self, is_open=True))
 
     @groupwatch.command(name="end")
@@ -238,6 +245,8 @@ class GroupWatch(commands.Cog):
         elif len(self.open_threads) == 1:
             thread_id, thread =  self.open_threads.popitem()
             await thread.edit(archived=True)
+        elif isinstance(ctx.channel, discord.Thread):
+            await ctx.channel.edit(archived=True)
         else:
             await ctx.send("Please choose which groupwatch to end", view=GroupwatchesSelectView(list(self.open_threads.values()), ctx.author, self, is_open=False))
 
@@ -254,7 +263,10 @@ class GroupWatch(commands.Cog):
             return await ctx.send("No active groupwatches in the list, create one with `gw create`")
         threads = []
         for groupwatch in groupwatches:
-            threads.append(await self.bot.fetch_channel(groupwatch.get("thread_id")))
+            try:
+                threads.append(await self.bot.fetch_channel(groupwatch.get("thread_id")))
+            except discord.NotFound:
+                continue
         archive = ArchiveSelectView(threads, ctx.author)
         await ctx.send("Choose a groupwatch to archive", view=archive)
         await archive.wait()
