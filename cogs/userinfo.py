@@ -11,6 +11,13 @@ from typing import Union, Optional
 import json
 
 snowflake_regex = re.compile(r"(\d{17,19})")
+class ShowUserAvatarView(discord.ui.View):
+
+    def __init__(self, member: discord.Member, timeout=180):
+        super().__init__(timeout=timeout)
+        if member.avatar:
+            self.add_item(discord.ui.Button(url=member.avatar.url, label="User Avatar"))
+
 class ObjectConversionError(commands.CheckFailure):
     pass
 
@@ -44,10 +51,10 @@ class Userinfo(commands.Cog):
         """shows the info about yourself or another user"""
         if member is None:
             member = ctx.message.author
-        if member.avatar.url:
-            avatar_url = member.avatar.url
+
+        avatar_url = member.display_avatar.url
         if isinstance(member, discord.User):
-            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, member.avatar.url))
+            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, avatar_url))
             embed.add_field(name="Joined Discord on",
                             value=f"{format_dt(member.created_at)}({format_dt(member.created_at, 'R')})")
             embed.add_field(name="Mention", value=member.mention)
@@ -65,8 +72,14 @@ class Userinfo(commands.Cog):
         if ctx.guild:
             server = ctx.message.guild
             member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
-        embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, member.avatar.url), color=user_color)
+        embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, avatar_url), color=user_color)
         embed.set_thumbnail(url=avatar_url)
+        try:
+            user = await self.bot.fetch_user(member.id)
+            embed.set_image(url=user.banner.url)
+        except:
+            pass
+
         embed.add_field(name="Joined Discord on",
                 value=f"{format_dt(member.created_at)}({format_dt(member.created_at, style='R')})",
                 inline=True)
@@ -107,7 +120,7 @@ class Userinfo(commands.Cog):
         if user_roles:
             embed.add_field(name="Roles", value=", ".join([x.mention for x in user_roles]), inline=False)
         embed.set_footer(text="Member #{} | User ID: {}".format(member_number, member.id))
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, view=ShowUserAvatarView(member=member))
 
     @commands.command(aliases=["avi", "profile_pic"])
     async def pfp(self, ctx, *, member: Union[discord.Member, discord.User] = None):
