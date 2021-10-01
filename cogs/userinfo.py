@@ -11,6 +11,16 @@ from typing import Union, Optional
 import json
 
 snowflake_regex = re.compile(r"(\d{17,19})")
+class ShowAllAvatars(discord.ui.View):
+
+    def __init__(self, member: discord.Member):
+        super().__init__()
+        self.member = member
+        if member.avatar:
+            self.add_item(discord.ui.Button(label="User avatar",url=member.avatar.url))
+        if member.guild_avatar:
+            self.add_item(discord.ui.Button(label="Server avatar", url=member.guild_avatar.url)) 
+
 class ShowUserAvatarView(discord.ui.View):
 
     def __init__(self, member: discord.Member, timeout=180):
@@ -129,7 +139,16 @@ class Userinfo(commands.Cog):
         """
         if not member:
             member = ctx.author
-        await ctx.send(member.avatar.replace(size=1024, static_format="png"))
+        embeds = []
+        view = None
+        if member.avatar:
+            user_embed = discord.Embed(title=f"{member}'s avatar", colour=member.colour or Embed.Empty).set_image(url=member.avatar.url)
+            embeds.append(user_embed)
+        if isinstance(member, discord.Member) and member.guild_avatar:
+            server_embed = discord.Embed(title=f"{member}'s server avatar", colour=member.colour or Embed.Empty).set_image(url=member.guild_avatar.url)
+            embeds.append(server_embed)
+            view = ShowAllAvatars(member)
+        await ctx.send(embeds=embeds, view=view)
 
     @commands.command()
     async def serverinfo(self, ctx):
