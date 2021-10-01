@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from discord.ext import commands, tasks
+from typing import Union
 import discord
 import logging
 import colorsys
+import aiohttp
 
 class NotBoostError(commands.CheckFailure):
     pass
@@ -87,6 +89,30 @@ class Boost(commands.Cog):
         else:
             self.set_boost_color.reset_cooldown(ctx)
             await default.create_and_send_traceback(ctx, error)    
+
+    @commands.command("myicon", aliases=['mi', 'icon'])
+    @commands.guild_only()
+    @is_boost()
+    async def set_role_icon(self, ctx, icon : Union[discord.Emoji, str] = None):
+        if 'ROLE_ICONS' not in ctx.guild.features:
+            return await ctx.send("Server lacks the guild icon feature")
+
+        role_id = await self.bot.db.fetchval('''
+            SELECT role_id FROM boost_color WHERE user_id = $1
+        ''', ctx.author.id)
+        role = ctx.guild.get_role(role_id)
+        if isinstance(icon, discord.Emoji):
+            await role.edit(icon=await icon.read())
+        elif isinstance(icon, str) and icon.startswith("http"):
+            async with self.bot.session.get(url=icon, raise_for_status=True) as resp:
+                await role.edit(icon= await resp.read())
+        elif icon is None and ctx.message.attachments:
+            icon = ctx.message.attachments[0]
+            await role.edit(icon= await icon.read())
+        else:
+            return await ctx.send("Please upload an attachment or provide a link to an image for your icon")
+        await ctx.send("role icon updated")
+
 
     @tasks.loop(hours=1)
     async def clean_non_boost_roles(self):
