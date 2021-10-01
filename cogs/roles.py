@@ -248,6 +248,8 @@ class Roles(commands.Cog):
             embed.add_field(name="Colour", value=role.colour)
             embed.set_footer(text="Role was created on")
             embed.timestamp = role.created_at
+            if role.icon: 
+                embed.set_thumbnail(role.icon.url)
             if description:
                 embed.description = description
         await ctx.send(embed=embed)
