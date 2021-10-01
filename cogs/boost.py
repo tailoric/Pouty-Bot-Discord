@@ -94,6 +94,10 @@ class Boost(commands.Cog):
     @commands.guild_only()
     @is_boost()
     async def set_role_icon(self, ctx, icon : Union[discord.Emoji, str] = None):
+        """
+        set a role icon for yourself, this will be attached to your boost colour role
+        so you need to have that set first, use `.mc purple`
+        """
         if 'ROLE_ICONS' not in ctx.guild.features:
             return await ctx.send("Server lacks the guild icon feature")
 
@@ -101,6 +105,8 @@ class Boost(commands.Cog):
             SELECT role_id FROM boost_color WHERE user_id = $1
         ''', ctx.author.id)
         role = ctx.guild.get_role(role_id)
+        if not role:
+            await ctx.send("Couldn't get boost colour role, please set one first")
         if isinstance(icon, discord.Emoji):
             await role.edit(icon=await icon.read())
         elif isinstance(icon, str) and icon.startswith("http"):
@@ -114,8 +120,11 @@ class Boost(commands.Cog):
         await ctx.send("role icon updated")
     @is_boost()
     @commands.guild_only()
-    @set_role_icon.command("delete")
+    @set_role_icon.command("delete", aliases=["remove", "rm"])
     async def delete_role_icon(self, ctx):
+        """
+        remove your role icon
+        """
         if 'ROLE_ICONS' not in ctx.guild.features:
             return await ctx.send("Server lacks the guild icon feature")
 
@@ -123,6 +132,8 @@ class Boost(commands.Cog):
             SELECT role_id FROM boost_color WHERE user_id = $1
         ''', ctx.author.id)
         role = ctx.guild.get_role(role_id)
+        if not role:
+            await ctx.send("Couldn't get boost colour role, please set one first")
         await role.edit(icon=None)
         await ctx.send("role icon removed")
 
