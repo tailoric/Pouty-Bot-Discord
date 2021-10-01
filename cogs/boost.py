@@ -90,7 +90,7 @@ class Boost(commands.Cog):
             self.set_boost_color.reset_cooldown(ctx)
             await default.create_and_send_traceback(ctx, error)    
 
-    @commands.command("myicon", aliases=['mi', 'icon'])
+    @commands.group(name="myicon", aliases=['mi', 'icon'], invoke_without_command=True)
     @commands.guild_only()
     @is_boost()
     async def set_role_icon(self, ctx, icon : Union[discord.Emoji, str] = None):
@@ -112,6 +112,20 @@ class Boost(commands.Cog):
         else:
             return await ctx.send("Please upload an attachment or provide a link to an image for your icon")
         await ctx.send("role icon updated")
+    @is_boost()
+    @commands.guild_only()
+    @set_role_icon.command("delete")
+    async def delete_role_icon(self, ctx):
+        if 'ROLE_ICONS' not in ctx.guild.features:
+            return await ctx.send("Server lacks the guild icon feature")
+
+        role_id = await self.bot.db.fetchval('''
+            SELECT role_id FROM boost_color WHERE user_id = $1
+        ''', ctx.author.id)
+        role = ctx.guild.get_role(role_id)
+        await role.edit(icon=None)
+        await ctx.send("role icon removed")
+
 
 
     @tasks.loop(hours=1)
