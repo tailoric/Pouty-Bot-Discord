@@ -70,7 +70,10 @@ class LinkExpander(commands.Cog):
         if not match_url:
             return await ctx.send("Could not extract an id from this link.")
         illust_id = match_url.group(1)
-        await ctx.trigger_typing()
+        try:
+            await ctx.trigger_typing()
+        except:
+            self.logger.exception("failure during typing")
         async with self.session.get(details_url.format(illust_id)) as resp:
             if resp.status < 400:
                 details = await resp.json()
@@ -118,7 +121,10 @@ class LinkExpander(commands.Cog):
         match = self.twitter_url_regex.match(link)
         if not match:
             return await ctx.send("Couldn't get id from link")
-        await ctx.trigger_typing()
+        try:
+            await ctx.trigger_typing()
+        except:
+            self.logger.exception("error during typing")
         params = {
                 "expansions": "attachments.media_keys,author_id",
                 "media.fields" : "type,url",
@@ -223,7 +229,10 @@ class LinkExpander(commands.Cog):
         else:
             reddit_request = f"https://www.reddit.com/{reddit_match.group('post_id')}.json"
 
-        await ctx.trigger_typing()
+        try:
+            await ctx.trigger_typing()
+        except:
+            self.logger.exception("error during typing")
         results = []
         with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
             extract_video = partial(ytdl_v.extract_info, url, download=False)

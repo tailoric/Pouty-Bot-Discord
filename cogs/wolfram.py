@@ -2,6 +2,7 @@ import aiohttp
 import discord
 import json
 import textwrap
+import logging
 
 from lxml import etree
 from typing import List
@@ -50,6 +51,7 @@ class Wolfram(commands.Cog):
         with open(self.json_file) as f:
             self.api_key = json.load(f)['api_key']
         self.session = aiohttp.ClientSession()
+        self.logger =  logging.getLogger("PoutyBot")
 
     @commands.command()
     async def wolfram(self,  ctx: commands.Context, *, query: str):
@@ -59,7 +61,11 @@ class Wolfram(commands.Cog):
 
         url = 'http://api.wolframalpha.com/v2/query'
         params = {'appid': self.api_key, 'input': query, 'format': 'image'}
-        await ctx.trigger_typing()
+        try:
+            await ctx.trigger_typing()
+        except:
+            self.logger.exception("Error during typing")
+            
         async with self.session.get(url=url, params=params) as response:
             response.raise_for_status()
             byio = BytesIO(await response.read())

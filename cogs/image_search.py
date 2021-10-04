@@ -180,7 +180,10 @@ class Search(commands.Cog):
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
         else:
-            await ctx.trigger_typing()
+            try:
+                await ctx.trigger_typing()
+            except:
+                self.logger.exception("error during typing")
             if link:
                 url = link
             else:
@@ -252,7 +255,10 @@ class Search(commands.Cog):
         if self.sauce_nao_settings.get("long_remaining") == 0:
             return await ctx.send("No more searches available for today. Please wait 24 hours before doing another search")
         else:
-            await ctx.trigger_typing()
+            try:
+                await ctx.trigger_typing()
+            except:
+                self.logger.exception("exception during typing")
             if file:
                 url = file[0].url
                 similarity = link if link is not None else similarity
@@ -323,7 +329,10 @@ class Search(commands.Cog):
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
         else:
-            await ctx.trigger_typing()
+            try:
+                await ctx.trigger_typing()
+            except:
+                self.logger.exception("fail during typing")
             if file:
                 url = file[0].url
             else:
@@ -406,7 +415,10 @@ class Search(commands.Cog):
     async def trace_moe(self, ctx, similarity: typing.Optional[int] = 85,link: typing.Optional[str] = None):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
-        await ctx.trigger_typing()
+        try:
+            await ctx.trigger_typing()
+        except:
+            self.logger.exception("error during typing")
         if similarity < 1 or similarity > 99:
             await ctx.send("similarity must be between 1 or 99 percent")
             return
