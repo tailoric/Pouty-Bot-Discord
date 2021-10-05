@@ -240,15 +240,6 @@ class LinkExpander(commands.Cog):
         except:
             self.logger.exception("error during typing")
         results = []
-        with YoutubeDL({'format': 'bestvideo', 'quiet': False}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': False}) as ytdl_a:
-            extract_video = partial(ytdl_v.extract_info, url, download=False)
-            extract_audio = partial(ytdl_a.extract_info, url, download=False)
-            results = await asyncio.gather(
-                    self.bot.loop.run_in_executor(None, extract_video),
-                    self.bot.loop.run_in_executor(None, extract_audio),
-                    return_exceptions=True
-                    )
-        
 
         post_data = {}
         headers = {'User-Agent': 'https://github.com/tailoric/Pouty-Bot-Discord Pouty-Bot by /u/Saikimo'}
@@ -264,6 +255,16 @@ class LinkExpander(commands.Cog):
                         
             )
         results = list(filterfalse(lambda r: isinstance(r, DownloadError), results))
+        video_url = post_data['url']
+        with YoutubeDL({'format': 'bestvideo', 'quiet': False}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': False}) as ytdl_a:
+            extract_video = partial(ytdl_v.extract_info, video_url, download=False)
+            extract_audio = partial(ytdl_a.extract_info, video_url, download=False)
+            results = await asyncio.gather(
+                    self.bot.loop.run_in_executor(None, extract_video),
+                    self.bot.loop.run_in_executor(None, extract_audio),
+                    return_exceptions=True
+                    )
+        
         if len(results) == 0:
             return await ctx.send("No video found please check if this link contains a video file (not a gif) preferably use the v.redd.it link")
         filename = f"{results[0].get('id')}.{results[0].get('ext')}"
