@@ -136,7 +136,7 @@ class Reddit(commands.Cog):
         else:
             stickied_comment = await self.get_stickied_comment(post)
             embed = discord.Embed(title=post["title"],
-                                  timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
+                                  timestamp=datetime.datetime.fromtimestamp(post["created_utc"], datetime.timezone.utc),
                                   url=f"https://reddit.com{post['permalink']}",
                                   color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
                                   description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
