@@ -1,3 +1,4 @@
+import httpx
 import aiohttp
 import asyncio
 import discord
@@ -32,6 +33,7 @@ class LinkExpander(commands.Cog):
         if not os.path.exists('export'):
             os.mkdir('export')
         self.bot = bot
+        self.httpx = httpx.AsyncClient()
         self.session = aiohttp.ClientSession()
         self.pixiv_headers = {
                 "Referer" : "https://pixiv.net"
@@ -57,6 +59,7 @@ class LinkExpander(commands.Cog):
                 self.streamable_auth = json.load(f)
 
     def cog_unload(self):
+        self.bot.loop.create_task(self.httpx.aclose())
         self.bot.loop.create_task(self.session.close())
 
     @commands.command(name="pixiv", aliases=["pix", "pxv"])
@@ -81,6 +84,7 @@ class LinkExpander(commands.Cog):
             pages = details.get('manga_a', [{'url_big': details.get('url_big')}])
             file_list = []
             stopped = False
+            total_content_length = 0
             for page in pages:
                 img_url = page.get('url_big')
                 if not img_url:
@@ -91,8 +95,10 @@ class LinkExpander(commands.Cog):
                         file_limit = 8388608
                         if ctx.guild:
                             file_limit = ctx.guild.filesize_limit
-                        if content_length and int(content_length) > file_limit:
-                            continue
+                        if content_length:
+                            total_content_length += int(content_length)
+                            if total_content_length >= file_limit:
+                                continue
                         filename= img_url.split(r"/")[-1]
                         img_buffer = io.BytesIO(await img.read())
                         img_buffer.seek(0)
@@ -101,7 +107,7 @@ class LinkExpander(commands.Cog):
                             stopped = True
                             break
             if len(file_list) == 0:
-                return await ctx.send("Could not expand link, something went wrong")
+                return await ctx.send("Could not expand link, something went wrong. Maybe the file was too large")
             message = "the first 10 images of this gallery" if stopped else None
             await ctx.send(content=message, files=file_list[0:10])
             if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
@@ -225,7 +231,7 @@ class LinkExpander(commands.Cog):
 
         await ctx.trigger_typing()
         results = []
-        with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
+        with YoutubeDL({'format': 'bestvideo', 'quiet': False}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': False}) as ytdl_a:
             extract_video = partial(ytdl_v.extract_info, url, download=False)
             extract_audio = partial(ytdl_a.extract_info, url, download=False)
             results = await asyncio.gather(
@@ -236,17 +242,10 @@ class LinkExpander(commands.Cog):
         
 
         post_data = {}
-        auth = None
-        headers = {'User-Agent': 'Discord Bot by /u/Saikimo',
-                                'Content-Type': 'application/json'}
-        if self.bot.get_cog('Reddit'):
-            cog = self.bot.get_cog('Reddit') 
-            auth = aiohttp.BasicAuth(cog.client_id, cog.secret) 
-
-
-        async with self.session.get(url=reddit_request, headers=headers, raise_for_status=True) as resp:
-            post_data = await resp.json()
-            post_data = post_data[0]['data']['children'][0]['data']
+        headers = {'User-Agent': 'https://github.com/tailoric/Pouty-Bot-Discord Pouty-Bot by /u/Saikimo'}
+        resp = await self.httpx.get(url=reddit_request, headers=headers)
+        post_data = resp.json()
+        post_data = post_data[0]['data']['children'][0]['data']
         embed = None
         if post_data:
             title= shorten(post_data.get('title'), 250)
