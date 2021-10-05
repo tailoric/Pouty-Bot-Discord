@@ -1,5 +1,5 @@
 import json
-import aiohttp
+import httpx
 import re
 import datetime
 import discord
@@ -23,10 +23,10 @@ class Reddit(commands.Cog):
             if self.credentials:
                 self.client_id = self.credentials['client_id']
                 self.secret = self.credentials['client_secret']
-                self.auth = aiohttp.BasicAuth(self.client_id, self.secret)
-                self.headers = {'User-Agent': 'Discord Bot by /u/Saikimo',
+                self.auth = httpx.BasicAuth(self.client_id, self.secret)
+                self.headers = {'User-Agent': 'Discord-Bot by /u/Saikimo',
                                 'Content-Type': 'application/json'}
-            self.session = aiohttp.ClientSession()
+            self.session = httpx.AsyncClient()
             self.reddit_settings_path = "data/reddit_settings.json"
             self.checker_channel = None
             if not path.exists(self.reddit_settings_path):
@@ -41,7 +41,7 @@ class Reddit(commands.Cog):
             self.bot.loop.create_task(self.create_last_posts_table())
 
     def cog_unload(self):
-        self.bot.loop.create_task(self.session.close())
+        self.bot.loop.create_task(self.session.aclose())
         self.check_reddit_for_pinned_threads.stop()
 
     async def create_last_posts_table(self):
@@ -90,71 +90,69 @@ class Reddit(commands.Cog):
     @tasks.loop(minutes=1)
     async def check_reddit_for_pinned_threads(self):
         try:
-            async with self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
-                                        headers=self.headers) as resp:
-                if resp.status == 200:
-                    resp_data = await resp.json()
-                    stickied_post = [post['data'] for post in resp_data["data"]["children"] if post['data']["stickied"]]
-                    last_posts = await self.fetch_last_stickied_entries()
-                    if not last_posts:
-                        for post in stickied_post:
-                            post_creation = datetime.datetime.utcnow()
-                            await self.insert_post(post["id"], post_creation)
-                    for post in stickied_post:
-                        post_creation = datetime.datetime.utcnow()
-                        if post["id"] not in [p["post_id"] for p in last_posts]:
-                            embed = await self.build_embed_for_stickied_thread(post)
-                            if embed:
-                                sent_message = await self.reddit_channel.send(embed=embed)
-                                await self.insert_post(post["id"], post_creation)
-                                if embed.description == '\u200b':
-                                    await self.edit_embed_with_info(post["permalink"], sent_message)
+            resp = await self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
+                                        headers=self.headers)
+            resp.raise_for_status()
+            resp_data = resp.json()
+            stickied_post = [post['data'] for post in resp_data["data"]["children"] if post['data']["stickied"]]
+            last_posts = await self.fetch_last_stickied_entries()
+            if not last_posts:
+                for post in stickied_post:
+                    post_creation = datetime.datetime.utcnow()
+                    await self.insert_post(post["id"], post_creation)
+            for post in stickied_post:
+                post_creation = datetime.datetime.utcnow()
+                if post["id"] not in [p["post_id"] for p in last_posts]:
+                    embed = await self.build_embed_for_stickied_thread(post)
+                    if embed:
+                        sent_message = await self.reddit_channel.send(embed=embed)
+                        await self.insert_post(post["id"], post_creation)
+                        if embed.description == '\u200b':
+                            await self.edit_embed_with_info(post["permalink"], sent_message)
         except Exception as e:
             logger = logging.getLogger("PoutyBot")
             logger.error(traceback.format_exc())
 
     async def get_stickied_comment(self, post):
-        async with self.session.get(url=f"https://reddit.com{post['permalink']}.json") as resp:
-            if resp.status == 200:
-                json_data = await resp.json()
-                try:
-                    return next(comment for comment in json_data[1]["data"]["children"] if comment["data"]["stickied"])
-                except StopIteration:
-                    return None
-            else:
-                return None
+        resp = await self.session.get(url=f"https://reddit.com{post['permalink']}.json")
+        resp.raise_for_status()
+        json_data =  resp.json()
+        try:
+            return next(comment for comment in json_data[1]["data"]["children"] if comment["data"]["stickied"])
+        except StopIteration:
+            return None
 
     async def build_embed_for_stickied_thread(self, post):
-        async with self.session.get(url="https://reddit.com/r/Animemes/about.json", auth=self.auth,
-                                    headers=self.headers) as resp:
-            if resp.status == 200:
-                resp_data = await resp.json()
-                sub_data = resp_data["data"]
-                if post["is_self"]:
-                    embed = discord.Embed(title=post["title"], timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
-                                          url=post["url"], description=post["selftext"][:500]+"...",
-                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
-                    embed.set_thumbnail(url=sub_data["header_img"])
-                else:
-                    stickied_comment = await self.get_stickied_comment(post)
-                    embed = discord.Embed(title=post["title"],
-                                          timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
-                                          url=f"https://reddit.com{post['permalink']}",
-                                          color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
-                                          description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
-                                          else "\u200b")
-                    if post["over_18"] or post["spoiler"]:
-                        embed.set_thumbnail(url=sub_data["header_img"])
-                    elif post["thumbnail"] != "default" and post["thumbnail"] != "spoiler":
-                        embed.set_thumbnail(url=post["thumbnail"])
-                    elif "image" in post["post_hint"]:
-                        embed.set_image(url=post["url"])
-                    else:
-                        embed.set_thumbnail(url=sub_data["header_img"])
+        resp = await self.session.get(url="https://reddit.com/r/Animemes/about.json", auth=self.auth,
+                                    headers=self.headers)
+        resp.raise_for_status()
+        resp_data = resp.json()
+        sub_data = resp_data["data"]
+        if post["is_self"]:
+            embed = discord.Embed(title=post["title"], timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
+                                  url=post["url"], description=post["selftext"][:500]+"...",
+                                  color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)))
+            embed.set_thumbnail(url=sub_data["header_img"])
+        else:
+            stickied_comment = await self.get_stickied_comment(post)
+            embed = discord.Embed(title=post["title"],
+                                  timestamp=datetime.datetime.utcfromtimestamp(post["created_utc"]),
+                                  url=f"https://reddit.com{post['permalink']}",
+                                  color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
+                                  description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
+                                  else "\u200b")
+            if post["over_18"] or post["spoiler"]:
+                embed.set_thumbnail(url=sub_data["header_img"])
+            elif post["thumbnail"] != "default" and post["thumbnail"] != "spoiler":
+                embed.set_thumbnail(url=post["thumbnail"])
+            elif "image" in post["post_hint"]:
+                embed.set_image(url=post["url"])
+            else:
+                embed.set_thumbnail(url=sub_data["header_img"])
 
-                embed.set_author(name=post["author"], url=f"https://reddit.com/user/{post['author']}")
-                embed.set_footer(icon_url=sub_data["icon_img"], text="Animemes")
-                return embed
+        embed.set_author(name=post["author"], url=f"https://reddit.com/user/{post['author']}")
+        embed.set_footer(icon_url=sub_data["icon_img"], text="Animemes")
+        return embed
 
 
     @commands.Cog.listener()
@@ -170,33 +168,33 @@ class Reddit(commands.Cog):
             return
         if match.group(1) and match.group(1).startswith('v'):
             vid_url = match.string[match.span()[0]: match.span()[1]]
-            async with self.session.get(url=vid_url, auth=self.auth, headers=self.headers) as response:
-                if response.status == 200:
-                    url = str(response.url) + '.json'
+            response = await self.session.get(url=vid_url, auth=self.auth, headers=self.headers)
+            response.raise_for_status()
+            url = str(response.url) + '.json'
         else:
             url = "https://reddit.com/comments/" + match.group(4) + ".json"
-        async with self.session.get(url=url, auth=self.auth, headers=self.headers) as response:
-            if response.status == 200:
-                json_dump = await response.json()
-                post_data = json_dump[0]['data']['children'][0]['data']
-                creation_time = datetime.datetime.utcfromtimestamp(int(post_data['created_utc']))
-                now = datetime.datetime.utcnow()
-                difference = now - creation_time
-                subreddit = post_data['subreddit']
-                is_stickied = post_data['stickied']
-                removed_by_category = post_data['removed_by_category']
+        response = await self.session.get(url=url, auth=self.auth, headers=self.headers)
+        response.raise_for_status()
+        json_dump = response.json()
+        post_data = json_dump[0]['data']['children'][0]['data']
+        creation_time = datetime.datetime.utcfromtimestamp(int(post_data['created_utc']))
+        now = datetime.datetime.utcnow()
+        difference = now - creation_time
+        subreddit = post_data['subreddit']
+        is_stickied = post_data['stickied']
+        removed_by_category = post_data['removed_by_category']
 
-                if not subreddit == "Animemes":
-                    return
-                if removed_by_category:
-                    return
-                if difference.total_seconds() < 12 * 3600 and not is_stickied:
-                    await after.delete()
-                    await after.channel.send(after.author.mention + " reddit thread automatically removed because " +
-                                             "it is too recent **(Discord server rule 3)**")
-                    if self.checker_channel:
-                        await self.checker_channel.send(
-                            "Warned {0}\nposted a reddit link that was too recent".format(after.author.mention))
+        if not subreddit == "Animemes":
+            return
+        if removed_by_category:
+            return
+        if difference.total_seconds() < 12 * 3600 and not is_stickied:
+            await after.delete()
+            await after.channel.send(after.author.mention + " reddit thread automatically removed because " +
+                                     "it is too recent **(Discord server rule 3)**")
+            if self.checker_channel:
+                await self.checker_channel.send(
+                    "Warned {0}\nposted a reddit link that was too recent".format(after.author.mention))
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -212,33 +210,33 @@ class Reddit(commands.Cog):
             return
         if match.group(1) and match.group(1).startswith('v'):
             vid_url = match.string[match.span()[0]: match.span()[1]]
-            async with self.session.get(url=vid_url, auth=self.auth, headers=self.headers) as response:
-                if response.status == 200:
-                    url = str(response.url) + '.json'
+            response = await self.session.get(url=vid_url, auth=self.auth, headers=self.headers)
+            response.raise_for_status()
+            url = str(response.url) + '.json'
         else:
             url = "https://reddit.com/comments/" + match.group(4) + ".json"
-        async with self.session.get(url=url, auth=self.auth, headers=self.headers) as response:
-            if response.status == 200:
-                json_dump = await response.json()
-                post_data = json_dump[0]['data']['children'][0]['data']
-                creation_time = datetime.datetime.utcfromtimestamp(int(post_data['created_utc']))
-                now = datetime.datetime.utcnow()
-                difference = now - creation_time
-                subreddit = post_data['subreddit']
-                is_stickied = post_data['stickied']
-                removed_by_category = post_data['removed_by_category']
-                if not subreddit == "Animemes":
-                    return
-                if removed_by_category:
-                    return
-                if difference.total_seconds() < 12 * 3600 and not is_stickied:
-                    await message.delete()
-                    await message.channel.send(
-                        message.author.mention + " reddit thread automatically removed because " +
-                        "it is too recent **(Discord server rule 3)**")
-                    if self.checker_channel:
-                        await self.checker_channel.send(
-                            "Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
+        response = await self.session.get(url=url, auth=self.auth, headers=self.headers)
+        response.raise_for_status()
+        json_dump = response.json()
+        post_data = json_dump[0]['data']['children'][0]['data']
+        creation_time = datetime.datetime.utcfromtimestamp(int(post_data['created_utc']))
+        now = datetime.datetime.utcnow()
+        difference = now - creation_time
+        subreddit = post_data['subreddit']
+        is_stickied = post_data['stickied']
+        removed_by_category = post_data['removed_by_category']
+        if not subreddit == "Animemes":
+            return
+        if removed_by_category:
+            return
+        if difference.total_seconds() < 12 * 3600 and not is_stickied:
+            await message.delete()
+            await message.channel.send(
+                message.author.mention + " reddit thread automatically removed because " +
+                "it is too recent **(Discord server rule 3)**")
+            if self.checker_channel:
+                await self.checker_channel.send(
+                    "Warned {0}\nposted a reddit link that was too recent".format(message.author.mention))
 
     @checks.is_owner_or_moderator()
     @commands.command(pass_context=True, hidden=True)
