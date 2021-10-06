@@ -34,7 +34,7 @@ class Manga:
         self.description = attributes.get("description", {}).get("en")
         self.tags = list(tag.get("attributes").get("name").get("en") for tag in attributes.get("tags", []))
         self.status = attributes.get("status")
-        self.build_cover_url(data)
+        self.build_cover_url(data.get("data"))
 
     @property
     def embed(self) -> discord.Embed:
