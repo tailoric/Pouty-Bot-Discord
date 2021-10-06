@@ -254,9 +254,8 @@ class LinkExpander(commands.Cog):
                             url=f"https://reddit.com/{post_data.get('subreddit_name_prefixed')}")
                         
             )
-        results = list(filterfalse(lambda r: isinstance(r, DownloadError), results))
         video_url = post_data['url']
-        with YoutubeDL({'format': 'bestvideo', 'quiet': False}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': False}) as ytdl_a:
+        with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
             extract_video = partial(ytdl_v.extract_info, video_url, download=False)
             extract_audio = partial(ytdl_a.extract_info, video_url, download=False)
             results = await asyncio.gather(
@@ -265,6 +264,7 @@ class LinkExpander(commands.Cog):
                     return_exceptions=True
                     )
         
+        results = list(filterfalse(lambda r: isinstance(r, DownloadError), results))
         if len(results) == 0:
             return await ctx.send("No video found please check if this link contains a video file (not a gif) preferably use the v.redd.it link")
         filename = f"{results[0].get('id')}.{results[0].get('ext')}"
