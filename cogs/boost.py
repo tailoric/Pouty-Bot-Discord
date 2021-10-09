@@ -93,7 +93,7 @@ class Boost(commands.Cog):
     @commands.group(name="myicon", aliases=['mi', 'icon'], invoke_without_command=True)
     @commands.guild_only()
     @is_boost()
-    async def set_role_icon(self, ctx, icon : Union[discord.Emoji, str] = None):
+    async def set_role_icon(self, ctx, icon : Union[discord.Emoji, discord.PartialEmoji, str] = None):
         """
         set a role icon for yourself, this will be attached to your boost colour role
         so you need to have that set first, use `.mc purple`
@@ -108,6 +108,8 @@ class Boost(commands.Cog):
         if not role:
             await ctx.send("Couldn't get boost colour role, please set one first")
         if isinstance(icon, discord.Emoji):
+            await role.edit(icon=await icon.read())
+        elif isinstance(icon, discord.PartialEmoji) and icon.is_custom_emoji():
             await role.edit(icon=await icon.read())
         elif isinstance(icon, str) and icon.startswith("http"):
             async with self.bot.session.get(url=icon, raise_for_status=True) as resp:
