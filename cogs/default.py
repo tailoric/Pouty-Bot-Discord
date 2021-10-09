@@ -103,7 +103,7 @@ class BotHelpPages(menus.ListPageSource):
                     color=discord.Colour.blurple()
                 )
         for command in page.commands:
-            embed.add_field(name=command.qualified_name, value=command.short_doc or "\u200b")
+            embed.add_field(name=command.qualified_name, value=command.short_doc or "\u200b", inline=False)
             if len(embed) > 5000:
                 break
         embed.set_footer(text=f"Page {menu.current_page+1}/{self.get_max_pages()}")
