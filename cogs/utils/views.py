@@ -82,28 +82,28 @@ class PaginatedView(discord.ui.View):
             # An error happened that can be handled, so ignore it.
             pass
 
-    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f')
+    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
     async def go_to_first_page(self, button: discord.ui.Button, interaction):
         """go to the first page"""
         await self.show_page(0)
 
-    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f')
+    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f', row=1)
     async def go_to_previous_page(self, button, interaction):
         """go to the previous page"""
         await self.show_checked_page(self.current_page - 1)
 
-    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f')
+    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f', row=1)
     async def go_to_next_page(self, button, interaction):
         """go to the next page"""
         await self.show_checked_page(self.current_page + 1)
 
-    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f')
+    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
     async def go_to_last_page(self, button, interaction):
         """go to the last page"""
         # The call here is safe because it's guarded by skip_if
         await self.show_page(self._source.get_max_pages() - 1)
 
-    @discord.ui.button(emoji='\N{BLACK SQUARE FOR STOP}\ufe0f')
+    @discord.ui.button(emoji='\N{BLACK SQUARE FOR STOP}\ufe0f', row=1)
     async def stop_pages(self, button, interaction):
         """stops the pagination session."""
         self.clear_items()

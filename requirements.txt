@@ -13,3 +13,4 @@ youtube-dl
 bs4
 Emojipedia
 asyncpg
+httpx
