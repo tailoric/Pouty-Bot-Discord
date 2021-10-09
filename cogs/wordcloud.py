@@ -106,7 +106,7 @@ class Wordcloud(commands.Cog):
     ##################
     # Commands
     ##################
-    @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="[user|channel]")
+    @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="wc [user|channel]")
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
     async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel, None]):
         """
