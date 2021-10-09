@@ -99,7 +99,7 @@ class Time(commands.Cog):
         """)
 
     @commands.group(name="time", invoke_without_command=True)
-    async def user_time(self, ctx: commands.Context, user : typing.Optional[discord.Member]):
+    async def user_time(self, ctx: commands.Context, *, user : typing.Optional[discord.Member]):
         """
         show the time of a user if they added their timezone to the database
         """
