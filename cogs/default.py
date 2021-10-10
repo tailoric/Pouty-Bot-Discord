@@ -248,21 +248,22 @@ class Default(commands.Cog):
     async def on_command_error(self, ctx, error):
         if ctx.command and ctx.command.has_error_handler():
             return
-        if isinstance(error, commands.CommandNotFound):
+        elif isinstance(error, commands.CommandNotFound):
             return
-        if isinstance(error, BlackListedException):
+        elif isinstance(error, BlackListedException):
             return
-        if isinstance(error, commands.CommandOnCooldown):
+        elif isinstance(error, commands.CommandOnCooldown):
             await self.cooldown_embed(ctx, error)
-        if isinstance(error, DisabledCommandException):
+            return
+        elif isinstance(error, DisabledCommandException):
             await ctx.message.channel.send("Command is disabled")
             return
-        if isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
+        elif isinstance(error, commands.BadArgument) or isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
             if ctx.command.help is not None:
                 await ctx.send_help(ctx.command)
             return
-        if isinstance(error, commands.CheckFailure):
+        elif isinstance(error, commands.CheckFailure):
             await ctx.send(error)
             return
         elif isinstance(error, commands.CommandInvokeError):
