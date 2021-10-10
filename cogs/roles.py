@@ -284,7 +284,7 @@ class Roles(commands.Cog):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.guild_only()
     @commands.cooldown(rate=1, per=60, type=commands.BucketType.member)
-    async def roles_ping(self, ctx, role: discord.Role):
+    async def roles_ping(self, ctx, *, role: discord.Role):
         """
         ping the role by making it mentionable for the ping and remove
         mentionable again
