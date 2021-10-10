@@ -283,7 +283,7 @@ class Roles(commands.Cog):
     @commands.check_any(commands.has_any_role(189594836687519744, 514884001417134110), checks.is_owner_or_moderator())
     @commands.bot_has_permissions(manage_roles=True)
     @commands.guild_only()
-    @commands.cooldown(rate=1, per=20, type=commands.BucketType.guild)
+    @commands.cooldown(rate=1, per=60, type=commands.BucketType.member)
     async def roles_ping(self, ctx, role: discord.Role):
         """
         ping the role by making it mentionable for the ping and remove
@@ -325,7 +325,7 @@ class Roles(commands.Cog):
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission add a role")
 
-    @roles.command(name="mentionable")
+    @roles.command(name="mentionable", aliases=["pingable"])  
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
     async def _set_role_pingable(self, ctx, role: discord.Role, pingable: bool):
