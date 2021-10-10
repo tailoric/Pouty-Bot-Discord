@@ -129,16 +129,21 @@ class Roles(commands.Cog):
             await con.execute("""
                 CREATE TABLE IF NOT EXISTS role_info(
                     role_id BIGINT PRIMARY KEY,
-                    description TEXT
+                    description TEXT,
+                    pingable boolean DEFAULT false
                     ) """)
+            await con.execute("""
+                ALTER TABLE role_info
+                ADD COLUMN IF NOT EXISTS pingable boolean DEFAULT false
+            """)
 
-    async def fetch_role_description(self, role_id):
+    async def fetch_role_info(self, role_id):
         async with self.bot.db.acquire() as con:
             statement = await con.prepare("""
-                SELECT description from role_info
+                SELECT description, pingable from role_info
                 WHERE role_id = $1
             """)
-            return await statement.fetchval(role_id)
+            return await statement.fetchrow(role_id)
 
     async def create_role_description(self, role_id, desc):
         async with self.bot.db.acquire() as con:
@@ -240,7 +245,7 @@ class Roles(commands.Cog):
                     continue
                 embed.add_field(name=role.name, value="{} Member(s)".format(len(role.members)))
         else:
-            description = await self.fetch_role_description(role.id)
+            info = await self.fetch_role_info(role.id)
             embed.title = role.name
             embed.color = role.colour
             embed.add_field(name="ID", value=role.id)
@@ -250,8 +255,9 @@ class Roles(commands.Cog):
             embed.timestamp = role.created_at
             if role.icon: 
                 embed.set_thumbnail(url=role.icon.url)
-            if description:
-                embed.description = description
+            if info:
+                embed.description = info.get('description', '\u200b')
+                embed.add_field(name='pingable', value='yes' if info.get('pingable', False) else 'no')
         await ctx.send(embed=embed)
 
     @commands.has_permissions(manage_roles=True)
@@ -264,6 +270,7 @@ class Roles(commands.Cog):
         pass
 
     @roles.command(name="description")
+    @commands.has_permissions(manage_roles=True)
     async def _role_description(self, ctx, role : CustomRoleConverter, *, description: str):
         """
         set the description of a certain role
@@ -272,14 +279,21 @@ class Roles(commands.Cog):
         return await ctx.send("Role description set.")
 
 
-    @checks.is_owner_or_moderator()
     @commands.command(name="mention")
+    @commands.check_any(commands.has_any_role(189594836687519744, 514884001417134110), checks.is_owner_or_moderator())
+    @commands.bot_has_permissions(manage_roles=True)
     @commands.guild_only()
+    @commands.cooldown(rate=1, per=20, type=commands.BucketType.guild)
     async def roles_ping(self, ctx, role: discord.Role):
         """
         ping the role by making it mentionable for the ping and remove
         mentionable again
         """
+        can_ping = await self.bot.db.fetchval("""
+        SELECT pingable FROM role_info WHERE role_id = $1
+        """, role.id)
+        if not can_ping:
+            return await ctx.send("I am not allowed to ping this role")
         try:
             await role.edit(mentionable=True)
             await ctx.send(role.mention)
@@ -288,24 +302,48 @@ class Roles(commands.Cog):
             await ctx.send("I am not allowed to edit this role")
 
     @roles.command(name="add")
+    @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
-    async def _add_role(self, ctx, role_name: str, mentionable=True, colour=None):
+    async def _add_role(self, ctx, role_name: str, mentionable=False, colour=None):
         """
         add a role the bot can edit
         """
         try:
             server = ctx.message.guild
 
-            set_colour = discord.Colour(value=int(colour, 16)) if colour else discord.Colour(value=None)
+            set_colour = discord.Colour(value=int(colour, 16)) if colour else discord.Colour.default()
             if find(lambda r: r.name == role_name, server.roles):
                 await ctx.send('role already exists.')
                 return
-            new_role = await server.create_role(name=role_name, mentionable=mentionable, colour=set_colour)
+            new_role = await server.create_role(name=role_name, colour=set_colour)
+            ret = await self.bot.db.execute("""
+            INSERT INTO role_info (role_id, pingable) VALUES ($1, $2)
+            ON CONFLICT (role_id) DO 
+                UPDATE SET pingable = $2
+            """, new_role.id, mentionable)
             await ctx.send("role `{}` created".format(new_role.name))
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission add a role")
 
-    @roles.command(name="remove", pass_context=True)
+    @roles.command(name="mentionable")
+    @commands.has_permissions(manage_roles=True)
+    @commands.guild_only()
+    async def _set_role_pingable(self, ctx, role: discord.Role, pingable: bool):
+        """
+        set wether a role is pingable or for users 
+        """
+        ret = await self.bot.db.execute("""
+        INSERT INTO role_info (role_id, pingable) VALUES ($1, $2)
+        ON CONFLICT (role_id) DO 
+            UPDATE SET pingable = $2
+        """, role.id, pingable)
+        print(ret)
+        await ctx.send(f"role updated to {'pingable' if pingable else 'unpingable'}")
+        
+
+
+    @roles.command(name="remove")
+    @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
     async def _remove_role(self, ctx, role_name: str):
         """
