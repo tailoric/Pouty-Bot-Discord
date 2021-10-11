@@ -280,7 +280,7 @@ class Roles(commands.Cog):
         return await ctx.send("Role description set.")
 
 
-    @commands.command(name="mention")
+    @commands.command(name="mention", cooldown_after_parsing=True)
     @commands.check_any(commands.has_any_role(189594836687519744, 514884001417134110), checks.is_owner_or_moderator())
     @commands.bot_has_permissions(manage_roles=True)
     @commands.guild_only()
