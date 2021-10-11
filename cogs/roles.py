@@ -104,9 +104,10 @@ class CustomRoleConverter(commands.RoleConverter):
     This converter is for removing
     """
     async def convert(self, ctx, argument):
-        argument = argument.strip('"')
+        modified_arg = argument.strip('"')
+        modified_arg = argument.replace("@","")
         for role in ctx.guild.roles:
-            if argument.lower() == role.name.lower():
+            if modified_arg.lower() == role.name.lower():
                 return role
         return await super().convert(ctx, argument)
 
@@ -284,7 +285,7 @@ class Roles(commands.Cog):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.guild_only()
     @commands.cooldown(rate=1, per=60, type=commands.BucketType.member)
-    async def roles_ping(self, ctx, *, role: discord.Role):
+    async def roles_ping(self, ctx, *, role: CustomRoleConverter):
         """
         ping the role by making it mentionable for the ping and remove
         mentionable again
