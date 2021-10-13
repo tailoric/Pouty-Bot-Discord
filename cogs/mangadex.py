@@ -28,13 +28,13 @@ class Manga:
             self.cover_art = None
     def __init__(self, data):
         self.data = data
-        self._id = data.get("data").get("id")
-        attributes = data.get("data").get("attributes", {})
+        self._id = data.get("id")
+        attributes = data.get("attributes", {})
         self.title = attributes.get("title",{}).get("en", None)
         self.description = attributes.get("description", {}).get("en")
         self.tags = list(tag.get("attributes").get("name").get("en") for tag in attributes.get("tags", []))
         self.status = attributes.get("status")
-        self.build_cover_url(data.get("data"))
+        self.build_cover_url(data)
 
     @property
     def embed(self) -> discord.Embed:
@@ -68,7 +68,7 @@ class Mangadex(commands.Cog):
                 resp.raise_for_status()
                 response = await resp.json()
                 attributes = response.get("data").get("attributes")
-                manga = Manga(response)
+                manga = Manga(response.get("data"))
                 await message.channel.send(embed=manga.embed)
                 if message.guild and \
                         message.channel.permissions_for(message.guild.me).manage_messages:
@@ -80,14 +80,14 @@ class Mangadex(commands.Cog):
         """
         search mangadex for a title
         """
-        params = {"title": query, "includes[]": "cover_art", "limit": 1 }
+        params = {"title": query, "includes[]": "cover_art", "limit": 1 , "order[relevance]": 'desc'}
         async with self.bot.session.get(self.api_url+f"/manga", params=params) as resp:
             resp.raise_for_status()
             response = await resp.json()
-            results = response.get("results", [])
+            results = response.get("data", [])
             if not results:
                 return await ctx.send("No manga found make sure you typed the title correctly")
-            for result in response.get("results", []):
+            for result in results:
                 manga = Manga(result)
                 await ctx.send(embed=manga.embed)
 
