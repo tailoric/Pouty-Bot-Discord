@@ -134,6 +134,18 @@ class ReadRules(commands.Cog):
     @commands.guild_only()
     @is_owner_or_moderator()
     async def rules(self, ctx: commands.Context):
+        """
+        A command for rewriting and posting the rules of the current server.
+        The rules channel has to be setup via the `setup` subcommand.
+        The command expects a text file to be uploaded on use.
+        __Format rules__:
+            - New lines of the original file are preserved.
+            - Typical markdown rules apply `**bold**` `_italic_` etc.
+            - An empty line tells the bot to post a new message otherwise the bot will fill up to 4000 character per message
+            - to have an image in the embed use a single line starting with `!image` followed by the valid image url followed by an empty line
+            - You have to use the [discord markdown](https://discord.com/developers/docs/reference#message-formatting) for channels, users, roles etc (check the link for more info)
+              So instead of using @User you have to do `<@1234567890>` or instead of @Role you have to use `<&@1234456789>`
+        """
         if not ctx.message.attachments:
             await ctx.send("Please upload a text file with the rules")
             return
@@ -174,6 +186,11 @@ class ReadRules(commands.Cog):
     @commands.guild_only()
     @is_owner_or_moderator()
     async def setup_rules(self, ctx: commands.Context, rules_channel: discord.TextChannel):
+        """
+        Setup the channel where the rules for the `.rules` command are posted
+
+        This command takes channel mention or channel id or channel name
+        """
         await self.bot.db.execute("""
             INSERT INTO rule_channel(guild_id, channel_id) VALUES ($1, $2)
             ON CONFLICT (guild_id) 
