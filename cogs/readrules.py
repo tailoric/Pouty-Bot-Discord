@@ -11,9 +11,21 @@ import asyncio
 from .utils.dataIO import DataIO
 from .utils.checks import is_owner_or_moderator
 from cogs.default import CustomHelpCommand
+from io import TextIOWrapper, BytesIO
 
 forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
+class JumpMessageView(discord.ui.View):
+    def __init__(self, message: discord.Message):
+        super().__init__(timeout=None)
+        self.add_item(discord.ui.Button(url=message.jump_url, label='Scroll Up', emoji="\N{UPWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}", style=discord.ButtonStyle.primary))
+        self.add_item(discord.ui.Button(
+            url="https://discord.com/channels/187423852224053248/366659034410909717/",
+            label="confirm you read the rules",
+            emoji="\N{OPEN BOOK}"
+            ))
+
 class AnimemesHelpFormat(CustomHelpCommand):
+
 
     def random_response(self):
         with open("data/rules_channel_phrases.json")as f:
@@ -79,12 +91,14 @@ class ReadRules(commands.Cog):
         self.data_io = DataIO()
         self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
         self.animemes_guild = self.bot.get_guild(187423852224053248)
-        self.memester_role = self.animemes_guild.get_role(189594836687519744)
-        self.new_memester = self.animemes_guild.get_role(653273427435847702)
-        self.join_log = self.animemes_guild.get_channel(595585060909088774)
-        self.rules_channel = self.animemes_guild.get_channel(366659034410909717)
-        self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
+        if self.animemes_guild:
+            self.memester_role = self.animemes_guild.get_role(189594836687519744)
+            self.new_memester = self.animemes_guild.get_role(653273427435847702)
+            self.join_log = self.animemes_guild.get_channel(595585060909088774)
+            self.rules_channel = self.animemes_guild.get_channel(366659034410909717)
+            self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
         self.bot.loop.create_task(self.init_database())
+        self.bot.loop.create_task(self.setup_rules_database())
         self.check_for_new_memester.start()
         self.join_counter = 0
         self.join_limit = 5
@@ -108,9 +122,67 @@ class ReadRules(commands.Cog):
         memester_count = len(self.memester_role.members) + len(self.new_memester.members)
         await ctx.send(embed=discord.Embed(title=f"People stuck in #{self.rules_channel.name}", description=f"There are currently {self.animemes_guild.member_count - memester_count:,} users stuck still reading the rules."))
 
+    async def setup_rules_database(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS rule_channel (
+            guild_id BIGINT NOT NULL primary key,
+            channel_id BIGINT NOT NULL
+        )
+        """)
+
+    @commands.group(name="rules", invoke_without_command=True)
+    @commands.guild_only()
+    @is_owner_or_moderator()
+    async def rules(self, ctx: commands.Context):
+        if not ctx.message.attachments:
+            await ctx.send("Please upload a text file with the rules")
+            return
+        rules_channel_id = await self.bot.db.fetchval("""
+        SELECT channel_id FROM rule_channel WHERE guild_id = $1
+        """, ctx.guild.id)
+        if rules_channel_id:
+            rules_channel = ctx.guild.get_channel(rules_channel_id)
+        else:
+            return await ctx.send("no rules channel setup")
+        attachment = ctx.message.attachments[0]
+        bytesIO = BytesIO(await attachment.read())
+        file_wrapper = TextIOWrapper(buffer=bytesIO, encoding='utf-8')
+        paginator = commands.Paginator(prefix=None, suffix=None, max_size=4000)
+        while (line := file_wrapper.readline()) != "":
+            if line.strip() == "":
+                paginator.close_page()
+                continue
+            paginator.add_line(line.strip("\n"))
+
+        first_msg = None
+        msg = None
+        await rules_channel.purge(limit=None)
+        for page in paginator.pages:
+            if page.startswith("!image"):
+                page = page.replace("!image ", "")
+                embed = discord.Embed(title="\u200b", colour=discord.Colour.blurple())
+                embed.set_image(url=page)
+            else:
+                embed = discord.Embed(description=page, colour=discord.Colour.blurple())
+            msg = await rules_channel.send(embed=embed)
+            if not first_msg:
+                first_msg = msg
+        if first_msg and msg:
+            await msg.edit(view=JumpMessageView(first_msg))
+
+    @rules.command(name="setup")
+    @commands.guild_only()
+    @is_owner_or_moderator()
+    async def setup_rules(self, ctx: commands.Context, rules_channel: discord.TextChannel):
+        await self.bot.db.execute("""
+            INSERT INTO rule_channel(guild_id, channel_id) VALUES ($1, $2)
+            ON CONFLICT (guild_id) 
+            DO UPDATE SET channel_id = $2
+        """, ctx.guild.id, rules_channel.id)
+        await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
 
 
-    @tasks.loop(hours=0)
+    @tasks.loop(hours=1)
     async def limit_reset(self):
         self.join_counter = 0
         default_role = self.animemes_guild.default_role
