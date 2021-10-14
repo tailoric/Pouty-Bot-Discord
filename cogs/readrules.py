@@ -172,7 +172,7 @@ class ReadRules(commands.Cog):
         for page in paginator.pages:
             if page.startswith("!image"):
                 page = page.replace("!image ", "")
-                embed = discord.Embed(title="\u200b", colour=discord.Colour.blurple())
+                embed = discord.Embed(colour=discord.Colour.blurple())
                 embed.set_image(url=page)
             else:
                 embed = discord.Embed(description=page, colour=discord.Colour.blurple())
