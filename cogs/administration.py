@@ -7,6 +7,7 @@ from .utils import checks, paginator
 from .utils.dataIO import DataIO
 from random import choice
 import logging
+import textwrap
 import typing
 from io import BytesIO
 import asyncio
@@ -38,6 +39,23 @@ class SnowflakeUserConverter(commands.MemberConverter):
                 except (discord.Forbidden, discord.HTTPException):
                     return discord.Object(int(match.group(2)))
             raise commands.BadArgument("Please provide a user mention or a user id when user already left the server")
+
+
+class DeleteDaysFlag(commands.FlagConverter):
+    delete_days: int = commands.flag(name="days", aliases=["dd"], default=0)
+    reason : str
+
+    @classmethod
+    async def convert(cls, ctx: commands.Context, argument: str):
+        # This is very scuffed, however this is the best way I have found while not 
+        # disrupting the old muscle memory on how the ban command works
+        pattern = r"(?:dd|days): \d+"
+        match = re.search(pattern, argument)
+        if match:
+            argument = f"{match.group(0)} reason: {re.sub(pattern, '',argument)}"
+        else:
+            argument = "reason: " + argument
+        return await super().convert(ctx, argument=argument)
 
 
 class Admin(commands.Cog):
@@ -465,25 +483,46 @@ class Admin(commands.Cog):
             json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
-    @commands.command(name="ban")
+    @commands.command(name="ban", usage="ban <User> <reason> `days:|dd:` <number of days>")
     @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, member: SnowflakeUserConverter, delete_message_days: typing.Optional[int] = 0, *, reason: str):
+    async def ban(self, ctx, member: typing.Optional[SnowflakeUserConverter], * , reason: DeleteDaysFlag):
+        """
+        Ban a user from the server with reason.
+        This command will try to DM the user with the ban reason, then ban and optionally delete x days of messages
+        The user can be omitted from the command if it is done in reply to a message, the user who gets replied to will be banned.
+        If a user id or user mention is used in the command while replying then the user in the command will be banned **not** the user who got replied to.
+        if the `days:` or `dd`: flag was given.
+        __Examples:__
+        `.ban User some valid reason`
+        will simply ban a user
+        `.ban user some valid reason dd: 1` will ban a user and delete 1 day worth of messages
+        """
+        if ctx.message.reference and ctx.message.reference.resolved:
+            if isinstance(ctx.message.reference.resolved, discord.Message) and member is None:
+                member = ctx.message.reference.resolved.author
+        if not member:
+            return await ctx.send("You need to mention a member to ban or reply to a message to ban the member")
         try:
             if isinstance(member, discord.Member) and 191094827562041345 not in [role.id for role in member.roles]:
-                dm_message = "you have been banned for the following reasons:\n{}".format(reason)
+                dm_message = "you have been banned for the following reasons:\n{}".format(reason.reason)
                 await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await ctx.send("couldn't DM reason to user")
+        print(reason.delete_days)
         try:
             if isinstance(member, discord.Member):
                 if 191094827562041345 in [role.id for role in member.roles]:
                     await ctx.send("I could never ban a dear senpai of mine <a:shinpanic:427749630445486081>")
                     return
-                await member.ban(delete_message_days=delete_message_days, reason=reason[:512])
+                await member.ban(delete_message_days=reason.delete_days, reason=reason.reason[:512])
             else:
-                await ctx.guild.ban(user=member, delete_message_days=delete_message_days, reason=reason[:512])
+                await ctx.guild.ban(user=member, delete_message_days=reason.delete_days, reason=reason.reason[:512])
             mention = member.mention if isinstance(member, discord.Member) else f"<@{member.id}>"
-            embed = discord.Embed(title="Ban", description=f"**{mention} banned for the following reason:**\n{reason}")
+            embed = discord.Embed(title="Ban", description=f"**{mention} banned for the following reason:**\n{reason.reason}")
+            if ctx.message.reference and ctx.message.reference.resolved:
+                replied = ctx.message.reference.resolved
+                if isinstance(replied, discord.Message):
+                    embed.add_field(name="In Reply to...", value=f"[{textwrap.shorten(replied.content or '...', 100)}]({replied.jump_url})", inline=False)
             if hasattr(member, 'name'):
                 embed.add_field(name="Username", value=member.name)
             embed.add_field(name="User-ID", value=member.id)
