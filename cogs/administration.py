@@ -488,10 +488,9 @@ class Admin(commands.Cog):
     async def ban(self, ctx, member: typing.Optional[SnowflakeUserConverter], * , reason: DeleteDaysFlag):
         """
         Ban a user from the server with reason.
-        This command will try to DM the user with the ban reason, then ban and optionally delete x days of messages
+        This command will try to DM the user with the ban reason, then ban and optionally delete x days of messages if the `days:` or `dd`: flag was given.
         The user can be omitted from the command if it is done in reply to a message, the user who gets replied to will be banned.
         If a user id or user mention is used in the command while replying then the user in the command will be banned **not** the user who got replied to.
-        if the `days:` or `dd`: flag was given.
         __Examples:__
         `.ban User some valid reason`
         will simply ban a user
