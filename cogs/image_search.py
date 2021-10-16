@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from PIL import Image
 from bs4 import BeautifulSoup
 from discord.ext import commands
@@ -57,6 +58,23 @@ class SauceNaoResult:
 
 class TraceMoe:
 
+    anilist_query = """
+        query($id:Int){
+          Media(id: $id) {
+            title {
+              userPreferred
+            }
+            description
+            coverImage{
+              color
+            }
+            nextAiringEpisode {
+              airingAt
+              episode
+            }
+          }
+        }
+    """
     @staticmethod
     async def get_frame(url, session):
         mime_type = mimetypes.guess_type(url)
@@ -66,15 +84,6 @@ class TraceMoe:
                     if response.status == 200:
                         return io.BytesIO(await response.read())
                     return None
-            elif "video" in mime_type[0]:
-                process = await asyncio.create_subprocess_exec(
-                    'ffmpeg', '-y', '-i', url,
-                    '-vframes', '1',
-                    '-hide_banner','-loglevel', 'panic', 'data/trace/frame.jpg'
-                )
-                await process.communicate()
-                with open('data/trace/frame.jpg', 'rb') as f:
-                    return io.BytesIO(f.read())
             return None
 
     @staticmethod
@@ -277,7 +286,6 @@ class Search(commands.Cog):
                 source = None
                 if response.status == 200:
                     resp = await response.json()
-                    print(json.dumps(resp, indent=4))
                     header = resp['header']
                     results = resp['results']
                     self.sauce_nao_settings['short_remaining'] = header['short_remaining']
@@ -315,42 +323,6 @@ class Search(commands.Cog):
                         paginator.add_line(line)
                     for page in paginator.pages:
                         await ctx.send(page)
-
-    @commands.command()
-    async def tineye(self, ctx, link=None):
-        """
-        reverse image search using tineye
-        usage:  .tineye <image-link> or
-                .tineye on image upload comment
-        """
-        file = ctx.message.attachments
-        if not link and not file and ctx.message.reference:
-            link = self.get_referenced_message_image(ctx)
-        if link is None and not file:
-            await ctx.send('Message didn\'t contain Image')
-        else:
-            try:
-                await ctx.trigger_typing()
-            except:
-                self.logger.exception("fail during typing")
-            if file:
-                url = file[0].url
-            else:
-                url = link
-            async with self.tineye_session.get('https://tineye.com/search/?url={}'.format(url)) as response:
-                soup = BeautifulSoup(await response.text(), 'html.parser')
-                pages = []
-                image_link = None
-                for hidden in soup.find(class_='match').select('.hidden-xs'):
-                    if hidden.contents[0].startswith('Page:'):
-                        pages.append('<{}>'.format(hidden.next_sibling['href']))
-                    else:
-                        image_link = hidden.a['href']
-            message = '\n**Pages:** '
-            message += '\n**Pages:** '.join(pages)
-            if image_link is not None:
-                message += '\n**direct image:** <{}>'.format(image_link)
-            await ctx.send(message)
 
     @commands.command()
     async def yt_version(self, ctx):
@@ -431,17 +403,15 @@ class Search(commands.Cog):
         image_link = image_link.strip("<>|")
         image = await TraceMoe.get_frame(image_link, self.sauce_session)
         if image:
-            im = Image.open(image)
-            header = {"Content-Type": "application/json"}
-            request_data = {"image": TraceMoe.scale_image_down(im)}
-            async with self.sauce_session.post(json=request_data, headers=header, url="https://trace.moe/api/search") as resp:
+            request_data = {"image": image}
+            async with self.sauce_session.post(data=request_data, url="https://api.trace.moe/search", raise_for_status=True) as resp:
                 if resp.status == 200:
                     resp_json = await resp.json()
-                    sorted_found = sorted(resp_json["docs"], key=lambda d: d['similarity'], reverse=True)
+                    sorted_found = sorted(resp_json["result"], key=lambda d: d['similarity'], reverse=True)
                     first_result = sorted_found[0]
                     threshold = similarity / 100
                     if first_result["similarity"] >= threshold:
-                        embed = self.build_embed_for_trace_moe(first_result)
+                        embed = await self.build_embed_for_trace_moe(first_result)
                         await ctx.send(embed=embed)
                     else:
                         await ctx.send("Nothing found, refer to the FAQ to see what the cause could be:\n"
@@ -461,23 +431,36 @@ class Search(commands.Cog):
     async def trace_error(self, ctx, error):
         if isinstance(error, commands.CommandOnCooldown):
             await ctx.send(error)
-
-    def build_embed_for_trace_moe(self, first_result):
-        embed = discord.Embed(colour=discord.Colour(0xa4815f),
-                              description="Source found via [trace.moe](https://trace.moe/)")
-        embed.add_field(name="Name", value=first_result["title_romaji"], inline=False)
-        m, s = divmod(first_result["at"], 60)
-        embed.add_field(name="Episode {0}".format(first_result["episode"]),
-                        value="at {0:02d}:{1:02d}".format(int(m), int(s)), inline=False)
-        if not first_result.get("is_adult", False):
-            embed.set_image(url="https://trace.moe/thumbnail.php?anilist_id={0}&file={1}&t={2}&token={3}"
-                            .format(first_result["anilist_id"], urllib.parse.quote(first_result["filename"]),
-                                    first_result["at"], first_result["tokenthumb"]))
         else:
-            embed.add_field(name="Hentai?", value="Yes")
-        embed.add_field(name="MAL", value=self.build_mal_link_from_id(first_result["mal_id"]), inline=False)
-        embed.add_field(name="anilist", value=self.build_anilist_link_from_id(first_result["anilist_id"]), inline=False)
-        embed.add_field(name="Image Similarity", value=f'{int(first_result["similarity"] * 100)}%')
+            await ctx.send(error)
+
+    async def build_embed_for_trace_moe(self, first_result):
+        anilist_url = None
+        title = None
+        data = None
+        print(first_result)
+        if first_result.get('anilist'):
+            anilist_url = f"https://anilist.co/anime/{first_result.get('anilist')}"
+            async with self.sauce_session.post(url="https://graphql.anilist.co", json={"query": TraceMoe.anilist_query, "variables": {'id': first_result.get('anilist')}}) as resp:
+                if resp.status < 400:
+                    anilist_data = await resp.json()
+                    data = anilist_data.get("data")
+                    title = data.get("Media", {}).get("title", {}).get("userPreferred", None)
+
+        embed = discord.Embed(title=title or first_result.get("filename"), url=anilist_url or discord.Embed.Empty)
+        start_min, start_seconds = divmod(int(first_result.get('from')), 60)
+        start_hours, start_min = divmod(start_min, 60)
+        embed.add_field(name=f"Episode {first_result.get('episode')}", value=f"At {start_hours:02d}:{start_min:02d}:{start_seconds:02d}", inline=False)
+        embed.add_field(name="Similarity", value=f"{round(first_result.get('similarity'), 3) * 100:.1f}%", inline=False)
+        if data and data.get("Media", {}).get("nextAiringEpisode"):
+            next_ep = data.get("Media", {}).get("nextAiringEpisode", {})
+            embed.add_field(name="Next Episode", value=f"EP {next_ep.get('episode')} on <t:{next_ep.get('airingAt')}>")
+        if data and data.get("Media", {}).get("coverImage"):
+            color = data.get("Media", {}).get("coverImage", {}).get("color")
+            if color:
+                val = int(color.strip("#"), 16)
+                embed.color = discord.Colour(val)
+        embed.set_thumbnail(url=first_result.get("image", discord.Embed.Empty))
         return embed
 
     def build_mal_link_from_id(self, id):
