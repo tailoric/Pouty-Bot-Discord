@@ -5,6 +5,7 @@ from textwrap import shorten
 from datetime import timedelta
 from html.parser import HTMLParser
 import logging
+import json
 
 class MLStripper(HTMLParser):
     def __init__(self):
@@ -25,6 +26,7 @@ class AniSearch(commands.Cog):
         self.session = aiohttp.ClientSession()
         self.remaining_requests = None
         self.colour_converter = commands.ColourConverter()
+        self.logger = logging.getLogger("PoutyBot")
 
     query = '''
             query ($id: Int, $search: String, $type: MediaType, $sort: [MediaSort]) {
@@ -84,8 +86,7 @@ class AniSearch(commands.Cog):
     @anilist.error
     async def anilist_error(self, ctx, error):
         await ctx.send(error)
-        logger = logging.getLogger("PoutyBot")
-        logger.error(error, exc_info=1)
+        self.logger.error(error, exc_info=1)
 
     @anilist.command(name="manga")
     async def anilist_manga(self, ctx, *, title):
@@ -160,7 +161,12 @@ class AniSearch(commands.Cog):
             return await ctx.send(f"Anime **{anime_title}** is not airing. "
                                    "Be sure you did search for the correct season.\n"
                                    "Season title must match perfectly")
-        color = await self.colour_converter.convert(ctx, data.get("coverImage").get("color"))
+        self.logger.debug(json.dumps(data, indent=2))
+        cover_image_colour = data.get("coverImage").get("color")
+        if cover_image_colour:
+            color = await self.colour_converter.convert(ctx, cover_image_colour)
+        else:
+            color = discord.Colour.blurple()
         episode = data.get("nextAiringEpisode").get("episode")
         until_next = timedelta(seconds=data.get("nextAiringEpisode").get("timeUntilAiring"))
         timer_str = (f"Episode {episode} of **{anime_title}** airs in:"
