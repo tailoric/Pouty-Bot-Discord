@@ -209,7 +209,7 @@ class Contest(commands.Cog):
         embed = discord.Embed(color=member.color, title=member.display_name, url=message.jump_url,
                               description=f"submitted the following entry: [Jump]({message.jump_url})")
         embed.add_field(name="#Votes", value=votes)
-        embed.set_thumbnail(url=member.avatar.url)
+        embed.set_thumbnail(url=member.avatar_url)
         embed.set_image(url=submission_image)
         await ctx.send(embed=embed)
 

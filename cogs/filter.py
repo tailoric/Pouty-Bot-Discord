@@ -85,7 +85,7 @@ class Filter(commands.Cog):
     @commands.group(name="blsticker", aliases=["sticker"])
     async def sticker_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
         """
-        add a channel or category to the blacklist
+        add a channel or category to the blacklist to filter stickers
         """
         if ctx.invoked_subcommand is not None:
             return
@@ -123,7 +123,7 @@ class Filter(commands.Cog):
     @sticker_filter.command(name="list")
     async def sticker_filter_list(self, ctx):
         """
-        list all channels that have a giphy and tenor blacklist
+        list all channels that have a sticker blacklist
         """
         entries = [(c.name, c.mention) for c in self.sticker_blacklist_channels]
         entries.extend((c.name, ','.join(channel.mention for channel in c.channels)) for c in self.sticker_blacklist_categories)

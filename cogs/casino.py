@@ -446,10 +446,9 @@ class DeathrollStates(Enum):
     GAME_OVER = auto()
 
 
-class DeathrollGame(discord.ui.View):
+class DeathrollGame():
 
-    def __init__(self, player, bet, payday=None):
-        self.payday = payday
+    def __init__(self, player, bet):
         self.game_state = DeathrollStates.WAITING
         self.bet = bet
         self.roll_amount = bet * 10
@@ -489,12 +488,16 @@ class DeathrollGame(discord.ui.View):
         if self.game_state == DeathrollStates.GAME_OVER:
             return f"GAME OVER!\nWINNER: **{self.winner.mention}**"
 
-
 class Deathroll(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.games = []
+        self.join_reaction = "\N{SKULL}"
+        self.roll_reaction = "\N{GAME DIE}"
+        self.resolve_reaction = "\N{ROCKET}"
+        self.accept_reaction = "\N{WHITE HEAVY CHECK MARK}"
+        self.reject_reaction = "\N{NEGATIVE SQUARED CROSS MARK}"
         self.payday = self.bot.get_cog("Payday")
 
     def cog_unload(self):
