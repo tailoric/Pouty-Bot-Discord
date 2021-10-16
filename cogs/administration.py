@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from collections import Counter
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
-mention_regex = re.compile('(<@!?)?(\d{17,})>?')
+mention_regex = re.compile(r'(<@!?)?(\d{17,})>?')
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
