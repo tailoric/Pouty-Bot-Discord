@@ -715,7 +715,7 @@ class Admin(commands.Cog):
         
         await ctx.send("You are not muted.")
 
-    @commands.group(invoke_without_command=True)
+    @commands.group(invoke_without_command=True, aliases=["timeout"])
     @commands.has_permissions(manage_roles=True)
     async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
         """
