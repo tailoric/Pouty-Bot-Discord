@@ -24,7 +24,8 @@ class CustomCommands(commands.Cog):
             CREATE TABLE IF NOT EXISTS custom_command(
                 guild_id BIGINT NOT NULL,
                 name TEXT NOT NULL,
-                content TEXT NOT NULL
+                content TEXT NOT NULL,
+                UNIQUE (guild_id, name)
             )
         """)
     async def initialize_commands(self):
