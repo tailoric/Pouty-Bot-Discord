@@ -141,6 +141,26 @@ class Tags(commands.Cog):
         else:
             await ctx.send("nothing found")
 
+    @tag.command(name="list")
+    async def tag_list(self, ctx):
+        """
+        List all tags of the bot
+        """
+        results = await self.bot.db.fetch("""
+            SELECT t.name
+            FROM tag t 
+            WHERE guild_id = $1
+            LIMIT 100;
+        """, ctx.guild.id)
+        entries = [t.get('name') for t in results]
+        if entries:
+            source = TagList(entries, per_page=10)
+            view = views.PaginatedView(source)
+            await view.start(ctx)
+        else:
+            await ctx.send("no tags")
+
+
 
 
     @tag.group(name="alias", invoke_without_command=True)
