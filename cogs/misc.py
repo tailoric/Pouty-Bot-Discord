@@ -373,6 +373,14 @@ class EightBall(commands.Cog):
         answerlist = response[random.choice(["positive", "negative", "neutral"])]
         await ctx.send(random.choice(answerlist))
 
+def has_sticker():
+    async def predicate(ctx: commands.Context):
+        if ctx.message.stickers:
+            return True
+        else:
+            raise commands.CheckFailure("No sticker inside the message")
+    return commands.check(predicate)
+
 class Emoji(commands.Cog):
     """
     get image link of unicode emoji or a custom emote
@@ -428,6 +436,21 @@ class Emoji(commands.Cog):
             await ctx.send(embed=embed)
             return
         await ctx.send("Please provide a custom emote or a default emoji")
+
+    @commands.command(name="sticker")
+    @has_sticker()
+    async def get_sticker(self, ctx: commands.Context):
+        embeds = []
+        for sticker in ctx.message.stickers:
+            embed = discord.Embed(url=sticker.url, title=sticker.name)
+            if sticker.format in (discord.StickerFormatType.png, discord.StickerFormatType.apng):
+                embed.set_image(url=sticker.url)
+                embed.title = f"{sticker.name} (Open in browser for animation)" if sticker.format == discord.StickerFormatType.apng else embed.title
+            else:
+                embed.description = f"[Download Link for Lottie format]({sticker.url})"
+            embeds.append(embed)
+        await ctx.send(embeds=embeds[:10])
+
 
 
 class SCP(commands.Cog):
