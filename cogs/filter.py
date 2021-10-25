@@ -82,7 +82,7 @@ class Filter(commands.Cog):
 
 
     @is_owner_or_moderator()
-    @commands.group(name="blsticker", aliases=["sticker"])
+    @commands.group(name="blsticker")
     async def sticker_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
         """
         add a channel or category to the blacklist to filter stickers
