@@ -268,7 +268,7 @@ class Admin(commands.Cog):
             `.cleanup 10`
         if invoked by a normal user without manage message permissions will search the last x bot command usages of that user (max 25 messages)
         """
-        if not ctx.author.permissions_in(ctx.channel).manage_messages:
+        if not ctx.channel.permissions_for(ctx.author).manage_channels:
             await ctx.invoke(self.mine, search=number)
             return
         if users and ctx.invoked_subcommand is None:
@@ -353,7 +353,7 @@ class Admin(commands.Cog):
 
         try:
             messages = await ctx.channel.purge(limit=number+1)
-            await ctx.send(f"deleted the last {len(messages)-1} messages from this channel", cleanup=10)
+            await ctx.send(f"deleted the last {len(messages)-1} messages from this channel", delete_after=5)
         except (discord.ClientException, discord.Forbidden, discord.HTTPException) as e:
             await ctx.send(str(e))
         except Exception as ex:
