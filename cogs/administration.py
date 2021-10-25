@@ -483,7 +483,7 @@ class Admin(commands.Cog):
             json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
-    @commands.command(name="ban", usage="ban <User> <reason> `days:|dd:` <number of days>")
+    @commands.group(name="ban", usage="ban <User> <reason> `days:|dd:` <number of days>", invoke_without_command=True)
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, member: typing.Optional[SnowflakeUserConverter], * , reason: DeleteDaysFlag):
         """
@@ -533,6 +533,22 @@ class Admin(commands.Cog):
             await ctx.send("I don't have the permission to ban this user.")
         except discord.HTTPException as httpex:
             await ctx.send(f"HTTP Error {httpex.status}: {httpex.text}")
+
+    @ban.command("cleanup")
+    @commands.guild_only()
+    @commands.has_permissions(ban_members=True)
+    async def ban_cleanup(self, ctx: commands.Context, member: typing.Union[discord.Member, discord.User], days: int = 1):
+        """
+        A command for cleaning up an already banned user after they've been banned
+        """
+        bans = await ctx.guild.bans()
+        print(bans)
+        banned_user = discord.utils.get(bans, user=member)
+        if not banned_user:
+            return await ctx.send("User hasn't been banned, please use the normal ban command with the `dd` flag.")
+        await ctx.guild.unban(member)
+        await ctx.guild.ban(member, reason=banned_user.reason, delete_message_days=days)
+
 
     @commands.group(name="banimg", aliases=["pban", "pb", "set_ban_image"])
     @commands.has_permissions(ban_members=True)
