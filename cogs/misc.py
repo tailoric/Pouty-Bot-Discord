@@ -373,14 +373,6 @@ class EightBall(commands.Cog):
         answerlist = response[random.choice(["positive", "negative", "neutral"])]
         await ctx.send(random.choice(answerlist))
 
-def has_sticker():
-    async def predicate(ctx: commands.Context):
-        if ctx.message.stickers:
-            return True
-        else:
-            raise commands.CheckFailure("No sticker inside the message")
-    return commands.check(predicate)
-
 class Emoji(commands.Cog):
     """
     get image link of unicode emoji or a custom emote
@@ -438,10 +430,23 @@ class Emoji(commands.Cog):
         await ctx.send("Please provide a custom emote or a default emoji")
 
     @commands.command(name="sticker")
-    @has_sticker()
-    async def get_sticker(self, ctx: commands.Context):
+    async def get_sticker(self, ctx: commands.Context, message: discord.Message=None):
+        """
+        fetch a sticker either via reply / message link or by attaching a sticker to the command message
+        """
+        if not message:
+            if not ctx.message.reference or isinstance(ctx.message.reference.resolved, discord.DeletedReferencedMessage):
+                message = ctx.message
+            else:
+                message = ctx.message.reference.resolved
+            if not message:
+                message = ctx.message
+
+        if not message.stickers:
+            return await ctx.send("No stickers inside the message.")
+
         embeds = []
-        for sticker in ctx.message.stickers:
+        for sticker in message.stickers:
             embed = discord.Embed(url=sticker.url, title=sticker.name)
             if sticker.format in (discord.StickerFormatType.png, discord.StickerFormatType.apng):
                 embed.set_image(url=sticker.url)
