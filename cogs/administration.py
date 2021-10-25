@@ -212,7 +212,7 @@ class Admin(commands.Cog):
         embed = discord.Embed(title=f"{ban.user.name}#{ban.user.discriminator}", description=ban.reason)
         embed.add_field(name="Mention", value=ban.user.mention)
         embed.add_field(name="id", value=ban.user.id)
-        embed.set_thumbnail(url=ban.user.avatar.url)
+        embed.set_thumbnail(url=ban.user.display_avatar)
         await ctx.send(embed=embed)
 
     @commands.group(invoke_without_command=True)
