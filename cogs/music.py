@@ -84,7 +84,7 @@ def can_stop():
         if not ctx.guild:
             raise commands.CheckFailure("Only usable within a server")
         if not ctx.guild.me.voice:
-            raise commands.CheckFailure("I am not in voice")
+            return True
         my_voice = ctx.guild.me.voice.channel
         try:
             if checks.is_owner_or_moderator_check(ctx.message):
