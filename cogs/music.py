@@ -147,6 +147,7 @@ class Music(commands.Cog):
         deafen yourself when joining a voice channel
         """
         if member.id == member.guild.me.id and after.channel is None:
+            await after.guild.voice_client.disconnect(force=True)
             await self.bot.change_presence(activity=None)
         if member.id != member.guild.me.id or not after.channel:
             return
