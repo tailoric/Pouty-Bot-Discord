@@ -51,6 +51,7 @@ class GroupwatchSelect(discord.ui.Select):
             view.cog = self.view.cog
             await interaction.response.send_message(embed=embed, view=view)
             await thread.edit(archived=False)
+            await thread.send("@everyone")
             if self.view:
                 self.view.cog.open_threads[thread.id] = thread
         else:
