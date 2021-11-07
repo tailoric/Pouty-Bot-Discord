@@ -182,6 +182,8 @@ class GroupWatch(commands.Cog):
         SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
         """, ctx.guild.id)
         groupwatch_threads : List[discord.Thread] = []
+        if not groupwatches:
+            return await ctx.send("no open groupwatches running")
         for groupwatch in groupwatches:
             thread = await self.bot.fetch_channel(groupwatch.get("thread_id"))
             if thread:
@@ -299,7 +301,8 @@ class GroupWatch(commands.Cog):
             DELETE FROM groupwatches WHERE thread_id = $1
             """, archive.chosen)
             thread = await self.bot.fetch_channel(archive.chosen)
-            self.open_threads.pop(thread.id)
+            if thread in self.open_threads:
+                self.open_threads.pop(thread.id)
             await thread.edit(archived=True)
 
 
