@@ -172,6 +172,7 @@ class GroupWatch(commands.Cog):
 
     
     @groupwatch.command(name="join")
+    @commands.guild_only()
     async def gw_join(self, ctx: commands.Context):
         """
         Join any currently running groupwatch
@@ -186,6 +187,25 @@ class GroupWatch(commands.Cog):
                 groupwatch_threads.append(thread)
 
         await ctx.send("Please choose which groupwatch to join", view=GroupWatchJoinSelectView(groupwatch_threads))
+
+    @groupwatch.command(name="leave")
+    @commands.guild_only()
+    async def gw_leave(self, ctx: commands.Context, thread: Optional[discord.Thread]):
+        """
+        leave a groupwatch thread
+        """
+        if isinstance(ctx.channel, discord.Thread):
+            groupwatches = await self.bot.db.fetch("""
+            SELECT thread_id from groupwatches WHERE guild_id = $1
+            """, ctx.guild.id)
+            thread_ids = [g.get('thread_id') for g in groupwatches]
+            await ctx.channel.remove_user(ctx.author)
+        elif thread:
+            await thread.remove_user(ctx.author)
+        else:
+            await ctx.send("Please provide a thread as argument or use it inside a thread.")
+
+
     @groupwatch.command(name="create")
     @checks.is_owner_or_moderator()
     async def gw_create(self, ctx, *, title):
@@ -277,9 +297,6 @@ class GroupWatch(commands.Cog):
             thread = await self.bot.fetch_channel(archive.chosen)
             self.open_threads.pop(thread.id)
             await thread.edit(archived=True)
-
-
-        
 
 
 def setup(bot):
