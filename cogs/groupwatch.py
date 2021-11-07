@@ -198,8 +198,11 @@ class GroupWatch(commands.Cog):
             groupwatches = await self.bot.db.fetch("""
             SELECT thread_id from groupwatches WHERE guild_id = $1
             """, ctx.guild.id)
-            thread_ids = [g.get('thread_id') for g in groupwatches]
-            await ctx.channel.remove_user(ctx.author)
+            
+            if ctx.channel.id in (g.get('thread_id') for g in groupwatches):
+                await ctx.channel.remove_user(ctx.author)
+            else:
+                await ctx.send("not a groupwatch channel")
         elif thread:
             await thread.remove_user(ctx.author)
         else:
