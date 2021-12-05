@@ -197,8 +197,11 @@ class Starboard(commands.Cog):
 
     async def create_starboard_embed(self, message, starboard_message=None):
         message_content = message.content or "\u200b"
+        if isinstance(message.channel, discord.Thread) and message.channel.is_private():
+            message_content = message_content.replace("||", "")
+            message_content = f"possibly spoilers for ({message.channel.name}) || {message_content} ||"
         embed = discord.Embed(description=shorten(message_content, width=2000), colour=discord.Colour(0xffac33))
-        embed.set_author(name=message.author.display_name, icon_url=message.author.avatar.replace(format="png"))
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.replace(format="png"))
         embed.add_field(name="Original", value=f"[Jump!]({message.jump_url})", inline=False)
         if message.reference and message.reference.resolved:
             replied_to = message.reference.resolved
@@ -212,9 +215,9 @@ class Starboard(commands.Cog):
             file = message.attachments[0]
             spoiler = file.is_spoiler()
             is_nsfw = message.channel.is_nsfw()
-            if not spoiler and not is_nsfw and file.url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
+            if not spoiler and not is_nsfw and not isinstance(message.channel, discord.Thread) and file.url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
                 embed.set_image(url=file.url)
-            elif spoiler and not is_nsfw:
+            elif (spoiler and not is_nsfw) or isinstance(message.channel, discord.Thread):
                 embed.add_field(name="Attachment", value=f"|| [{file.filename}]({file.url}) ||", inline=False)
             elif is_nsfw:
                 embed.add_field(name="Attachment", value=f"[**(NSFW)** {file.filename}]({file.url})", inline=False)
