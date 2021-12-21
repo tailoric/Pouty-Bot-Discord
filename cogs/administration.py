@@ -732,7 +732,7 @@ class Admin(commands.Cog):
         await ctx.send("You are not muted.")
 
     @commands.group(invoke_without_command=True, aliases=["timeout"])
-    @commands.has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True, moderate_members=True)
     async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
         """
         mutes the user for a certain amount of time
@@ -741,19 +741,24 @@ class Admin(commands.Cog):
             .mute @Test-Dummy 5 hours
         """
         length, error_msg = self.convert_mute_length(amount, time_unit)
+
         if not length:
             await ctx.send(error_msg)
             return
-        unmute_ts = datetime.utcnow() + timedelta(seconds=length)
+        td = timedelta(seconds=length)
+        unmute_ts = datetime.utcnow() + td
+        if td.days > 28:
+            await user.add_roles(self.mute_role)
+            await self.add_mute_to_mute_list(user.id, unmute_ts)
+        else:
+            await user.edit(communication_disabled_until=unmute_ts)
         mute_message = f"user {user.mention} was muted ({amount} {time_unit})"
-        await user.add_roles(self.mute_role)
-        await ctx.send(f"{user.mention}\nhttps://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
         if reason:
             mute_message = f"{mute_message} for the following reason:\n{reason}"
-        await self.add_mute_to_mute_list(user.id, unmute_ts)
+        await ctx.send(f"{user.mention}\nhttps://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
         await self.check_channel.send(mute_message)
 
-    @commands.has_permissions(manage_roles=True)
+    @commands.has_permissions(manage_roles=True, moderate_members=True)
     @mute.command(name="cancel")
     async def mute_cancel(self, ctx, user:discord.Member):
         """
@@ -766,6 +771,9 @@ class Admin(commands.Cog):
             guild_member = self.mute_role.guild.get_member(member.id)
             await guild_member.remove_roles(self.mute_role)
             return await ctx.send("mute removed")
+        else: 
+            await user.edit(communication_disabled_until=None)
+            return await ctx.send("user timeout cancelled")
         await ctx.send("User is not muted right now or at least is not in the database")
 
 
