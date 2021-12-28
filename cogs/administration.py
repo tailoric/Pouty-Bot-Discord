@@ -483,6 +483,30 @@ class Admin(commands.Cog):
             json.dump({"channel": self.report_channel.id}, f)
         await ctx.send('This channel is now the report channel')
 
+    @commands.command(name="mban", aliases=["banm"])
+    @commands.has_permissions(ban_members=True)
+    async def mass_ban(self, ctx: commands.Context, targets: commands.Greedy[discord.Object], *, reason):
+        """
+        ban multiple users by id (will also clean up their messages)
+        format: 
+        `mban 12345678 123456 1234567 some reason`
+        """
+        for user in targets:
+            try:
+                member = ctx.bot.get_user(user.id)
+                if member:
+                    await member.send(textwrap.shorten(f''' You have been banned from the official /r/Animemes discord for the following reason
+                {reason}''', width=2000))
+            except discord.Forbidden:
+                continue
+            await ctx.guild.ban(user, reason=reason, delete_message_days=1)
+        description=f"The following users have been banned for the following reason:\n{reason}\n"
+        description += '\n'.join(f'<@{u.id}>' for u in targets)
+        embed = discord.Embed(title="Mass ban", description=textwrap.shorten(description, width=4000))
+        embed.add_field(name="Message", value=f"[Jump Url]({ctx.message.jump_url})")
+        embed.add_field(name="By Moderator", value=ctx.author.mention)
+        await self.check_channel.send(embed=embed)
+
     @commands.group(name="ban", usage="ban <User> <reason> `days:|dd:` <number of days>", invoke_without_command=True)
     @commands.has_permissions(ban_members=True)
     async def ban(self, ctx, member: typing.Optional[SnowflakeUserConverter], * , reason: DeleteDaysFlag):
