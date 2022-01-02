@@ -135,7 +135,8 @@ class Thread(commands.Cog):
             threads = []
             for entity in thread_entities:
                 t = ctx.guild.get_thread(entity.get('thread_id')) or await ctx.guild.fetch_channel(entity.get('thread_id'))
-                threads.append(t)
+                if t not in threads:
+                    threads.append(t)
             if not threads:
                 return await ctx.send("No threads with invites in this channel")
             view = ThreadSelectView(threads, ctx.guild)
