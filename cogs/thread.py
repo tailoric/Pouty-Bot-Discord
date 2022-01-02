@@ -92,6 +92,7 @@ class Thread(commands.Cog):
         CREATE TABLE IF NOT EXISTS threads(
             guild_id BIGINT NOT NULL,
             thread_id BIGINT NOT NULL,
+            channel_id BIGINT NOT NULL,
             owner_id BIGINT NOT NULL,
             private BOOLEAN NOT NULL
         )
@@ -112,8 +113,8 @@ class Thread(commands.Cog):
             view = ThreadJoinView(thread)
             embed = discord.Embed(title=topic, description="Click the join button to join the private thread", colour=discord.Colour.blurple())
             await self.bot.db.execute('''
-            INSERT INTO threads (guild_id, thread_id, owner_id, private) VALUES ($1,$2,$3,$4)
-            ''', ctx.guild.id, thread.id, ctx.author.id, thread.is_private())
+            INSERT INTO threads (guild_id, thread_id, channel_id, owner_id, private) VALUES ($1,$2,$3,$4, $5)
+            ''', ctx.guild.id, thread.id, ctx.channel.id, ctx.author.id, thread.is_private())
             await ctx.send(embed=embed, view=view)
 
     @thread.command(name="invite")
@@ -130,8 +131,8 @@ class Thread(commands.Cog):
 
         else:
             thread_entities = await self.bot.db.fetch("""
-                SELECT * FROM threads WHERE guild_id = $1 AND PRIVATE
-            """, ctx.guild.id)
+                SELECT * FROM threads WHERE guild_id = $1 AND channel_id =$2 AND PRIVATE
+            """, ctx.guild.id, ctx.channel.id)
             threads = []
             for entity in thread_entities:
                 t = ctx.guild.get_thread(entity.get('thread_id')) or await ctx.guild.fetch_channel(entity.get('thread_id'))
@@ -167,6 +168,8 @@ class Thread(commands.Cog):
         """
         if not thread and isinstance(ctx.channel, discord.Thread):
             thread = ctx.channel
+        if not thread:
+            return await ctx.send("please specify a thread")
         await thread.edit(archived=True, locked=True)
         await self.bot.db.execute("""
             DELETE FROM threads WHERE guild_id = $1 AND thread_id = $2
