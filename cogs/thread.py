@@ -134,7 +134,7 @@ class Thread(commands.Cog):
             """, ctx.guild.id)
             threads = []
             for entity in thread_entities:
-                t = ctx.guild.get_thread(entity.get('thread_id')) or ctx.guild.fetch_channel(entity.get('thread_id'))
+                t = ctx.guild.get_thread(entity.get('thread_id')) or await ctx.guild.fetch_channel(entity.get('thread_id'))
                 threads.append(t)
             if not threads:
                 return await ctx.send("No threads with invites in this channel")
