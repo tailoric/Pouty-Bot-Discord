@@ -140,7 +140,7 @@ class Thread(commands.Cog):
                     threads.append(t)
             if not threads:
                 return await ctx.send("No threads with invites in this channel")
-            threads = list(sorted(threads, key=lambda t: discord.Object(t.id).created_at)
+            threads = list(sorted(threads, key=lambda t: discord.Object(t.id).created_at))
             view = ThreadSelectView(threads, ctx.guild)
             embed = discord.Embed(title="Thread Selection", description="Select a thread you want to join")
             message = await ctx.send(embed=embed, view=view)
