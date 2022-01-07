@@ -51,6 +51,39 @@ class Manga:
             _embed.set_thumbnail(url=self.cover_art)
         return _embed
 
+@dataclass
+class MangaChapter:
+    _id: str
+    title: str
+    chapter: str
+    pages: int
+    scanlation_group: str
+    manga: Manga
+
+
+    def __init__(self, data) -> None:
+        self.data = data
+        self._id = data.get("id")
+        attributes = data.get("attributes", {})
+        self.title = attributes.get("title")
+        self.chapter = attributes.get("chapter")
+        self.pages = attributes.get("pages")
+        relationships = attributes.get("relationships", {})
+        manga_data = next(filter(lambda r: r.get("type") == "manga", relationships), None)
+        if manga_data:
+            self.manga = Manga(manga_data)
+        
+    @property
+    def embed(self) -> discord.Embed:
+        _embed = discord.Embed(
+                title=self.manga.title if self.manga else self.title if self.title else "mangadex chapter",
+                colour=discord.Colour(0xff6740),
+                url=f"https://mangadex.org/title/{self._id}"
+                )
+        if self.chapter:
+            _embed.add_field(name="Chapter", value=self.chapter, inline=False)
+        if self.pages:
+            _embed.add_field(name="Pages", value=self.pages)
 
 class Mangadex(commands.Cog):
     """Automatic embedding and search command for [mangadex](https://mangadex.org)"""
@@ -58,21 +91,31 @@ class Mangadex(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.api_url = "https://api.mangadex.org"
-        self.mangadex_url = re.compile(r"https?://mangadex.org/title/(?P<id>[a-f0-9A-F]{8}-(?:[a-f0-9A-F]{4}-){3}[a-f0-9A-F]{12})")
-        self.params = "includes[]=cover_art"
+        self.mangadex_url = re.compile(r"https?://mangadex.org/(?P<type>title|chapter)/(?P<id>[a-f0-9A-F]{8}-(?:[a-f0-9A-F]{4}-){3}[a-f0-9A-F]{12})")
+        self.params = "includes[]=cover_art&includes=[]=manga"
 
     @commands.Cog.listener(name="on_message")
     async def embed_mangadex(self, message: discord.Message) -> None:
         if (match:= self.mangadex_url.search(message.content)):
-            async with self.bot.session.get(self.api_url + f"/manga/{match.group('id')}?{self.params}") as resp:
-                resp.raise_for_status()
-                response = await resp.json()
-                attributes = response.get("data").get("attributes")
-                manga = Manga(response.get("data"))
-                await message.channel.send(embed=manga.embed)
-                if message.guild and \
-                        message.channel.permissions_for(message.guild.me).manage_messages:
-                        await message.edit(suppress=True)
+            if match.group("type") == "title":
+                async with self.bot.session.get(self.api_url + f"/manga/{match.group('id')}?{self.params}") as resp:
+                    resp.raise_for_status()
+                    response = await resp.json()
+                    manga = Manga(response.get("data"))
+                    await message.channel.send(embed=manga.embed)
+                    if message.guild and \
+                            message.channel.permissions_for(message.guild.me).manage_messages:
+                            await message.edit(suppress=True)
+            elif match.group("type") == "chapter":
+                async with self.bot.session.get(self.api_url + f"/chapter/{match.group('id')}?{self.params}") as resp:
+                    resp.raise_for_status()
+                    response = await resp.json()
+                    chapter = MangaChapter(response.get("data"))
+                    await message.channel.send(embed=chapter.embed)
+                    if message.guild and \
+                            message.channel.permissions_for(message.guild.me).manage_messages:
+                            await message.edit(suppress=True)
+
 
 
     @commands.command(name="mangadex", aliases=["md"])
