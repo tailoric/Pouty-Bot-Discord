@@ -58,7 +58,6 @@ class MangaChapter:
     chapter: str
     pages: int
     scanlation_group: str
-    manga: Manga
 
 
     def __init__(self, data) -> None:
