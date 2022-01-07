@@ -77,7 +77,7 @@ class MangaChapter:
     @property
     def embed(self) -> discord.Embed:
         _embed = discord.Embed(
-                title=self.title or f"{self.manga.title} Chapter" if self.manga else "Mangadex chapter",
+                title=f"{self.manga.title} Chapter" if self.manga else "Mangadex chapter",
                 colour=discord.Colour(0xff6740),
                 url=f"https://mangadex.org/chapter/{self._id}"
                 )
