@@ -92,7 +92,7 @@ class Mangadex(commands.Cog):
         self.bot = bot
         self.api_url = "https://api.mangadex.org"
         self.mangadex_url = re.compile(r"https?://mangadex.org/(?P<type>title|chapter)/(?P<id>[a-f0-9A-F]{8}-(?:[a-f0-9A-F]{4}-){3}[a-f0-9A-F]{12})")
-        self.params = "includes[]=cover_art&includes=[]=manga"
+        self.params = "includes[]=cover_art&includes[]=manga"
 
     @commands.Cog.listener(name="on_message")
     async def embed_mangadex(self, message: discord.Message) -> None:
