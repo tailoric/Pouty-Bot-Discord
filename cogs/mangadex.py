@@ -66,7 +66,7 @@ class MangaChapter:
         self.title = attributes.get("title")
         self.chapter = attributes.get("chapter")
         self.pages = attributes.get("pages")
-        relationships = attributes.get("relationships", {})
+        relationships = data.get("relationships", {})
         manga_data = next(filter(lambda r: r.get("type") == "manga", relationships), None)
         self.manga = None
         if manga_data:
