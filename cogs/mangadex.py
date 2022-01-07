@@ -84,6 +84,7 @@ class MangaChapter:
             _embed.add_field(name="Chapter", value=self.chapter, inline=False)
         if self.pages:
             _embed.add_field(name="Pages", value=self.pages)
+        return _embed
 
 class Mangadex(commands.Cog):
     """Automatic embedding and search command for [mangadex](https://mangadex.org)"""
