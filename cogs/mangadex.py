@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass
 from typing import List, Optional
 from textwrap import shorten
+import datetime
 
 @dataclass
 class Manga:
@@ -66,8 +67,7 @@ class MangaChapter:
         self.title = attributes.get("title")
         self.chapter = attributes.get("chapter")
         self.pages = attributes.get("pages")
-        self.hash = attributes.get("hash")
-        self.first_page = attributes.get("data")[0] if attributes.get("data") else None
+        self.published_at = datetime.datetime.fromisoformat(attributes.get("publishedAt")) if attributes.get("publishedAt") else None
         relationships = data.get("relationships", {})
         manga_data = next(filter(lambda r: r.get("type") == "manga", relationships), None)
         self.manga = None
@@ -77,16 +77,18 @@ class MangaChapter:
     @property
     def embed(self) -> discord.Embed:
         _embed = discord.Embed(
-                title=self.manga.title if self.manga else self.title if self.title else "mangadex chapter",
+                title=self.title or f"{self.manga.title} Chapter" if self.manga else "Mangadex chapter",
                 colour=discord.Colour(0xff6740),
                 url=f"https://mangadex.org/chapter/{self._id}"
                 )
+        if self.manga:
+            _embed.add_field(name="Manga", value=self.manga.title)
         if self.chapter:
             _embed.add_field(name="Chapter", value=self.chapter, inline=False)
         if self.pages:
             _embed.add_field(name="Pages", value=self.pages)
-        if self.first_page:
-            _embed.set_thumbnail(url=f"https://uploads.mangadex.org/data/{self.hash}/{self.first_page}")
+        if self.published_at:
+            _embed.timestamp = self.published_at
         return _embed
 
 class Mangadex(commands.Cog):
