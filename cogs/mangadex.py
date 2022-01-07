@@ -51,7 +51,6 @@ class Manga:
             _embed.set_thumbnail(url=self.cover_art)
         return _embed
 
-@dataclass
 class MangaChapter:
     _id: str
     title: str
