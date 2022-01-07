@@ -67,7 +67,7 @@ class MangaChapter:
         self.title = attributes.get("title")
         self.chapter = attributes.get("chapter")
         self.pages = attributes.get("pages")
-        self.published_at = datetime.datetime.fromisoformat(attributes.get("publishedAt")) if attributes.get("publishedAt") else None
+        self.published_at = datetime.datetime.fromisoformat(attributes.get("publishAt")) if attributes.get("publishAt") else None
         relationships = data.get("relationships", {})
         manga_data = next(filter(lambda r: r.get("type") == "manga", relationships), None)
         self.manga = None
