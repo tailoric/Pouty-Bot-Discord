@@ -3,9 +3,8 @@
 from discord.ext import commands
 import discord
 import re
-import json
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 from textwrap import shorten
 import datetime
 
@@ -91,6 +90,27 @@ class MangaChapter:
             _embed.timestamp = self.published_at
         return _embed
 
+class MangaRatings:
+
+    average: float
+    distribution: List[int]
+
+    def __init__(self, data):
+        self.average = data.get('average')
+        self.distribution = data.get('distribution')
+
+class MangaStatistics:
+
+    rating: MangaRatings
+    follows: int
+
+    def __init__(self, data) -> None:
+        statistics : Dict = data.get('statistics')
+        _, stats = statistics.popitem()
+        self.rating = MangaRatings(stats.get('rating'))
+        self.follows = stats.get('follows')
+
+
 class Mangadex(commands.Cog):
     """Automatic embedding and search command for [mangadex](https://mangadex.org)"""
 
@@ -104,11 +124,16 @@ class Mangadex(commands.Cog):
     async def embed_mangadex(self, message: discord.Message) -> None:
         if (match:= self.mangadex_url.search(message.content)):
             if match.group("type") == "title":
-                async with self.bot.session.get(self.api_url + f"/manga/{match.group('id')}?{self.params}") as resp:
+                async with self.bot.session.get(self.api_url + f"/manga/{match.group('id')}?{self.params}") as resp, self.bot.session.get(self.api_url + f"/statistics/manga/{match.group('id')}", raise_for_status=True) as stat_resp:
                     resp.raise_for_status()
                     response = await resp.json()
+                    stats_response = await stat_resp.json()
                     manga = Manga(response.get("data"))
-                    await message.channel.send(embed=manga.embed)
+                    stats = MangaStatistics(stats_response)
+                    embed = manga.embed
+                    if stats.rating.average:
+                        embed.add_field(name="Rating", value=f"{stats.rating.average:.2f}")
+                    await message.channel.send(embed=embed)
                     if message.guild and \
                             message.channel.permissions_for(message.guild.me).manage_messages:
                             await message.edit(suppress=True)
