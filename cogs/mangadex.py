@@ -163,7 +163,12 @@ class Mangadex(commands.Cog):
                 return await ctx.send("No manga found make sure you typed the title correctly")
             for result in results:
                 manga = Manga(result)
-                await ctx.send(embed=manga.embed)
+                embed = manga.embed
+                async with self.bot.session.get(self.api_url + f"/statistics/manga/{manga._id}") as stat_resp:
+                    if stat_resp.status < 400:
+                        stats = MangaStatistics(await stat_resp.json())
+                        embed.add_field(name="Rating", value=f"{stats.rating.average:.2f}")
+                await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Mangadex(bot))
