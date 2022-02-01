@@ -108,6 +108,8 @@ class ReadRules(commands.Cog):
             self.join_limit = settings["join_limit"]
             self.join_timer = settings["join_timer"]
         self.limit_reset.change_interval(hours=self.join_timer)
+        self.horny_role = self.animemes_guild.get_role(722561738846896240)
+        self.horny_jail = self.animemes_guild.get_role(639138311935361064)
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
@@ -406,6 +408,11 @@ class ReadRules(commands.Cog):
         if self.new_memester:
             await after.add_roles(self.new_memester)
         await self.add_new_memester(after)
+
+    @commands.Cog.listener(name="on_member_update")
+    async def horny_jail_check(self, _: discord.Member, after: discord.Member):
+        if self.horny_jail in after.roles and self.horny_role in after.roles:
+            await after.remove_roles(self.horny_role)
 
     @commands.Cog.listener(name="on_guild_role_update")
     async def update_memester_color(self, before, after: discord.Role):
