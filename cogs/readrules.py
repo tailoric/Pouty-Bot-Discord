@@ -110,7 +110,7 @@ class ReadRules(commands.Cog):
             self.join_limit = settings["join_limit"]
             self.join_timer = settings["join_timer"]
         self.limit_reset.change_interval(hours=self.join_timer)
-        self.word_filter = re.compile(r"((traa*pp*)|fagg*(ott*)?|retard)")
+        self.word_filter = re.compile(r"((traa*pp*)|\bfagg*(ott*)?\b|retard)")
         self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)")
 
     def cog_unload(self):
@@ -365,6 +365,8 @@ class ReadRules(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def check_for_new_memester(self):
+        if not self.animemes_guild:
+            return
         rows = await self.fetch_new_memesters()
         try:
             for row in rows:
@@ -460,7 +462,13 @@ class ReadRules(commands.Cog):
             embed.add_field(name="User id", value=message.author.id)
             embed.add_field(name="Message", value=f"[Jump to Message]({message.jump_url})")
             try:
-                await message.author.ban()
+                await message.author.send("You've been banned from the official /r/Animemes server for triggering the word filter before even entering the server.\n"+
+                f"You've said `{match.group(0)}`.\n"+ 
+                "If you think this ban was in error you can appeal by dming any of the mods.")
+            except:
+                pass
+            try:
+                await message.author.ban(delete_message_days=0, reason=f"word ban filter with: {match.group(0)}")
             except (discord.HTTPException, discord.Forbidden):
                 await self.checkers_channel.send("**USER BAN FAILED MANUAL BAN NEEDED**")
             await self.checkers_channel.send(embed=embed)
