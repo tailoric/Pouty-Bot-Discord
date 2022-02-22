@@ -97,6 +97,8 @@ class ReadRules(commands.Cog):
             self.join_log = self.animemes_guild.get_channel(595585060909088774)
             self.rules_channel = self.animemes_guild.get_channel(366659034410909717)
             self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
+            self.horny_role = self.animemes_guild.get_role(722561738846896240)
+            self.horny_jail = self.animemes_guild.get_role(639138311935361064)
         self.bot.loop.create_task(self.init_database())
         self.bot.loop.create_task(self.setup_rules_database())
         self.check_for_new_memester.start()
@@ -108,8 +110,8 @@ class ReadRules(commands.Cog):
             self.join_limit = settings["join_limit"]
             self.join_timer = settings["join_timer"]
         self.limit_reset.change_interval(hours=self.join_timer)
-        self.horny_role = self.animemes_guild.get_role(722561738846896240)
-        self.horny_jail = self.animemes_guild.get_role(639138311935361064)
+        self.word_filter = re.compile(r"((traa*pp*)|fagg*(ott*)?|retard)")
+        self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)")
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
@@ -446,6 +448,23 @@ class ReadRules(commands.Cog):
         else:
             return
 
+    @commands.Cog.listener(name="on_message")
+    async def rules_channel_word_filter(self, message: discord.Message):
+        if message.channel != self.rules_channel:
+            return
+
+        if (match := self.word_filter.search(message.content)) or (match := self.nword_filter.search(message.content)):
+            embed = discord.Embed(title="Wordfilter Ban", description=f"{message.author.mention} was banned for saying `{match.group(0)}` in {self.rules_channel.mention}")
+            embed.add_field(name="Username", value=message.author.display_name)
+            embed.add_field(name="User", value=message.author.mention)
+            embed.add_field(name="User id", value=message.author.id)
+            embed.add_field(name="Message", value=f"[Jump to Message]({message.jump_url})")
+            try:
+                await message.author.ban()
+            except (discord.HTTPException, discord.Forbidden):
+                await self.checkers_channel.send("**USER BAN FAILED MANUAL BAN NEEDED**")
+            await self.checkers_channel.send(embed=embed)
+            
 
     @commands.Cog.listener(name="on_user_update")
     async def check_user_name(self, before, after):
