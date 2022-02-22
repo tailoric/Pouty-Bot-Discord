@@ -456,6 +456,8 @@ class ReadRules(commands.Cog):
             return
 
         if (match := self.word_filter.search(message.content)) or (match := self.nword_filter.search(message.content)):
+            if "Using slurs such as but not limited to" in message.content:
+                return
             embed = discord.Embed(title="Wordfilter Ban", description=f"{message.author.mention} was banned for saying `{match.group(0)}` in {self.rules_channel.mention}")
             embed.add_field(name="Username", value=message.author.display_name)
             embed.add_field(name="User", value=message.author.mention)
