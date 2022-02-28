@@ -51,17 +51,28 @@ class Filter(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def filter_stickers(self, message):
+        if not message.stickers:
+            return
         if message.channel in self.sticker_blacklist_channels or message.channel.category in self.sticker_blacklist_categories:
-            if message.stickers:
+            await message.delete()
+        if isinstance(message.channel, discord.Thread):
+            parent = message.parent
+            if parent in self.sticker_blacklist_channels or parent.category in self.sticker_blacklist_categories:
                 await message.delete()
 
     @commands.Cog.listener("on_message")
-    async def on_message(self, message):
+    async def tenor_message_filter(self, message: discord.Message):
         contains_giphy_or_tenor_link_regex = re.compile("https://(media\.)?(tenor|giphy)?.com/")
         match = contains_giphy_or_tenor_link_regex.match(message.content)
-        if match and (message.channel in self.blacklisted_channels or message.channel.category in self.blacklisted_categories):
-            await asyncio.sleep(1)
+        if not match:
+            return
+        if message.channel in self.blacklisted_channels or message.channel.category in self.blacklisted_categories:
             await message.delete()
+        if isinstance(message.channel, discord.Thread) and (message.channel.parent in self.blacklisted_channels
+                or message.channel.parent.category in self.blacklisted_categories):
+            await message.delete()
+    @commands.Cog.listener("on_message")
+    async def on_message(self, message):
         contains_nhentai_link = re.compile(r"https?://nhentai\.net/g/(\d+)")
         matches = contains_nhentai_link.findall(message.content)
         for match in matches:
@@ -82,13 +93,11 @@ class Filter(commands.Cog):
 
 
     @is_owner_or_moderator()
-    @commands.group(name="blsticker")
-    async def sticker_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
+    @commands.group(name="blsticker", invoke_without_command=True)
+    async def sticker_filter(self, ctx, channel: Union[discord.TextChannel, discord.CategoryChannel]):
         """
         add a channel or category to the blacklist to filter stickers
         """
-        if ctx.invoked_subcommand is not None:
-            return
         if not self.settings:
             return await ctx.send("settings not loaded")
         if isinstance(channel, discord.CategoryChannel):
@@ -132,13 +141,11 @@ class Filter(commands.Cog):
         await paginator.paginate()
 
     @is_owner_or_moderator()
-    @commands.group(name="bltenor", aliases=["tenor", "giphy"])
-    async def tenor_filter(self, ctx, channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]]):
+    @commands.group(name="bltenor", aliases=["tenor", "giphy"], invoke_without_command=True)
+    async def tenor_filter(self, ctx, channel: Union[discord.TextChannel, discord.CategoryChannel]):
         """
         add a channel or category to the blacklist
         """
-        if ctx.invoked_subcommand is not None:
-            return
         if not self.settings:
             return await ctx.send("settings not loaded")
         if isinstance(channel, discord.CategoryChannel):
