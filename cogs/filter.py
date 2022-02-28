@@ -56,7 +56,7 @@ class Filter(commands.Cog):
         if message.channel in self.sticker_blacklist_channels or message.channel.category in self.sticker_blacklist_categories:
             await message.delete()
         if isinstance(message.channel, discord.Thread):
-            parent = message.parent
+            parent = message.channel.parent
             if parent in self.sticker_blacklist_channels or parent.category in self.sticker_blacklist_categories:
                 await message.delete()
 
