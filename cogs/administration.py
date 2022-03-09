@@ -775,7 +775,7 @@ class Admin(commands.Cog):
             await user.add_roles(self.mute_role)
             await self.add_mute_to_mute_list(user.id, unmute_ts)
         else:
-            await user.edit(communication_disabled_until=unmute_ts)
+            await user.edit(timed_out_until=unmute_ts)
         mute_message = f"user {user.mention} was muted ({amount} {time_unit})"
         if reason:
             mute_message = f"{mute_message} for the following reason:\n{reason}"
@@ -796,9 +796,8 @@ class Admin(commands.Cog):
             await guild_member.remove_roles(self.mute_role)
             return await ctx.send("mute removed")
         else: 
-            await user.edit(communication_disabled_until=None)
+            await user.edit(timed_out_until=None)
             return await ctx.send("user timeout cancelled")
-        await ctx.send("User is not muted right now or at least is not in the database")
 
 
     @checks.is_owner_or_moderator()

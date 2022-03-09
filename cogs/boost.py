@@ -110,13 +110,13 @@ class Boost(commands.Cog):
         if isinstance(icon, discord.Emoji):
             await role.edit(icon=await icon.read())
         elif isinstance(icon, discord.PartialEmoji) and icon.is_custom_emoji():
-            await role.edit(icon=await icon.read())
+            await role.edit(display_icon=await icon.read())
         elif isinstance(icon, str) and icon.startswith("http"):
             async with self.bot.session.get(url=icon, raise_for_status=True) as resp:
-                await role.edit(icon= await resp.read())
+                await role.edit(display_icon= await resp.read())
         elif icon is None and ctx.message.attachments:
             icon = ctx.message.attachments[0]
-            await role.edit(icon= await icon.read())
+            await role.edit(display_icon= await icon.read())
         else:
             return await ctx.send("Please upload an attachment or provide a link to an image for your icon")
         await ctx.send("role icon updated")
@@ -136,7 +136,7 @@ class Boost(commands.Cog):
         role = ctx.guild.get_role(role_id)
         if not role:
             await ctx.send("Couldn't get boost colour role, please set one first")
-        await role.edit(icon=None)
+        await role.edit(display_icon=None)
         await ctx.send("role icon removed")
 
 
