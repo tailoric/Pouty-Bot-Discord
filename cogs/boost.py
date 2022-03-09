@@ -157,7 +157,7 @@ class Boost(commands.Cog):
                 except Exception as e:
                     self.log.warn("Could not fetch member ({}) deleting role {} [{}]: {}", entry.get('user_id'), role.name, role.id, e)
                     roles_to_delete.append(role)
-            if not member.premium_since:
+            if member and not member.premium_since:
                 roles_to_delete.append(role)
 
         for role in roles_to_delete:
