@@ -120,6 +120,7 @@ class Admin(commands.Cog):
             timer_inputs[key] = value
         delta = timedelta(**timer_inputs)
         return datetime.utcnow() + delta
+
     async def get_voice_unmutes(self):
         query =("SELECT * FROM vmutes")
         async with self.bot.db.acquire() as con:
@@ -770,7 +771,7 @@ class Admin(commands.Cog):
             await ctx.send(error_msg)
             return
         td = timedelta(seconds=length)
-        unmute_ts = datetime.utcnow() + td
+        unmute_ts = discord.utils.utcnow() + td
         if td.days > 28:
             await user.add_roles(self.mute_role)
             await self.add_mute_to_mute_list(user.id, unmute_ts)
