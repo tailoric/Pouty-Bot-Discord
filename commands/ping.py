@@ -1,5 +1,5 @@
 from datetime import time
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 import discord
 import time
 from discord.ext import commands
@@ -27,7 +27,8 @@ def setup(bot: commands.Bot):
     @tree.command(name="at", description="A command for pinging roles")
     @app_commands.describe(role="The role you want to ping")
     @app_commands.describe(message="Optional message to accompany with the ping")
-    async def at_role_ping(interaction: discord.Interaction, role: discord.Role, message: Optional[str]):
+    @app_commands.describe(image="An image to attach with the ping")
+    async def at_role_ping(interaction: discord.Interaction, role: discord.Role, message: Optional[str], image: Optional[discord.Attachment]):
         """
         """
         can_ping = await bot.db.fetchval("""
@@ -41,7 +42,11 @@ def setup(bot: commands.Bot):
             return
         try:
             await role.edit(mentionable=True)
-            await interaction.response.send_message(f"{role.mention} {message if message else ''}", ephemeral=False, allowed_mentions=AllowedMentions(roles=[role],everyone=False, users=False, replied_user=False))
+            if image:
+                await interaction.response.send_message(f"{role.mention} {message if message else ''}\n{image.url}",allowed_mentions=AllowedMentions(roles=True,everyone=False, users=False, replied_user=True))
+            else:
+                await interaction.response.send_message(f"{role.mention} {message if message else ''}", ephemeral=False, 
+                    allowed_mentions=AllowedMentions(roles=[role],everyone=False, users=False, replied_user=False))
             await role.edit(mentionable=False)
         except discord.Forbidden:
             await interaction.response.send_message(content="I am not allowed to edit this role", ephemeral=True)
