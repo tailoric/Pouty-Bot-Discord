@@ -12,7 +12,7 @@ async def commands_sync(bot: commands.Bot, tree: app_commands.CommandTree):
     await tree.sync()
 
 def setup(bot: commands.Bot):
-    tree = app_commands.CommandTree(bot)
+    tree = bot.tree
 
     cooldowns : Dict[Union[discord.User, discord.Member], commands.Cooldown] = {}
 
