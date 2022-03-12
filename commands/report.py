@@ -65,6 +65,8 @@ class ReportMessageForm(ui.Modal, title="Report Message Content"):
         embed.add_field(name="Report Reason", value=self.report, inline=False)
         embed.add_field(name="Message URL", value=self.message.jump_url, inline=False)
         embed.set_thumbnail(url=self.message.author.display_avatar)
+        if self.message.attachments:
+            embed.set_image(url=self.message.attachments[0])
         return embed
 
     async def on_submit(self, interaction: discord.Interaction):
