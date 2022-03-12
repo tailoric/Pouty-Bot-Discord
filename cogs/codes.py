@@ -32,13 +32,41 @@ class FriendCodes(commands.Cog):
         self.bot = bot
         self.bot.loop.create_task(self.create_table())
         for group in self.groups:
-            callback = partial(self.set_code, column_name=group['name'])
-            new_group = commands.Group(name=group['name'],func=callback.func)
-            new_group.help = group['help']
-            new_group.aliases = group['aliases']
-            remove_command = commands.Command(name="remove",aliases=["rm"], func=self.code_remove)
-            new_group.add_command(remove_command)
-            self.friend_codes.add_command(new_group)
+
+            @self.friend_codes.group(name=group["name"], aliases=group["aliases"])
+            async def new_group(ctx, user: Optional[discord.Member], *, code: Optional[CodeRegexCheck]):
+                """
+                for adding/overwriting 
+                """
+                print(user, code)
+                if ctx.invoked_subcommand is not None:
+                    return
+                if not user:
+                    user = ctx.author
+                if code:
+                    await self.update_code(ctx.author.id, code, ctx.command.name)
+                    column = ctx.command.name.replace("_"," ").title()
+                    return await ctx.send(f"Set your {column} code to {code}")
+                if user:
+                    embed = discord.Embed(title=user.display_name, colour=user.colour)
+                    embed.set_thumbnail(url=user.avatar.url)
+                    game = await self.fetch_game_code(user.id, ctx.command.name)
+                    if game:
+                        embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
+                        return await ctx.send(embed=embed)
+                    else:
+                        return await ctx.send((f"Could not find {ctx.command.name} account or id for user {user.mention}.\n"
+                            f"If you were trying to set your own id then provide one in this fomat: `{self.examples.get(ctx.command.name)}`"), 
+                            allowed_mentions=discord.AllowedMentions.none())
+            new_group.help = group["help"]
+            
+            @new_group.command(name="remove", aliases=["rm"])
+            async def code_remove(self, ctx):
+                """
+                remove your code
+                """
+                await self.update_code(ctx.author.id, None, ctx.command.parent.name)
+                await ctx.send("code removed")
 
 
     async def create_table(self):
@@ -146,12 +174,6 @@ class FriendCodes(commands.Cog):
                     allowed_mentions=discord.AllowedMentions.none())
         
 
-    async def code_remove(self, ctx):
-        """
-        remove your code
-        """
-        await self.update_code(ctx.author.id, None, ctx.command.parent.name)
-        await ctx.send("code removed")
 
 def setup(bot):
     bot.add_cog(FriendCodes(bot))
