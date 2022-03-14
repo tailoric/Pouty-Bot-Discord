@@ -164,7 +164,6 @@ class Userinfo(commands.Cog):
                       color=colour)
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
-        embed.add_field(name="Region", value=str(guild.region))
         embed.add_field(name="Users", value="{}/{}".format(users_online, users_total))
         embed.add_field(name="Text Channels", value="{}"
                         .format(len([x for x in guild.channels if type(x) == discord.TextChannel])))
