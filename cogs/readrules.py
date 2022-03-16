@@ -13,7 +13,6 @@ from .utils.checks import is_owner_or_moderator
 from cogs.default import CustomHelpCommand
 from io import TextIOWrapper, BytesIO
 
-forbidden_word_pattern = re.compile(r'(\btrap\b|nigg(a|er)|fag(got)?)')
 class JumpMessageView(discord.ui.View):
     def __init__(self, message: discord.Message):
         super().__init__(timeout=None)
@@ -23,6 +22,7 @@ class JumpMessageView(discord.ui.View):
             label="confirm you read the rules",
             emoji="\N{OPEN BOOK}"
             ))
+         
 
 class AnimemesHelpFormat(CustomHelpCommand):
 
@@ -110,7 +110,7 @@ class ReadRules(commands.Cog):
             self.join_limit = settings["join_limit"]
             self.join_timer = settings["join_timer"]
         self.limit_reset.change_interval(hours=self.join_timer)
-        self.word_filter = re.compile(r"((traa*pp*)|\bfagg*(ott*)?\b|retard)")
+        self.word_filter = re.compile(r"(\bfagg*(ott*)?\b|\bretard)")
         self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)")
 
     def cog_unload(self):
@@ -439,7 +439,7 @@ class ReadRules(commands.Cog):
     async def check_member_name(self, before, after):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
-        forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
+        forbidden_match = self.word_filter.search(after.display_name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
@@ -483,7 +483,7 @@ class ReadRules(commands.Cog):
             return
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
-        forbidden_match = forbidden_word_pattern.search(after.display_name.lower())
+        forbidden_match = self.word_filter.search(after.display_name.lower())
         old_name = after.display_name
         if not await self.check_member_for_valid_character(after):
             await after.edit(nick=f"pingable_username#{after.discriminator}")
