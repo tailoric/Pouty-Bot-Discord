@@ -844,7 +844,7 @@ class Danbooru(commands.Cog):
         await ctx.send('channel setup for subscription')
 
     @dans.command()
-    async def restart(self):
+    async def restart(self, ctx):
         """
         ONLY USE WHEN STUCK!
         """
