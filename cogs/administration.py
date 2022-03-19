@@ -492,20 +492,25 @@ class Admin(commands.Cog):
         format: 
         `mban 12345678 123456 1234567 some reason`
         """
-        for user in targets:
-            try:
-                member = ctx.bot.get_user(user.id)
-                if member:
-                    await member.send(textwrap.shorten(f''' You have been banned from the official /r/Animemes discord for the following reason
-                {reason}''', width=2000))
-            except discord.Forbidden:
-                continue
-            await ctx.guild.ban(user, reason=reason, delete_message_days=1)
-        description=f"The following users have been banned for the following reason:\n{reason}\n"
-        description += '\n'.join(f'<@{u.id}>' for u in targets)
-        embed = discord.Embed(title="Mass ban", description=textwrap.shorten(description, width=4000))
-        embed.add_field(name="Message", value=f"[Jump Url]({ctx.message.jump_url})")
-        embed.add_field(name="By Moderator", value=ctx.author.mention)
+        async with ctx.channel.typing():
+            for user in targets:
+                try:
+                    member = ctx.bot.get_user(user.id)
+                    if member:
+                        await member.send(textwrap.shorten(f''' You have been banned from the official /r/Animemes discord for the following reason
+                    {reason}''', width=2000))
+                except discord.Forbidden:
+                    continue
+                await ctx.guild.ban(user, reason=reason, delete_message_days=1)
+
+            description=f"The following users have been banned for the following reason:\n{reason}\n"
+            description += '\n'.join(f'<@{u.id}>' for u in targets)
+            embed = discord.Embed(title="Mass ban", description=textwrap.shorten(description, width=4000))
+            embed.add_field(name="Message", value=f"[Jump Url]({ctx.message.jump_url})")
+            embed.add_field(name="By Moderator", value=ctx.author.mention)
+            await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+
+        await ctx.send(await self.get_ban_image(ctx.author.id))
         await self.check_channel.send(embed=embed)
 
     @commands.group(name="ban", usage="ban <User> <reason> `days:|dd:` <number of days>", invoke_without_command=True)
