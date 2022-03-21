@@ -292,6 +292,16 @@ class ReadRules(commands.Cog):
     async def stop_join_timer(self, ctx):
         self.limit_reset.cancel()
 
+    def build_join_message(self, member: discord.Member):
+        embed = discord.Embed(title=f"{member} joined the server", colour=discord.Colour.blurple())
+        embed.add_field(name="User", value=member.mention)
+        embed.add_field(name="Account Creation",value=discord.utils.format_dt(member.created_at))
+        embed.add_field(name="Server join", value=discord.utils.format_dt(member.joined_at))
+        embed.set_thumbnail(url=member.display_avatar)
+        embed.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        return {'content': member.id, 'embed': embed}
+
     @commands.Cog.listener()
     async def on_message(self, message):
         channel = message.channel
@@ -304,7 +314,7 @@ class ReadRules(commands.Cog):
         if iam_memester_regex.match(message.clean_content):
             await message.author.add_roles(self.new_memester)
             await message.delete()
-            await self.join_log.send(f"{message.author.mention} joined the server.")
+            await self.join_log.send(**self.build_join_message(message.author))
             if self.limit_reset.is_running():
                 self.join_counter += 1
             if self.join_counter >= self.join_limit and self.join_limit > 0 and self.limit_reset.is_running():
@@ -497,7 +507,7 @@ class ReadRules(commands.Cog):
     @commands.command(name="adduser")
     async def add_user(self, ctx, user: discord.Member):
         await user.add_roles(self.new_memester)
-        await self.join_log.send(f"{user.mention} joined the server.")
+        await self.join_log.send(**self.build_join_message(user))
 
 
 def setup(bot: commands.Bot):
