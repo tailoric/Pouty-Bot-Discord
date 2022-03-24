@@ -20,7 +20,7 @@ def is_boost():
         else:
             raise NotBoostError("This command only works inside a server")
 
-    return commands.check(predicate=predicate)
+    return commands.check(predicate)
 
 class Boost(commands.Cog):
     """The description for Boost goes here."""
