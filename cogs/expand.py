@@ -8,6 +8,7 @@ import logging
 import os
 import re
 from discord.ext import commands
+from discord import app_commands
 from functools import partial 
 from itertools import filterfalse
 from pathlib import Path
@@ -298,6 +299,15 @@ class LinkExpander(commands.Cog):
             await asyncio.sleep(20)
         if status != 1:
             await message.edit(content=message.content + " ")
+
+    @app_commands.command(name="fclyde", description="get around the clyde filter for upload")
+    @app_commands.guilds(287695136840876032)
+    async def fuck_clyde(self, interaction: discord.Interaction, attachment: discord.Attachment) -> None:
+        await interaction.response.defer()
+        try:
+            await interaction.followup.send(file=await attachment.to_file())
+        except discord.HTTPException as e:
+            await interaction.followup.send(content=str(e))
 
 
 async def setup(bot):
