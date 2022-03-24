@@ -301,7 +301,6 @@ class LinkExpander(commands.Cog):
             await message.edit(content=message.content + " ")
 
     @app_commands.command(name="fclyde", description="get around the clyde filter for upload")
-    @app_commands.guilds(287695136840876032)
     async def fuck_clyde(self, interaction: discord.Interaction, attachment: discord.Attachment) -> None:
         await interaction.response.defer()
         try:
