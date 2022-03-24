@@ -28,6 +28,7 @@ class Tags(commands.Cog):
         self.tags = {}
         all_tags = await self.bot.db.fetch("""
             SELECT name, guild_id from tag
+            ORDER BY guild_id, name
         """)
         for tag in all_tags:
             if tag.get("guild_id") not in self.tags:
@@ -75,7 +76,8 @@ class Tags(commands.Cog):
     async def tag_autocomplete(self, interaction: discord.Interaction, current: str):
         guild = interaction.guild_id
         if guild:
-            return [app_commands.Choice(name=t, value=t) for t in self.tags[guild] if current.lower() in t.lower()]
+            
+            return [app_commands.Choice(name=t, value=t) for t in self.tags[guild] if current.lower() in t.lower()][:25]
 
     @commands.group(invoke_without_command=True)
     async def tag(self, ctx, *, name):
