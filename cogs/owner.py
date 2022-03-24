@@ -178,11 +178,11 @@ class Owner(commands.Cog):
         ret.sort(reverse=True)
         return ret
 
-    def reload_or_load_extension(self, module):
+    async def reload_or_load_extension(self, module):
         try:
-            self.bot.reload_extension(module)
+            await self.bot.reload_extension(module)
         except commands.ExtensionNotLoaded:
-            self.bot.load_extension(module)
+            await self.bot.load_extension(module)
 
     @commands.command()
     @commands.is_owner()
@@ -223,7 +223,7 @@ class Owner(commands.Cog):
                         statuses.append((self.confirmation_reacts[0], module))
             else:
                 try:
-                    self.reload_or_load_extension(module)
+                    await self.reload_or_load_extension(module)
                 except commands.ExtensionError:
                     statuses.append((self.confirmation_reacts[1], module))
                 else:
