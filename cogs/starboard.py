@@ -62,10 +62,11 @@ class Starboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.star_emoji = "\N{WHITE MEDIUM STAR}"
-        self.bot.loop.create_task(self.initialize_db())
         self.logger = getLogger("PoutyBot")
 
-    
+    async def cog_load(self):
+        self.bot.loop.create_task(self.initialize_db())
+
     def convert_string_timedelta(self, string):
             try:
                 number, units = string.split()
@@ -369,5 +370,5 @@ class Starboard(commands.Cog):
             await self.bot.db.execute("""
                 DELETE FROM starboard_entries WHERE bot_message_id = $1 OR message_id = $1
                 """, message_id)
-def setup(bot):
-    bot.add_cog(Starboard(bot))
+async def setup(bot):
+    await bot.add_cog(Starboard(bot))

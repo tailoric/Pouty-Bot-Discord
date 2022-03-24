@@ -85,5 +85,5 @@ class Wolfram(commands.Cog):
         self.bot.loop.create_task(self.session.close())
 
 
-def setup(bot):
-    bot.add_cog(Wolfram(bot))
+async def setup(bot):
+    await bot.add_cog(Wolfram(bot))

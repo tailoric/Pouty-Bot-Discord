@@ -144,8 +144,9 @@ class GroupWatch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_message = None
-        self.initialize_table = self.bot.loop.create_task(self.groupwatch_threads_table())
 
+    async def cog_load(self):
+        self.initialize_table = self.bot.loop.create_task(self.groupwatch_threads_table())
     async def groupwatch_threads_table(self):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS groupwatches(
@@ -296,5 +297,5 @@ class GroupWatch(commands.Cog):
         await ctx.send("Choose a groupwatch to archive", view=archive)
 
 
-def setup(bot):
-    bot.add_cog(GroupWatch(bot))
+async def setup(bot):
+    await bot.add_cog(GroupWatch(bot))

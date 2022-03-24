@@ -4,26 +4,13 @@ import random
 import json
 import asyncio
 import os
-
+import functools
 
 def find_file(command):
     with open('data/social/{}.json'.format(command), 'r') as f:
         return json.load(f)
 
 
-def make_social_command(self, filename):
-    async def social_command(self, ctx, *, user=None):
-        mentioned_users = ctx.message.mentions
-        file_name = filename.replace(".json", "")
-        images = find_file(file_name)
-        if mentioned_users or not user:
-            await ctx.send(random.choice(images))
-        else:
-            user = user.replace("\"", "")
-            found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
-            fmt = '{0}\n{1}'
-            await ctx.send(fmt.format(found_user.mention, random.choice(images)))
-    return social_command
 
 
 class Social(commands.Cog):
@@ -32,18 +19,27 @@ class Social(commands.Cog):
     """
     def __new__(cls, *args, **kwargs):
         self = super().__new__(cls)
-        files = os.listdir("data/social/")
-        loaded_commands = list(cls.__cog_commands__)
-        for file in files:
-            description = f"send a {file.replace('.json', '')} to a user or to yourself"
-            new_command = commands.Command(make_social_command(self, file), name=file.replace(".json", ""),
-                                           hidden=False, cog=self, description=description, help=description)
-            loaded_commands.append(new_command)
-        self.__cog_commands__ = tuple(loaded_commands)
         return self
 
     def __init__(self, bot):
         self.bot = bot
+        files = os.listdir("data/social/")
+        for file in files:
+            description = f"send a {file.replace('.json', '')} to a user or to yourself"
+            @commands.command(name=file.replace('.json',''), description=description, help=description)
+            async def social_command(self,ctx, *, user=None):
+                mentioned_users = ctx.message.mentions
+                file_name = file.replace(".json", "")
+                images = find_file(file_name)
+                if mentioned_users or not user:
+                    await ctx.send(random.choice(images))
+                else:
+                    user = user.replace("\"", "")
+                    found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
+                    fmt = '{0}\n{1}'
+                    await ctx.send(fmt.format(found_user.mention, random.choice(images)))
+
+            social_command.cog = self        
 
     @commands.command(name="iloveyou", aliases=['ily'])
     async def iloveyou(self, ctx):
@@ -78,5 +74,5 @@ class Social(commands.Cog):
                                         f"**{member.display_name}** a whooping {love_capability}% "
                                         f"(with a love boost of {love_bonus}%)")
 
-def setup(bot):
-    bot.add_cog(Social(bot))
+async def setup(bot):
+    await bot.add_cog(Social(bot))

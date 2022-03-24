@@ -82,8 +82,10 @@ class Thread(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger= getLogger("PoutyBot")
-        self.db_task = self.bot.loop.create_task(self.init_database())
     
+    async def cog_load(self):
+        self.db_task = self.bot.loop.create_task(self.init_database())
+
     async def cog_before_invoke(self, ctx: commands.Context):
         await asyncio.wait_for(self.db_task, timeout=None)
 
@@ -177,5 +179,5 @@ class Thread(commands.Cog):
         if ctx.channel != thread:
             await ctx.message.add_reaction("\N{OK HAND SIGN}")
 
-def setup(bot):
-    bot.add_cog(Thread(bot))
+async def setup(bot):
+    await bot.add_cog(Thread(bot))

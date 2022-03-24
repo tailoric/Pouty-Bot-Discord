@@ -100,11 +100,12 @@ class Admin(commands.Cog):
             '\N{WHITE HEAVY CHECK MARK}',
             '\N{NEGATIVE SQUARED CROSS MARK}'
         ]
-        self.bot.loop.create_task(self.create_mute_database())
-        self.bot.loop.create_task(self.create_voice_unmute_table())
-        self.bot.loop.create_task(self.create_personal_ban_image_db())
         self.to_unmute = []
 
+    async def cog_load(self):
+        await self.create_mute_database()
+        await self.create_voice_unmute_table()
+        await self.create_personal_ban_image_db()
     def parse_timer(self, timer):
         match = timing_regex.match(timer)
         if not match:
@@ -863,5 +864,5 @@ class Admin(commands.Cog):
             await self.check_channel.send(f"{member.mention} left the server while being muted")
 
 
-def setup(bot):
-    bot.add_cog(Admin(bot))
+async def setup(bot):
+    await bot.add_cog(Admin(bot))

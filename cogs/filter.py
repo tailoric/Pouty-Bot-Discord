@@ -46,7 +46,7 @@ class Filter(commands.Cog):
             self.sticker_blacklist_channels = []
             self.sticker_blacklist_categories = []
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
     @commands.Cog.listener("on_message")
@@ -233,5 +233,5 @@ class Filter(commands.Cog):
             settings = {"channel_id" : channel.id}
             json.dump(settings, filter_file)
         await ctx.send("channel {} setup as exception channel".format(channel.mention))
-def setup(bot):
-    bot.add_cog(Filter(bot))
+async def setup(bot):
+    await bot.add_cog(Filter(bot))

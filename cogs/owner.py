@@ -50,6 +50,15 @@ class Owner(commands.Cog):
         for module in modules_to_reload:
             importlib.reload(module)
 
+    @commands.command(name="rlslash", aliases=["reload_slash"])
+    @checks.is_owner()
+    async def reload_slash(self, ctx: commands.Context):
+        await ctx.bot.tree.sync()
+        for guild in ctx.bot.guilds:
+            await ctx.bot.tree.sync(guild=guild)
+        await ctx.bot.tree.sync()
+        await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+
     #
     #
     # loading and unloading command by Rapptz
@@ -62,9 +71,9 @@ class Owner(commands.Cog):
         try:
             if with_prefix:
                 self.reload_submodules(module)
-                self.bot.load_extension('cogs.'+module)
+                await self.bot.load_extension('cogs.'+module)
             else:
-                self.bot.load_extension(module)
+                await self.bot.load_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
             paginator = commands.Paginator()
@@ -86,9 +95,9 @@ class Owner(commands.Cog):
             return
         try:
             if with_prefix:
-                self.bot.unload_extension('cogs.'+module)
+                await self.bot.unload_extension('cogs.'+module)
             else:
-                self.bot.unload_extension(module)
+                await self.bot.unload_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
             await ctx.send('`{}: {}`'.format(type(e).__name__, e))
@@ -102,12 +111,12 @@ class Owner(commands.Cog):
         try:
             if with_prefix:
                 self.reload_submodules(module)
-                self.bot.reload_extension('cogs.'+module)
+                await self.bot.reload_extension('cogs.'+module)
             else:
-                self.bot.reload_extension(module)
+                await self.bot.reload_extension(module)
         except Exception as e:
             try:
-                self.bot.load_extension('cogs.'+module)
+                await self.bot.load_extension('cogs.'+module)
                 self.reload_submodules(module)
                 await ctx.send('\N{THUMBS UP SIGN}')
             except Exception as inner_e:
@@ -270,5 +279,5 @@ class Owner(commands.Cog):
             json.dump(self.disabled_commands, f)
         await ctx.send("command {} enabled".format(command))
 
-def setup(bot):
-    bot.add_cog(Owner(bot))
+async def setup(bot):
+    await bot.add_cog(Owner(bot))

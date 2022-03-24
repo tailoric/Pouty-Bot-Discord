@@ -58,7 +58,7 @@ class LinkExpander(commands.Cog):
             with path_streamable.open('r') as f:
                 self.streamable_auth = json.load(f)
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.bot.loop.create_task(self.httpx.aclose())
         self.bot.loop.create_task(self.session.close())
 
@@ -300,5 +300,5 @@ class LinkExpander(commands.Cog):
             await message.edit(content=message.content + " ")
 
 
-def setup(bot):
-    bot.add_cog(LinkExpander(bot))
+async def setup(bot):
+    await bot.add_cog(LinkExpander(bot))

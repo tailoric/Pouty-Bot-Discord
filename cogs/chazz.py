@@ -15,5 +15,5 @@ class Chazz(commands.Cog):
         if not self.bucket.update_rate_limit(message) and "chazz" in message.content.lower():
             await message.channel.send("https://tenor.com/view/confused-white-persian-guardian-why-gif-14053524")
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Chazz(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Chazz(bot))

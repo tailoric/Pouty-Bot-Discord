@@ -419,7 +419,7 @@ class Danbooru(commands.Cog):
         else:
             self.danbooru_channels = []
 
-    def cog_unload(self):
+    async def cog_unload(self):
         try:
             self.running_task.cancel()
             if not self.scheduler.subscriptions:
@@ -865,5 +865,5 @@ class Danbooru(commands.Cog):
         return send_message
 
 
-def setup(bot):
-    bot.add_cog(Danbooru(bot))
+async def setup(bot):
+    await bot.add_cog(Danbooru(bot))

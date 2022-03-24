@@ -23,10 +23,11 @@ class Birthday(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.data_io = DataIO()
-        self.bot.loop.create_task(self.setup_database())
         self.remove_birthday.start()
 
-    def cog_unload(self):
+    async def cog_load(self):
+        await self.setup_database()
+    async def cog_unload(self):
         self.remove_birthday.stop()
 
     async def insert_new_birthday(self, user_id, guild_id, role_removal_date, changed_color):
@@ -165,5 +166,5 @@ class Birthday(commands.Cog):
         await ctx.send(f"your birthday color has been changed to {color}")
         await self.update_birthday_entry_color_change(ctx.author.id, True)
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Birthday(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Birthday(bot))

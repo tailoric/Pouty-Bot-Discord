@@ -8,9 +8,6 @@ import sys
 import asyncio
 import aiohttp
 
-if 'win32' in sys.platform:
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
@@ -32,7 +29,7 @@ async def connect_db_and_start_bot():
                                        host="127.0.0.1")
 
     try:
-        bot.load_extension("cogs.default")
+        await bot.load_extension("cogs.default")
         async with aiohttp.ClientSession() as session:
             bot.session = session
             await bot.start(token)
@@ -57,5 +54,4 @@ if __name__ == '__main__':
                 )
             )
     logger.addHandler(handler)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(connect_db_and_start_bot())
+    asyncio.run(connect_db_and_start_bot())

@@ -29,5 +29,5 @@ class Dadjoke(commands.Cog):
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
-def setup(bot):
-    bot.add_cog(Dadjoke(bot))
+async def setup(bot):
+    await bot.add_cog(Dadjoke(bot))

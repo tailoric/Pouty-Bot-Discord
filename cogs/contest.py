@@ -449,6 +449,6 @@ class Contest(commands.Cog):
         return overwrite_contestant
 
 
-def setup(bot):
-    bot.add_cog(Contest(bot))
+async def setup(bot):
+    await bot.add_cog(Contest(bot))
 

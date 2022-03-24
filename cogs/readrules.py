@@ -99,9 +99,6 @@ class ReadRules(commands.Cog):
             self.lockdown_channel = self.animemes_guild.get_channel(596319943612432404)
             self.horny_role = self.animemes_guild.get_role(722561738846896240)
             self.horny_jail = self.animemes_guild.get_role(639138311935361064)
-        self.bot.loop.create_task(self.init_database())
-        self.bot.loop.create_task(self.setup_rules_database())
-        self.check_for_new_memester.start()
         self.join_counter = 0
         self.join_limit = 5
         self.join_timer = 6
@@ -113,7 +110,12 @@ class ReadRules(commands.Cog):
         self.word_filter = re.compile(r"(\bfagg*(ott*)?\b|\bretard)")
         self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)")
 
-    def cog_unload(self):
+    async def cog_load(self):
+        self.bot.loop.create_task(self.init_database())
+        self.bot.loop.create_task(self.setup_rules_database())
+        self.check_for_new_memester.start()
+
+    async def cog_unload(self):
         self.bot.help_command = self._original_help_command
         self.check_for_new_memester.stop()
         self.limit_reset.cancel()
@@ -510,6 +512,6 @@ class ReadRules(commands.Cog):
         await self.join_log.send(**self.build_join_message(user))
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(ReadRules(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(ReadRules(bot))
 

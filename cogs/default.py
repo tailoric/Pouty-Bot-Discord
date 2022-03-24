@@ -60,7 +60,7 @@ class CommandsSelect(discord.ui.Select):
             embed = discord.Embed(
                     title=title,
                     colour=discord.Colour.blurple(),
-                    description=command.help or discord.Embed.Empty
+                    description=command.help or None
                     )
             embed.set_footer(text="<> means parameter is required, [] means parameter is optional, word: means it is a flag")
             if isinstance(command, commands.Group):
@@ -137,7 +137,7 @@ class CustomHelpCommand(DefaultHelpCommand):
     async def send_cog_help(self, cog):
         embed = discord.Embed()
         embed.title = cog.qualified_name
-        embed.description = cog.description if cog.description else discord.Embed.Empty
+        embed.description = cog.description if cog.description else None
         filtered_commands = await self.filter_commands(cog.get_commands(), sort=True)
         for command in filtered_commands:
             command_title = f"{command.name} [{', '.join(command.aliases)}]" if command.aliases \
@@ -153,7 +153,7 @@ class CustomHelpCommand(DefaultHelpCommand):
             embed.title = f"{self.context.clean_prefix}{command.qualified_name} {command.signature}"
         else:
             embed.title = f"{self.context.clean_prefix}{command.usage}"
-        embed.description = command.help if command.help else discord.Embed.Empty
+        embed.description = command.help if command.help else None
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional, word: means it is a flag")
         if command.aliases:
             embed.add_field(name="aliases", value=", ".join(command.aliases), inline=True)
@@ -165,7 +165,7 @@ class CustomHelpCommand(DefaultHelpCommand):
             embed.title = f"{self.context.clean_prefix}{group.usage}"
         else:
             embed.title = f"{self.context.clean_prefix}{group.qualified_name} {group.signature}"
-        embed.description = group.help if group.help else discord.Embed.Empty
+        embed.description = group.help if group.help else None
         embed.set_footer(text="<> means parameter is required, [] means parameter is optional, word: means it is a flag")
         if group.aliases:
             embed.add_field(name="aliases", value=", ".join(group.aliases), inline=False)
@@ -210,16 +210,17 @@ class Default(commands.Cog):
                     backupCount=2)
             handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
             self.dm_logger.addHandler(handler)
-        self.bot.loop.create_task(self.load_cogs())
+
+    async def cog_load(self):
+        await self.load_cogs()
 
     async def load_cogs(self):
         if hasattr(self.bot, 'extensions_loaded'):
             return
-        await self.bot.wait_for('ready')
         init_extensions = self.data_io.load_json("initial_cogs")
         for extension in init_extensions:
             try:
-                self.bot.load_extension(extension)
+                await self.bot.load_extension(extension)
             except Exception as e:
                 print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
                 continue
@@ -237,6 +238,7 @@ class Default(commands.Cog):
         print(self.bot.user.name)
         print(self.bot.user.id)
         print(discord.utils.oauth_url(self.credentials['client-id']))
+        print(f'discord.py version: {discord.__version__}')
         print('-' * 8)
 
     @commands.Cog.listener()
@@ -337,5 +339,5 @@ class Default(commands.Cog):
         return True
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Default(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Default(bot))

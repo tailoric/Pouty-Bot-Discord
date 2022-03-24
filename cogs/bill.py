@@ -97,5 +97,5 @@ class Bill(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Bill(bot))
+async def setup(bot):
+    awit bot.add_cog(Bill(bot))

@@ -41,6 +41,8 @@ class RemindMe(commands.Cog):
     def __init__(self, bot : commands.Bot):
         self.bot = bot
         self.units = {"minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000}
+
+    async def cog_load(self):
         self.table_create = self.bot.loop.create_task(self.create_remindme_table())
         self.bot.loop.create_task(self.load_and_delete_old_json_file( ))
         self.check_reminders.start()
@@ -505,7 +507,7 @@ class SCP(commands.Cog):
         self.bot.loop.create_task(self.session.close())
 
 
-def setup(bot):
+async def setup(bot):
     global logger
     check_folders()
     logger = logging.getLogger("remindme")
@@ -515,12 +517,12 @@ def setup(bot):
         handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt="[%d/%m/%Y %H:%M]"))
         logger.addHandler(handler)
     n = RemindMe(bot)
-    bot.add_cog(n)
-    bot.add_cog(Choose(bot))
-    bot.add_cog(EightBall(bot))
-    bot.add_cog(Emoji(bot))
-    bot.add_cog(SCP(bot))
-    bot.add_cog(Misc(bot))
+    await bot.add_cog(n)
+    await bot.add_cog(Choose(bot))
+    await bot.add_cog(EightBall(bot))
+    await bot.add_cog(Emoji(bot))
+    await bot.add_cog(SCP(bot))
+    await bot.add_cog(Misc(bot))
 """
 this cog is partially provided by
 https://github.com/Twentysix26/26-Cogs/tree/master/remindme

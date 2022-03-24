@@ -80,5 +80,5 @@ class SpoilerCheck(commands.Cog):
             self.logger.error(error_msg)
     
 
-def setup(bot):
-    bot.add_cog(SpoilerCheck(bot))
+async def setup(bot):
+    await bot.add_cog(SpoilerCheck(bot))

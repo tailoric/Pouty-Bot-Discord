@@ -81,12 +81,13 @@ class Payday(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.bot.loop.create_task(self.setup_payday_table())
         self.start_amount = 1000
         self.salary = 150
         self.bonus_chance = {}
         self.multiplicator = {}
 
+    async def cog_load(self):
+        self.bot.loop.create_task(self.setup_payday_table())
     async def setup_payday_table(self):
         query = ("CREATE TABLE IF NOT EXISTS payday ("
                  "user_id BIGINT PRIMARY KEY,"
@@ -253,5 +254,5 @@ class Payday(commands.Cog):
         await pages.start(ctx)
 
 
-def setup(bot):
-    bot.add_cog(Payday(bot))
+async def setup(bot):
+    await bot.add_cog(Payday(bot))

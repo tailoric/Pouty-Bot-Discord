@@ -12,8 +12,9 @@ class Quotes(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.initialize_quote_table())
 
+    async def cog_load(self):
+        self.bot.loop.create_task(self.initialize_quote_table())
     async def initialize_quote_table(self):
         query = "CREATE TABLE IF NOT EXISTS quotes (" \
                 "number SERIAL PRIMARY KEY, " \
@@ -156,5 +157,5 @@ class Quotes(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Quotes(bot))
+async def setup(bot):
+    await bot.add_cog(Quotes(bot))

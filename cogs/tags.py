@@ -1,6 +1,8 @@
 from discord.ext import commands, menus
 from .utils import checks, views
 import discord
+from discord import app_commands
+import itertools
 
 class TagList(menus.ListPageSource):
     def __init__(self, data, *args, **kwargs):
@@ -15,10 +17,23 @@ class TagList(menus.ListPageSource):
 
 class Tags(commands.Cog):
     """Create, Edit, Delete and Search tags created by moderators"""
-
     def __init__(self, bot):
         self.bot = bot
-        self.init_task = bot.loop.create_task(self.init_database())
+        self.tags = {}
+
+
+    async def cog_load(self):
+        await self.init_database()
+    async def refresh_cache(self):
+        self.tags = {}
+        all_tags = await self.bot.db.fetch("""
+            SELECT name, guild_id from tag
+        """)
+        for tag in all_tags:
+            if tag.get("guild_id") not in self.tags:
+                self.tags[tag['guild_id']] = [tag.get('name')]
+            else:
+                self.tags[tag['guild_id']].append(tag.get('name'))
 
     async def init_database(self):
         await self.bot.db.execute("""
@@ -38,6 +53,30 @@ class Tags(commands.Cog):
                 tag_id BIGINT REFERENCES tag(tag_id) ON DELETE CASCADE
             );
         """)
+        await self.refresh_cache()
+    tags = app_commands.Group(name="tag", description="Commands for handling tags and quickly calling said tags.", guild_ids=[287695136840876032])
+
+    @tags.command(name="get", description="get content of a tag")
+    @app_commands.describe(tag="the name of the tag to use")
+    async def app_tag(self, interaction: discord.Interaction, tag: str) -> None:
+        result = await self.bot.db.fetchval("""
+            SELECT content
+            FROM tag_alias  
+            INNER JOIN  tag ON tag.tag_id = tag_alias.tag_id
+            WHERE tag_alias.name=$1
+            AND tag_alias.guild_id=$2
+        """, tag, interaction.guild.id)
+        if result:
+            await interaction.response.send_message(result, allowed_mentions=discord.AllowedMentions.none())
+        else:
+            await interaction.response.send_message(f"No tag with name {tag}")
+
+    @app_tag.autocomplete("tag")
+    async def tag_autocomplete(self, interaction: discord.Interaction, current: str):
+        guild = interaction.guild_id
+        if guild:
+            return [app_commands.Choice(name=t, value=t) for t in self.tags[guild] if current.lower() in t.lower()]
+
     @commands.group(invoke_without_command=True)
     async def tag(self, ctx, *, name):
         """
@@ -79,6 +118,7 @@ class Tags(commands.Cog):
             INSERT INTO tag_alias(guild_id, name, tag_id) VALUES ($1, $2, (SELECT tag_id FROM tag_insert))
             """, ctx.guild.id, name, content)
             await ctx.send(f"tag `{name}` created.")
+            await self.refresh_cache()
 
     @tag.command(name="edit", aliases=["update"])
     @checks.is_owner_or_moderator()
@@ -205,5 +245,5 @@ class Tags(commands.Cog):
         else:
             await ctx.send(f"tag alias `{alias}` not found")
 
-def setup(bot):
-    bot.add_cog(Tags(bot))
+async def setup(bot):
+    await bot.add_cog(Tags(bot))

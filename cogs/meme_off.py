@@ -40,7 +40,6 @@ class MemeOff(commands.Cog):
     """Command suite for Animemes meme-offs only"""
     def __init__(self, bot):
         self.bot = bot
-        self.create_table = self.bot.loop.create_task(self.initialize_table())
         if not hasattr(self.bot, 'meme_off_timer'):
             self.bot.meme_off_timer = None
         if not hasattr(self.bot, 'meme_off_timer_timestamp'):
@@ -55,6 +54,8 @@ class MemeOff(commands.Cog):
         self.session = aiohttp.ClientSession()
 
     
+    async def cog_load(self):
+        self.create_table = self.bot.loop.create_task(self.initialize_table())
     async def initialize_table(self):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS meme_off_templates(
@@ -315,6 +316,6 @@ class MemeOff(commands.Cog):
             await ctx.send("Only a moderator or the user who pinned the template can unpin it")
 
 
-def setup(bot):
-    bot.add_cog(MemeOff(bot))
+async def setup(bot):
+    await bot.add_cog(MemeOff(bot))
 

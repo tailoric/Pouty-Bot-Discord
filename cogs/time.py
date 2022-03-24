@@ -46,11 +46,13 @@ class RelativeTime(commands.Converter):
 class Time(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.table_creation = self.bot.loop.create_task(self.create_user_time_entries())
         self.time_format = '%H:%M:%S'
         self.unknown_tz = ("Unknown timezone please refer to this table to find your correct one: "
                 "<https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>\n"
                 "the format is usually `Region/City`")
+
+    async def cog_load(self):
+        self.table_creation = self.bot.loop.create_task(self.create_user_time_entries())
 
     def build_timer_response(self, when: datetime, format_: typing.Optional[str]):
         if format_:
@@ -179,5 +181,5 @@ class Time(commands.Cog):
         await ctx.send(f"{dt_from.strftime(self.time_format)} `{from_}` in `{to}` is {dt_to.strftime(self.time_format)}")
 
 
-def setup(bot):
-    bot.add_cog(Time(bot))
+async def setup(bot):
+    await bot.add_cog(Time(bot))

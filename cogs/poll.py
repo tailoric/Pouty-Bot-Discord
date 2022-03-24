@@ -20,8 +20,6 @@ class Poll(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.create_database())
-        self.check_polls.start()
         self.option_labels = [
                     "\N{DIGIT ONE}\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}",
                     "\N{DIGIT TWO}\N{VARIATION SELECTOR-16}\N{COMBINING ENCLOSING KEYCAP}",
@@ -35,7 +33,10 @@ class Poll(commands.Cog):
                     "\N{KEYCAP TEN}"
                 ]
 
-    def cog_unload(self):
+    async def cog_load(self):
+        self.bot.loop.create_task(self.create_database())
+        self.check_polls.start()
+    async def cog_unload(self):
         self.check_polls.cancel()
 
     @commands.Cog.listener()
@@ -54,7 +55,7 @@ class Poll(commands.Cog):
                 continue
             if reaction.emoji == payload.emoji.name:
                 continue
-            user = await reaction.users().find(lambda u: u.id == payload.member.id)
+            user = next(iter([u async for u in reaction.users() if u.id == payload.member.id]), None)
             if user and not poll.get("multi"):
                 await reaction.remove(user)
 
@@ -242,5 +243,5 @@ class Poll(commands.Cog):
         await ctx.send(str(end - utcnow()))
 
 
-def setup(bot):
-    bot.add_cog(Poll(bot))
+async def setup(bot):
+    await bot.add_cog(Poll(bot))

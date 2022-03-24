@@ -19,7 +19,7 @@ class Distort(commands.Cog):
         else:
             self.image_magick_command = "convert"
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
     async def spawn_magick(self, filename, filetype):
@@ -111,5 +111,5 @@ class Distort(commands.Cog):
         os.remove(file_path)
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Distort(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Distort(bot))

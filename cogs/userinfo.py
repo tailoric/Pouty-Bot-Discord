@@ -54,6 +54,8 @@ class Userinfo(commands.Cog):
     """show infos about the current or other users"""
     def __init__(self, bot):
         self.bot = bot
+
+    async def cog_load(self):
         self.bot.loop.create_task(self.create_name_tables())
 
     @commands.command()
@@ -316,5 +318,5 @@ class Userinfo(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Userinfo(bot=bot))
+async def setup(bot):
+    await bot.add_cog(Userinfo(bot=bot))

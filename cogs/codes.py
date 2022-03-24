@@ -30,7 +30,6 @@ class FriendCodes(commands.Cog):
         for group in self.groups:
             self.examples[group['name']] = group['example']
         self.bot = bot
-        self.bot.loop.create_task(self.create_table())
         for group in self.groups:
 
             @self.friend_codes.group(name=group["name"], aliases=group["aliases"])
@@ -69,6 +68,8 @@ class FriendCodes(commands.Cog):
                 await ctx.send("code removed")
 
 
+    async def cog_load(self):
+        await self.create_table()
     async def create_table(self):
         await self.build_friend_code_table()
         await self.migrations()
@@ -175,5 +176,5 @@ class FriendCodes(commands.Cog):
         
 
 
-def setup(bot):
-    bot.add_cog(FriendCodes(bot))
+async def setup(bot):
+    await bot.add_cog(FriendCodes(bot))

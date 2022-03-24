@@ -303,5 +303,5 @@ class AniSearch(commands.Cog):
         embed.set_thumbnail(url=result["image_url"])
         return embed
 
-def setup(bot):
-    bot.add_cog(AniSearch(bot))
+async def setup(bot):
+    await bot.add_cog(AniSearch(bot))

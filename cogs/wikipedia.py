@@ -16,6 +16,6 @@ class Wikipedia(commands.Cog):
         await ctx.send(link)
 
 
-def setup(bot):
-    bot.add_cog(Wikipedia(bot))
+async def setup(bot):
+    await bot.add_cog(Wikipedia(bot))
 

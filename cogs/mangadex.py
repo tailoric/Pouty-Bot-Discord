@@ -170,5 +170,5 @@ class Mangadex(commands.Cog):
                         embed.add_field(name="Rating", value=f"{stats.rating.average:.2f}")
                 await ctx.send(embed=embed)
 
-def setup(bot):
-    bot.add_cog(Mangadex(bot))
+async def setup(bot):
+    await bot.add_cog(Mangadex(bot))

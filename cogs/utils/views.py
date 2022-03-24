@@ -36,6 +36,7 @@ class PaginatedView(discord.ui.View):
         super().__init__(*args, **kwargs)
         self._source = source
         self.current_page = 0
+        self.interaction = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return self.context.author == interaction.user
@@ -68,7 +69,10 @@ class PaginatedView(discord.ui.View):
         page = await self._source.get_page(page_number)
         self.current_page = page_number
         kwargs = await self._get_kwargs_from_page(page)
-        await self.message.edit(view=self,**kwargs)
+        if self.interaction:
+            await self.interaction.response.edit_message(view=self, **kwargs)
+        else:
+            await self.message.edit(view=self,**kwargs)
 
     async def show_checked_page(self, page_number):
         max_pages = self._source.get_max_pages()
@@ -78,29 +82,36 @@ class PaginatedView(discord.ui.View):
                 await self.show_page(page_number)
             elif max_pages > page_number >= 0:
                 await self.show_page(page_number)
+            else:
+                await self.show_page(self.current_page)
         except IndexError:
             # An error happened that can be handled, so ignore it.
-            pass
+            print("index error")
+            await self.show_page(self.current_page)
 
     @discord.ui.button(emoji='\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
     async def go_to_first_page(self, button: discord.ui.Button, interaction):
         """go to the first page"""
+        self.interaction = interaction
         await self.show_page(0)
 
     @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f', row=1)
     async def go_to_previous_page(self, button, interaction):
         """go to the previous page"""
+        self.interaction = interaction
         await self.show_checked_page(self.current_page - 1)
 
     @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f', row=1)
     async def go_to_next_page(self, button, interaction):
         """go to the next page"""
+        self.interaction = interaction
         await self.show_checked_page(self.current_page + 1)
 
     @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
     async def go_to_last_page(self, button, interaction):
         """go to the last page"""
         # The call here is safe because it's guarded by skip_if
+        self.interaction = interaction
         await self.show_page(self._source.get_max_pages() - 1)
 
     @discord.ui.button(emoji='\N{BLACK SQUARE FOR STOP}\ufe0f', row=1)

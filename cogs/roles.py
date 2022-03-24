@@ -116,7 +116,6 @@ class Roles(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.file_path = 'data/roles.json'
-        self.bot.loop.create_task(self.create_role_table())
         if os.path.exists(self.file_path):
             with open(self.file_path) as f:
                 self.settable_roles = json.load(fp=f)
@@ -125,6 +124,8 @@ class Roles(commands.Cog):
             self.save_roles_to_file()
         self.lockdown = False
 
+    async def cog_load(self):
+        self.bot.loop.create_task(self.create_role_table())
     async def create_role_table(self):
         async with self.bot.db.acquire() as con:
             await con.execute("""
@@ -375,5 +376,5 @@ class Roles(commands.Cog):
         await ctx.send(embed=discord.Embed(color=hexcode, description=str(hexcode)))
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(Roles(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Roles(bot))

@@ -9,8 +9,8 @@ class Waifu2x(commands.Cog):
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
-    def __unload(self):
-        self.session.close()
+    def cog_unload(self):
+        self.bot.loop.create_task(self.session.close())
 
     @commands.command(pass_context=True)
     async def upscale(self,  ctxctx, url=None, scale='2x', noise='medium'):
@@ -72,5 +72,5 @@ class Waifu2x(commands.Cog):
             print(repr(e))
 
 
-def setup(bot):
-    bot.add_cog(Waifu2x(bot))
+async def setup(bot):
+    await bot.add_cog(Waifu2x(bot))

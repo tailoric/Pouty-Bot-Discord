@@ -37,12 +37,13 @@ class Wordcloud(commands.Cog):
 
     def __init__(self, bot):
         self.bot= bot
-        self.create_table = self.bot.loop.create_task(self.init_table())
         self.url_regex = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         self.spoiler_regex = re.compile(r"\|\|.+?\|\|")
         self.clean_db.start()
 
-    def cog_unload(self):
+    async def cog_load(self):
+        self.create_table = self.bot.loop.create_task(self.init_table())
+    async def cog_unload(self):
         self.clean_db.stop()
 
     async def init_table(self):
@@ -208,5 +209,5 @@ class Wordcloud(commands.Cog):
         img_buf.seek(0)
         return discord.File(img_buf, "wc.png")
 
-def setup(bot):
-    bot.add_cog(Wordcloud(bot))
+async def setup(bot):
+    await bot.add_cog(Wordcloud(bot))

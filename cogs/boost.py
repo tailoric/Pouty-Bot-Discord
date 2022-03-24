@@ -28,9 +28,11 @@ class Boost(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot : commands.Bot = bot
         self.log : logging.Logger = logging.getLogger("PoutyBot")
-        self.bot.loop.create_task(self.create_booster_color_table())
-        self.clean_non_boost_roles.start()
     
+    async def cog_load(self):
+        self.clean_non_boost_roles.start()
+        await self.create_booster_color_table()
+
     async def create_booster_color_table(self):
         await self.bot.db.execute('''
         CREATE TABLE IF NOT EXISTS boost_color (
@@ -155,7 +157,7 @@ class Boost(commands.Cog):
                 try:
                     member = await guild.fetch_member(entry.get('user_id'))
                 except Exception as e:
-                    self.log.warn("Could not fetch member ({}) deleting role {} [{}]: {}", entry.get('user_id'), role.name, role.id, e)
+                    self.log.warning("Could not fetch member ({}) deleting role {} [{}]: {}", entry.get('user_id'), role.name, role.id, e)
                     roles_to_delete.append(role)
             if member and not member.premium_since:
                 roles_to_delete.append(role)
@@ -167,5 +169,5 @@ class Boost(commands.Cog):
             ''', role.id)
             await role.delete()
 
-def setup(bot):
-    bot.add_cog(Boost(bot))
+async def setup(bot):
+    await bot.add_cog(Boost(bot))

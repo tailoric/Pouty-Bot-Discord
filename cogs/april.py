@@ -52,5 +52,5 @@ class April(commands.Cog):
             await message.channel.send(f"*nuzzles my new {'' if daddy_check else 'daddy '}{new_username}*")
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(April(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(April(bot))

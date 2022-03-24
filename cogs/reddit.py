@@ -37,10 +37,11 @@ class Reddit(commands.Cog):
                 self.checker_channel = self.bot.get_channel(settings['channel'])
                 self.reddit_channel = self.bot.get_channel(settings.get("reddit_channel", None))
             self.last_stickied_post_time = datetime.datetime.utcnow()
-            self.check_reddit_for_pinned_threads.start()
-            self.bot.loop.create_task(self.create_last_posts_table())
 
-    def cog_unload(self):
+    async def cog_load(self):
+        self.check_reddit_for_pinned_threads.start()
+        self.bot.loop.create_task(self.create_last_posts_table())
+    async def cog_unload(self):
         self.bot.loop.create_task(self.session.aclose())
         self.check_reddit_for_pinned_threads.stop()
 
@@ -250,5 +251,5 @@ class Reddit(commands.Cog):
             json.dump(settings, f)
 
 
-def setup(bot):
-    bot.add_cog(Reddit(bot))
+async def setup(bot):
+    await bot.add_cog(Reddit(bot))

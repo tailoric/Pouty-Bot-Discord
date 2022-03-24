@@ -324,12 +324,12 @@ class BlackJack(commands.Cog):
         self.games = []
         self.folds = []
 
-    def cog_unload(self):
+    async def cog_unload(self):
         if not self.payday:
             return
         try:
             for game in self.games:
-                self.bot.loop.create_task(self.payday.add_money(game.player.id, game.bet))
+                await self.payday.add_money(game.player.id, game.bet)
                 game.clear_items()
                 game.stop()
 
@@ -500,11 +500,11 @@ class Deathroll(commands.Cog):
         self.reject_reaction = "\N{NEGATIVE SQUARED CROSS MARK}"
         self.payday = self.bot.get_cog("Payday")
 
-    def cog_unload(self):
+    async def cog_unload(self):
         if not self.payday:
             return
         try:
-            self.bot.loop.create_task(self.pay_back_all_games())
+            await self.pay_back_all_games()
         except Exception as e:
             import logging
             logger = logging.getLogger("PoutyBot")
@@ -719,6 +719,6 @@ class Deathroll(commands.Cog):
             return await ctx.send(e)
 
 
-def setup(bot):
-    bot.add_cog(BlackJack(bot))
-    bot.add_cog(Deathroll(bot))
+async def setup(bot):
+    await bot.add_cog(BlackJack(bot))
+    await bot.add_cog(Deathroll(bot))

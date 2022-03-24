@@ -6,12 +6,8 @@ from discord.ext import commands
 from discord import app_commands
 from discord.mentions import AllowedMentions
 
-async def commands_sync(bot: commands.Bot, tree: app_commands.CommandTree):
-    for guild in bot.guilds:
-        await tree.sync(guild=guild)
-    await tree.sync()
 
-def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot):
     tree = bot.tree
 
     cooldowns : Dict[Union[discord.User, discord.Member], commands.Cooldown] = {}
@@ -54,7 +50,3 @@ def setup(bot: commands.Bot):
         except Exception as e:
             await interaction.response.send_message(content="Command failed unexpectedly", ephemeral=True)
             raise e
-
-    for guild in bot.guilds:
-        tree.add_command(at_role_ping, guild=guild)
-    bot.loop.create_task(commands_sync(bot, tree))
