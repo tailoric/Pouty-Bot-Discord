@@ -82,12 +82,7 @@ class ReportMessageForm(ui.Modal, title="Report Message Content"):
             await interaction.response.send_message(content="Report channel not set up", ephemeral=True)
 
 
-async def commands_sync(bot: commands.Bot, tree: app_commands.CommandTree):
-    for guild in bot.guilds:
-        await tree.sync(guild=guild)
-    await tree.sync()
-
-def setup(bot: commands.Bot):
+async def setup(bot: commands.Bot):
 
     @bot.tree.context_menu(name="Report User", guilds=bot.guilds)
     async def report_user(interaction: discord.Interaction, member: discord.Member):
@@ -98,13 +93,4 @@ def setup(bot: commands.Bot):
     async def report_message(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.send_modal(ReportMessageForm(bot,message, interaction.user))
 
-    bot.loop.create_task(commands_sync(bot, bot.tree))
 
-def teardown(bot: commands.Bot):
-    for guild in bot.guilds:
-        bot.tree.remove_command("Report User", guild=guild, type=discord.AppCommandType.user)
-        bot.tree.remove_command("Report Message", guild=guild, type=discord.AppCommandType.message)
-
-    bot.tree.remove_command("Report User", type=discord.AppCommandType.user)
-    bot.tree.remove_command("Report Message", type=discord.AppCommandType.message)
-    bot.loop.create_task(commands_sync(bot, bot.tree))
