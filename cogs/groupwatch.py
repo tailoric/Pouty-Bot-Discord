@@ -16,7 +16,7 @@ class JoinButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         await self.thread.edit(archived=False, locked=False)
-        await self.thread.add_user(user=interaction.user)
+        await self.thread.add_user(interaction.user)
 
 
 class JoinView(discord.ui.View):
