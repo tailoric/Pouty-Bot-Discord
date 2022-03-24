@@ -1,3 +1,4 @@
+from typing import List
 from discord.ext import commands, menus
 from .utils import checks, views
 import discord
@@ -57,7 +58,7 @@ class Tags(commands.Cog):
         await self.refresh_cache()
     tags = app_commands.Group(name="tag", description="Commands for handling tags and quickly calling said tags.")
 
-    @tags.command(name="get", description="get content of a tag")
+    @tags.command(name="get", description="get content of a tag", )
     @app_commands.describe(tag="the name of the tag to use")
     async def app_tag(self, interaction: discord.Interaction, tag: str) -> None:
         result = await self.bot.db.fetchval("""
@@ -73,11 +74,12 @@ class Tags(commands.Cog):
             await interaction.response.send_message(f"No tag with name {tag}")
 
     @app_tag.autocomplete("tag")
-    async def tag_autocomplete(self, interaction: discord.Interaction, current: str):
+    async def tag_autocomplete(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice]:
         guild = interaction.guild_id
-        if guild:
-            
+        if guild and guild in self.tags:
             return [app_commands.Choice(name=t, value=t) for t in self.tags[guild] if current.lower() in t.lower()][:25]
+        else:
+            return []
 
     @commands.group(invoke_without_command=True)
     async def tag(self, ctx, *, name):
