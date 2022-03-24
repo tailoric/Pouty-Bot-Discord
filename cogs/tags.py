@@ -58,7 +58,7 @@ class Tags(commands.Cog):
         await self.refresh_cache()
     tags = app_commands.Group(name="tag", description="Commands for handling tags and quickly calling said tags.")
 
-    @tags.command(name="get", description="get content of a tag", )
+    @tags.command(name="get", description="get content of a tag")
     @app_commands.describe(tag="the name of the tag to use")
     async def app_tag(self, interaction: discord.Interaction, tag: str) -> None:
         result = await self.bot.db.fetchval("""
@@ -112,6 +112,8 @@ class Tags(commands.Cog):
         """, name, ctx.guild.id)
         if result:
             await ctx.send("tag already exists choose a different name")
+        if len(content) > 2000:
+            return await ctx.send("tag content too long I can only send messages of length 2000")
         else:
             await self.bot.db.execute("""
             WITH tag_insert AS (

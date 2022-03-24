@@ -29,8 +29,8 @@ async def connect_db_and_start_bot():
                                        host="127.0.0.1")
 
     try:
-        await bot.load_extension("cogs.default")
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session, bot:
+            bot.loop.create_task(bot.load_extension("cogs.default"))
             bot.session = session
             await bot.start(token)
     except KeyboardInterrupt:
@@ -40,7 +40,6 @@ async def connect_db_and_start_bot():
 
 if __name__ == '__main__':
     credentials = load_credentials()
-    bot.client_id = credentials['client-id']
     logger = logging.getLogger('discord')
     logger.setLevel(logging.WARNING)
     handler = RotatingFileHandler(filename='discord.log',
