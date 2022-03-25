@@ -850,6 +850,7 @@ class Danbooru(commands.Cog):
         """
         await self.bot.remove_cog(self)
         await setup(self.bot)
+        await ctx.message.add_reaction("\N{THUMBS UP SIGN}")
 
     def build_message(self, image, channel, message):
 
