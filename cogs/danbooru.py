@@ -848,7 +848,7 @@ class Danbooru(commands.Cog):
         """
         ONLY USE WHEN STUCK!
         """
-        await self.cog_unload()
+        await self.bot.remove_cog(self)
         await setup(self.bot)
 
     def build_message(self, image, channel, message):
