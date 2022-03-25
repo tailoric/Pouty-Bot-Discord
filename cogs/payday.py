@@ -65,8 +65,8 @@ class RewardView(discord.ui.View):
             embed = await self.payday.payout_embed(self.member, entry, bonus.value)
             embed.title = "BONUS!"
             embed.description += f"\n{bonus.description}"
-            embed.set_footer(text=discord.Embed.Empty)
-            embed.timestamp = discord.Embed.Empty
+            embed.set_footer(text=None)
+            embed.timestamp = None
             embeds.append(embed)
         elif bonus.type == 2:
             self.payday.multiplicator[self.member.id] = bonus.value
@@ -194,7 +194,6 @@ class Payday(commands.Cog):
 
     @payday_command.error
     async def payday_error(self, ctx, error):
-
         if isinstance(error, commands.CommandOnCooldown):
             minutes, seconds = divmod(error.retry_after, 60)
             error.handled = True
@@ -207,6 +206,8 @@ class Payday(commands.Cog):
                 timestamp=datetime.now(timezone.utc) + timedelta(seconds=error.retry_after),
                 colour=colour
                 ))
+        else:
+            await ctx.send(error)
 
     @commands.command(name="transfer")
     async def transfer_money(self, ctx, amount: int, *, receiver: discord.Member):
