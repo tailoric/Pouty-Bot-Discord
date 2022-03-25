@@ -848,8 +848,7 @@ class Danbooru(commands.Cog):
         """
         ONLY USE WHEN STUCK!
         """
-        await self.bot.remove_cog(self)
-        await setup(self.bot)
+        await self.bot.reload_extension("cogs.danbooru")
         await ctx.message.add_reaction("\N{THUMBS UP SIGN}")
 
     def build_message(self, image, channel, message):
