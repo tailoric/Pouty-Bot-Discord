@@ -110,7 +110,7 @@ class BlackJackGame(discord.ui.View):
             await interaction.response.send_message("Not your game", ephemeral=True)
     @discord.ui.button(label="Hit", style=discord.ButtonStyle.primary)
     async def button_hit(self, button, interaction):
-        await self.handle_hit()
+        await self.handle_hit(interaction)
 
     @discord.ui.button(label="Stand", style=discord.ButtonStyle.primary)
     async def button_stand(self, button, interaction):
@@ -261,14 +261,17 @@ class BlackJackGame(discord.ui.View):
             self.stop()
             await ctx.send(embed=self.build_embed(balance), view=self)
 
-    async def handle_hit(self):
+    async def handle_hit(self, interaction: discord.Interaction = None):
         self.player_draw()
         if self.state == GameState.RUNNING:
             fold_button = discord.utils.get(self.children, label="Fold")
             double_button = discord.utils.get(self.children, label="Double")
             fold_button.disabled = True
             double_button.disabled = True
-            await self.message.edit(embed=self.build_embed(), view=self)
+            if interaction:
+                await interaction.response.edit_message(embed=self.build_embed(), view=self)
+            else:
+                await self.message.edit(embed=embed.self.build_embed(), view=self)
         elif self.state == GameState.DEALER_PHASE:
             self.stand()
             await self.payout();
