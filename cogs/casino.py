@@ -271,7 +271,7 @@ class BlackJackGame(discord.ui.View):
             if interaction:
                 await interaction.response.edit_message(embed=self.build_embed(), view=self)
             else:
-                await self.message.edit(embed=embed.self.build_embed(), view=self)
+                await self.message.edit(embed=self.embed.self.build_embed(), view=self)
         elif self.state == GameState.DEALER_PHASE:
             self.stand()
             await self.payout();
