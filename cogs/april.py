@@ -1,55 +1,55 @@
-from discord.ext import commands
+from datetime import timedelta, timezone, datetime
+import random
+from discord.ext import commands, tasks
 import discord
-
-import re
-
 
 class April(commands.Cog):
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.bucket = commands.CooldownMapping.from_cooldown(
-                1,
-                60 * 15,
-                commands.BucketType.channel)
+        self.colours = [
+                    discord.Colour(0xd2aee6),
+                    discord.Colour(0xc2d595),
+                    discord.Colour(0xd3d4a4),
+                    discord.Colour(0xDEC092),
+                    discord.Colour(0x9e9cb0),
+                    discord.Colour(0xa9d0d9),
+                    discord.Colour(0xF3AAAC),
+                    discord.Colour(0xAAEAAC),
+                    discord.Colour(0xAD5CDD),
+                    discord.Colour(0xAFCE66),
+                    discord.Colour(0xE5E443),
+                    discord.Colour(0x964797),
+                    discord.Colour(0x6CB2C3),
+                    discord.Colour(0xCF2026),
+                    discord.Colour(0x59EE5E),
+                ]
+        guild = bot.get_guild(187423852224053248)
+        if guild:
+            self.role = guild.get_role(189594836687519744)
+        else: 
+            test_guild = bot.get_guild(287695136840876032)
+            self.role = test_guild.get_role(514884001417134110)
+        self.shuffled = self.colours.copy()
+        random.shuffle(self.shuffled)
+        super().__init__()
 
-    async def uwuify_name(self, username: str):
-        replace_map = {
-                    r"(?:r|l)": r"w",
-                    r"(?:R|L)": r"W",
-                    r"n([aeiou])": r"ny\1",
-                    r"N([aeiou])": r"Ny\1",
-                    r"N([AEIOU])": r"NY\1",
-                    r"th": r"d",
-                    r"ove": "uv",
-                    r"ge": "gy",
-                    r"rs": "s",
-                }
-        sub_num = 0
-        for k, v in replace_map.items():
-            current_pattern = re.compile(k)
-            username, replacements = current_pattern.subn(v, username)
-            sub_num += replacements
-        return username, sub_num
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        message_low = message.content.lower()
-        if not ("uwu" in message_low or "owo" in message_low):
-            return
-        if not message.guild:
-            return
-        new_username, sub_num = await self.uwuify_name(
-                message.author.display_name)
-        if sub_num == 0 and not message.author.display_name.lower().startswith("daddy") :
-            new_username = "Daddy " + new_username
-        try:
-            await message.author.edit(nick=new_username)
-        except discord.errors.Forbidden:
-            pass
-        if not self.bucket.update_rate_limit(message):
-            daddy_check = message.author.display_name.lower().startswith("daddy")
-            await message.channel.send(f"*nuzzles my new {'' if daddy_check else 'daddy '}{new_username}*")
+    async def cog_load(self):
+        self.change_memester.start()
+
+
+    async def cog_unload(self):
+        self.change_memester.cancel()
+
+    @tasks.loop(hours=1)
+    async def change_memester(self):
+        if not self.shuffled:
+            self.shuffled = self.colours.copy()
+            random.shuffle(self.shuffled)
+        await self.role.edit(colour=self.shuffled.pop())
+        minutes = 60 + (random.randint(0, 30) * random.choice([1,-1]))
+        self.change_memester.change_interval(minutes=minutes)
 
 
 async def setup(bot: commands.Bot):
