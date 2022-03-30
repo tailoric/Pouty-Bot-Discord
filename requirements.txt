@@ -1,6 +1,6 @@
 discord-ext-menus @ git+https://github.com/Rapptz/discord-ext-menus@309c70222eec33acacb8c21bbb0fbe9bc57de661
 discord.py @ git+https://github.com/Rapptz/discord.py.git@master
-subdirectory=../../lavalinkpy
+lavalink
 fuzzywuzzy
 jishaku
 lxml
