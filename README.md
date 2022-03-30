@@ -4,7 +4,7 @@
 ## Bot Setup
 * clone repository
 * create bot account on https://discordapp.com/developers/applications/me
-* create a json file called `credentials.json` with the following schema:
+* create a json file called `credentials.json` inside the `data` folder with the following schema:
   ```json
   {
   "owner" : "your_own_id_13456", 
