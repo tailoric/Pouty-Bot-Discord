@@ -13,10 +13,10 @@
   "token": "ASDKASLDASDSdas.asdkkasjdkljsldk"
   }
   ```
-* also install postgresql and connect it with the bot because otherwise the bot won't start.
-  (easiest way is via [docker](https://hackernoon.com/dont-install-postgres-docker-pull-postgres-bee20e200198)
-  The bot will expect a database to run on http://localhost:5432
-  example config below
+* also install postgresql and connect it with the bot because otherwise the bot won't start.  
+  (easiest way is via [docker](https://hackernoon.com/dont-install-postgres-docker-pull-postgres-bee20e200198)  
+  The bot will expect a database to run on http://localhost:5432  
+  example config below  
   ```json
     {
       "user" : "postgres",
