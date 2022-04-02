@@ -282,7 +282,7 @@ class FieldPages(Pages):
 
     def prepare_embed(self, entries, page, *, first=False):
         self.embed.clear_fields()
-        self.embed.description = discord.Embed.Empty
+        self.embed.description = None
 
         for key, value in entries:
             self.embed.add_field(name=key, value=value, inline=False)
