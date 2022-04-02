@@ -120,35 +120,6 @@ class Mangadex(commands.Cog):
         self.mangadex_url = re.compile(r"https?://mangadex.org/(?P<type>title|chapter)/(?P<id>[a-f0-9A-F]{8}-(?:[a-f0-9A-F]{4}-){3}[a-f0-9A-F]{12})")
         self.params = "includes[]=cover_art&includes[]=manga"
 
-    @commands.Cog.listener(name="on_message")
-    async def embed_mangadex(self, message: discord.Message) -> None:
-        if (match:= self.mangadex_url.search(message.content)):
-            if match.group("type") == "title":
-                async with self.bot.session.get(self.api_url + f"/manga/{match.group('id')}?{self.params}") as resp, self.bot.session.get(self.api_url + f"/statistics/manga/{match.group('id')}", raise_for_status=True) as stat_resp:
-                    resp.raise_for_status()
-                    response = await resp.json()
-                    stats_response = await stat_resp.json()
-                    manga = Manga(response.get("data"))
-                    stats = MangaStatistics(stats_response)
-                    embed = manga.embed
-                    if stats.rating.average:
-                        embed.add_field(name="Rating", value=f"{stats.rating.average:.2f}")
-                    await message.channel.send(embed=embed)
-                    if message.guild and \
-                            message.channel.permissions_for(message.guild.me).manage_messages:
-                            await message.edit(suppress=True)
-            elif match.group("type") == "chapter":
-                async with self.bot.session.get(self.api_url + f"/chapter/{match.group('id')}?{self.params}") as resp:
-                    resp.raise_for_status()
-                    response = await resp.json()
-                    chapter = MangaChapter(response.get("data"))
-                    await message.channel.send(embed=chapter.embed)
-                    if message.guild and \
-                            message.channel.permissions_for(message.guild.me).manage_messages:
-                            await message.edit(suppress=True)
-
-
-
     @commands.command(name="mangadex", aliases=["md"])
     async def mangadex_search(self, ctx: commands.Context, *, query: str) -> None:
         """
