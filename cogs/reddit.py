@@ -91,7 +91,7 @@ class Reddit(commands.Cog):
     @tasks.loop(minutes=1)
     async def check_reddit_for_pinned_threads(self):
         try:
-            resp = await self.session.get(url="https://reddit.com/r/Animemes.json", auth=self.auth,
+            resp = await self.session.get(url="https://www.reddit.com/r/Animemes.json", auth=self.auth,
                                         headers=self.headers)
             resp.raise_for_status()
             resp_data = resp.json()
@@ -115,7 +115,7 @@ class Reddit(commands.Cog):
             logger.error(traceback.format_exc())
 
     async def get_stickied_comment(self, post):
-        resp = await self.session.get(url=f"https://reddit.com{post['permalink']}.json")
+        resp = await self.session.get(url=f"https://www.reddit.com{post['permalink']}.json")
         resp.raise_for_status()
         json_data =  resp.json()
         try:
@@ -124,7 +124,7 @@ class Reddit(commands.Cog):
             return None
 
     async def build_embed_for_stickied_thread(self, post):
-        resp = await self.session.get(url="https://reddit.com/r/Animemes/about.json", auth=self.auth,
+        resp = await self.session.get(url="https://www.reddit.com/r/Animemes/about.json", auth=self.auth,
                                     headers=self.headers)
         resp.raise_for_status()
         resp_data = resp.json()
@@ -214,6 +214,8 @@ class Reddit(commands.Cog):
             response = await self.session.get(url=vid_url, auth=self.auth, headers=self.headers)
             response.raise_for_status()
             url = str(response.url) + '.json'
+        elif match.group(1) and match.group(1).startswith('i'):
+            return
         else:
             url = "https://reddit.com/comments/" + match.group(4) + ".json"
         response = await self.session.get(url=url, auth=self.auth, headers=self.headers)
