@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import textwrap
 from discord.ext import commands
 from discord import app_commands
 import discord
@@ -9,6 +10,7 @@ from typing import List, Optional, Dict
 from textwrap import shorten
 import datetime
 import uuid
+import asyncio
 
 @dataclass
 class Manga:
@@ -22,6 +24,8 @@ class Manga:
         self._id = data.get("id")
         attributes = data.get("attributes", {})
         self.title = attributes.get("title",{}).get("en", None)
+        if self.title is None:
+            self.title = next(iter(attributes.get("title", {}).values()), self._id)
         self.description = attributes.get("description", {})
         if self.description and isinstance(self.description, dict):
             self.description = self.description.get("en")
@@ -56,9 +60,13 @@ class Mangadex(commands.Cog):
         self.bot = bot
         self.api_url = "https://api.mangadex.org"
         self.mangadex_url = re.compile(r"https?://mangadex.org/(?P<type>title|chapter)/(?P<id>[a-f0-9A-F]{8}-(?:[a-f0-9A-F]{4}-){3}[a-f0-9A-F]{12})")
+        self.rate_limit = app_commands.Cooldown(rate=5, per=1)
 
     async def search_for_title(self, title) -> List[Manga]:
         params = {"title": title, "limit": 5 , "order[relevance]": 'desc'}
+        wait = self.rate_limit.update_rate_limit()
+        if wait:
+            await asyncio.sleep(wait)
         async with self.bot.session.get(self.api_url+f"/manga", params=params) as resp:
             resp.raise_for_status()
             response = await resp.json()
@@ -87,7 +95,7 @@ class Mangadex(commands.Cog):
         results = await self.search_for_title(current)
         choices = []
         for result in results:
-            choices.append(app_commands.Choice(name=result.title, value=result._id))
+            choices.append(app_commands.Choice(name=textwrap.shorten(result.title, 100), value=result._id))
         return choices
 
 async def setup(bot: commands.Bot):
