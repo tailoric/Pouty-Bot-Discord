@@ -1,0 +1,21 @@
+version: '3.8'
+
+services: 
+  bot: 
+    build: 
+      context: .
+    volumes: 
+      - ./:/bot
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:13
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=postgres_pouty
+      - POSTGRES_DB=botdb
+    volumes:
+      - postgres_data:/var/lib/postgres/data
+volumes:
+  postgres_data:
