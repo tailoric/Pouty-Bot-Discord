@@ -56,7 +56,7 @@ class RewardView(discord.ui.View):
         return self.member == interaction.user
 
     @discord.ui.button(emoji="\N{WRAPPED PRESENT}")
-    async def reward_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def reward_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         button.disabled = True
         entry = await self.payday.fetch_money(self.member.id)
         bonus = random.choice(self.bonuses)

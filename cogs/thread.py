@@ -57,7 +57,7 @@ class ThreadJoinView(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.primary)
-    async def join_thread(self, button : discord.ui.Button, interaction: discord.Interaction):
+    async def join_thread(self,  interaction: discord.Interaction, button : discord.ui.Button):
         if interaction.user:
             if not self.thread.archived:
                 self.thread = await self.thread.guild.fetch_channel(self.thread.id)

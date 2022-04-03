@@ -109,21 +109,21 @@ class BlackJackGame(discord.ui.View):
         else:
             await interaction.response.send_message("Not your game", ephemeral=True)
     @discord.ui.button(label="Hit", style=discord.ButtonStyle.primary)
-    async def button_hit(self, button, interaction):
+    async def button_hit(self, interaction, button):
         await self.handle_hit(interaction)
 
     @discord.ui.button(label="Stand", style=discord.ButtonStyle.primary)
-    async def button_stand(self, button, interaction):
+    async def button_stand(self, interaction, button):
         self.stand()
         await self.payout()
 
     @discord.ui.button(label="Double", style=discord.ButtonStyle.primary)
-    async def button_double(self, button, interaction):
+    async def button_double(self, interaction, button):
         await self.handle_double()
 
     @discord.ui.button(label="Fold", style=discord.ButtonStyle.danger)
-    async def button_fold(self, button, interaction):
-        await self.handle_fold()
+    async def button_fold(self, interaction, button):
+        await self.handle_fold(interaction)
 
     @property
     def player_value(self):
@@ -298,11 +298,14 @@ class BlackJackGame(discord.ui.View):
         self.stand()
         await self.payout()
 
-    async def handle_fold(self):
+    async def handle_fold(self, interaction: Optional[discord.Interaction] = None):
         if len(self.player_hand) > 2:
             embed = self.build_embed()
             embed.description = "You can only fold when holding 2 cards"
-            await self.message.edit(embed=embed, view=self)
+            if interaction:
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await self.message.edit(embed=embed, view=self)
             return
         if self.payday:
             new_amount = await self.payday.add_money(self.player.id, int(self.bet * 0.8))
@@ -313,9 +316,18 @@ class BlackJackGame(discord.ui.View):
             embed.add_field(name="New Balance", value=f"{new_amount:,}")
             self.clear_items()
             self.stop()
-            await self.message.edit(embed=embed, view=self)
+            if interaction:
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await self.message.edit(embed=embed, view=self)
         else:
-            await self.message.edit(content="No money was bet but this game still gets stopped, better luck next time.", embed=None, view=self)
+            self.clear_items()
+            if interaction:
+                await interaction.response.edit_message(content="No money was bet but this game still gets stopped, better luck next time.", embed=None, view=self)
+            else:
+                await self.message.edit(content="No money was bet but this game still gets stopped, better luck next time.", embed=None, view=self)
+            self.state = GameState.GAME_OVER
+            self.stop()
 
 class BlackJack(commands.Cog):
     """

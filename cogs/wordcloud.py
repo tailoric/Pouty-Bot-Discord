@@ -22,14 +22,14 @@ class Confirm(discord.ui.View):
         return interaction.user is not None and interaction.user.id == self.user_id
 
     @discord.ui.button(emoji="\N{THUMBS UP SIGN}", style=discord.ButtonStyle.green)
-    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.bot.db.execute("INSERT INTO wc_consent VALUES ($1) ON CONFLICT DO NOTHING", self.user_id)
         self.clear_items()
         await interaction.response.edit_message(content="Consent given, I am now starting to collect messages you send"
                 "\nI won't collect messages you have sent before the consent.", view=self)
         
     @discord.ui.button(emoji="\N{THUMBS DOWN SIGN}", style=discord.ButtonStyle.danger)
-    async def deny(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.clear_items()
         await interaction.response.edit_message(content="No consent for recording messages, you won't be able to create a word cloud", view=self)
 

@@ -15,7 +15,7 @@ class Confirm(discord.ui.View):
         self.is_confirmed = False
 
     @discord.ui.button(emoji="\N{WHITE HEAVY CHECK MARK}", style=discord.ButtonStyle.primary)
-    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_confirmed = True
         self.clear_items()
         self.stop()
@@ -23,7 +23,7 @@ class Confirm(discord.ui.View):
 
 
     @discord.ui.button(emoji="\N{CROSS MARK}", style=discord.ButtonStyle.danger)
-    async def deny(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_confirmed = False
         self.clear_items()
         self.stop()
@@ -90,32 +90,32 @@ class PaginatedView(discord.ui.View):
             await self.show_page(self.current_page)
 
     @discord.ui.button(emoji='\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
-    async def go_to_first_page(self, button: discord.ui.Button, interaction):
+    async def go_to_first_page(self, interaction, button: discord.ui.Button):
         """go to the first page"""
         self.interaction = interaction
         await self.show_page(0)
 
     @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f', row=1)
-    async def go_to_previous_page(self, button, interaction):
+    async def go_to_previous_page(self, interaction, button):
         """go to the previous page"""
         self.interaction = interaction
         await self.show_checked_page(self.current_page - 1)
 
     @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f', row=1)
-    async def go_to_next_page(self, button, interaction):
+    async def go_to_next_page(self, interaction, button):
         """go to the next page"""
         self.interaction = interaction
         await self.show_checked_page(self.current_page + 1)
 
     @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f', row=1)
-    async def go_to_last_page(self, button, interaction):
+    async def go_to_last_page(self, interaction, button):
         """go to the last page"""
         # The call here is safe because it's guarded by skip_if
         self.interaction = interaction
         await self.show_page(self._source.get_max_pages() - 1)
 
     @discord.ui.button(emoji='\N{BLACK SQUARE FOR STOP}\ufe0f', row=1)
-    async def stop_pages(self, button, interaction):
+    async def stop_pages(self, interaction, button):
         """stops the pagination session."""
         self.clear_items()
         await self.message.edit(view=self)

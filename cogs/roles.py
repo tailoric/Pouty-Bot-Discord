@@ -34,7 +34,7 @@ class RoleSelect(discord.ui.Select):
                 await interaction.user.remove_roles(discord.Object(int(self.values[0])))
             else:
                 await interaction.user.add_roles(discord.Object(int(self.values[0])))
-            await self.view.show_page(self.view.current_page)
+            await self.view.show_page(interaction, self.view.current_page)
             
 class RoleMenu(discord.ui.View):
     def __init__(self, role_list: typing.List[discord.Role], context: commands.Context, **kwargs):
@@ -73,7 +73,7 @@ class RoleMenu(discord.ui.View):
             embed.add_field(name=f"{role.name} {checkmark}", value=role_description, inline=False)
         return embed
 
-    async def show_page(self, page):
+    async def show_page(self, interaction: discord.Interaction, page: int):
         left = page * self.page_size
         right = (page + 1) * self.page_size 
         self.displayed_roles = self.role_list[left:right]
@@ -81,23 +81,23 @@ class RoleMenu(discord.ui.View):
         self.dropdown = RoleSelect(self.displayed_roles)
         self.add_item(self.dropdown)
         embed = await self.embed()
-        await self.message.edit(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self)
 
 
     @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}', row=2)
-    async def page_back(self, button, interaction):
+    async def page_back(self, interaction, button):
         if self.current_page < 1:
             return
         self.current_page -= 1
-        await self.show_page(self.current_page)
+        await self.show_page(interaction, self.current_page)
 
 
     @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}', row=2)
-    async def page_forward(self, button, interaction):
+    async def page_forward(self, interaction, button):
         if self.current_page >= self.max_page-1:
             return
         self.current_page += 1
-        await self.show_page(self.current_page)
+        await self.show_page(interaction, self.current_page)
 
 class CustomRoleConverter(commands.RoleConverter):
     """

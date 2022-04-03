@@ -121,9 +121,11 @@ class GroupwatchJoinSelect(discord.ui.Select):
             if thread.archived:
                 await thread.edit(archived=False)
             await thread.add_user(interaction.user)
+            await interaction.response.edit_message(view=self.view)
             if thread.archived:
                 await thread.edit(archived=True)
                 await interaction.response.send_message("You have been added to the thread but it is currently archived you will see it when the channel is opened again", ephemeral=True)
+
 
 class ArchiveSelectView(discord.ui.View):
     def __init__(self, threads: List[discord.Thread], ctx: commands.Context):
