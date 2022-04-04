@@ -244,7 +244,9 @@ class LinkExpander(commands.Cog):
 
         post_data = {}
         headers = {'User-Agent': 'https://github.com/tailoric/Pouty-Bot-Discord Pouty-Bot by /u/Saikimo'}
-        resp = await self.httpx.get(url=reddit_request, headers=headers)
+        print(reddit_request)
+        resp = await self.httpx.get(url=reddit_request, headers=headers, follow_redirects=True)
+        resp.raise_for_status()
         post_data = resp.json()
         post_data = post_data[0]['data']['children'][0]['data']
         embed = None
