@@ -138,7 +138,7 @@ class Reddit(commands.Cog):
             stickied_comment = await self.get_stickied_comment(post)
             embed = discord.Embed(title=post["title"],
                                   timestamp=datetime.datetime.fromtimestamp(post["created_utc"], datetime.timezone.utc),
-                                  url=f"https://reddit.com{post['permalink']}",
+                                  url=f"https://www.reddit.com{post['permalink']}",
                                   color=discord.Colour(int(sub_data["primary_color"].strip("#"), 16)),
                                   description=stickied_comment["data"]["body"][:500]+"..." if stickied_comment
                                   else "\u200b")
@@ -151,7 +151,7 @@ class Reddit(commands.Cog):
             else:
                 embed.set_thumbnail(url=sub_data["header_img"])
 
-        embed.set_author(name=post["author"], url=f"https://reddit.com/user/{post['author']}")
+        embed.set_author(name=post["author"], url=f"https://www.reddit.com/user/{post['author']}")
         embed.set_footer(icon_url=sub_data["icon_img"], text="Animemes")
         return embed
 
@@ -173,7 +173,7 @@ class Reddit(commands.Cog):
             response.raise_for_status()
             url = str(response.url) + '.json'
         else:
-            url = "https://reddit.com/comments/" + match.group(4) + ".json"
+            url = "https://www.reddit.com/comments/" + match.group(4) + ".json"
         response = await self.session.get(url=url, auth=self.auth, headers=self.headers)
         response.raise_for_status()
         json_dump = response.json()
@@ -217,7 +217,7 @@ class Reddit(commands.Cog):
         elif match.group(1) and match.group(1).startswith('i'):
             return
         else:
-            url = "https://reddit.com/comments/" + match.group(4) + ".json"
+            url = "https://www.reddit.com/comments/" + match.group(4) + ".json"
         response = await self.session.get(url=url, auth=self.auth, headers=self.headers)
         response.raise_for_status()
         json_dump = response.json()
