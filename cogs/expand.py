@@ -250,9 +250,9 @@ class LinkExpander(commands.Cog):
         embed = None
         if post_data:
             title= shorten(post_data.get('title'), 250)
-            embed = (discord.Embed(title=title.center(len(title)+4, '|') if is_spoiler else title, url=f"https://reddit.com{post_data.get('permalink')}")
+            embed = (discord.Embed(title=title.center(len(title)+4, '|') if is_spoiler else title, url=f"https://www.reddit.com{post_data.get('permalink')}")
                         .set_author(name=post_data.get('subreddit_name_prefixed'),
-                            url=f"https://reddit.com/{post_data.get('subreddit_name_prefixed')}")
+                            url=f"https://www.reddit.com/{post_data.get('subreddit_name_prefixed')}")
                         
             )
         video_url = post_data['url']
