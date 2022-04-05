@@ -26,7 +26,7 @@ async def connect_db_and_start_bot():
     bot.db = await asyncpg.create_pool(database=db_info['dbname'],
                                        user=db_info['user'],
                                        password=db_info["password"],
-                                       host="127.0.0.1")
+                                       host=db_info["hostaddr"])
 
     try:
         async with aiohttp.ClientSession() as session, bot:
