@@ -17,29 +17,29 @@ class Social(commands.Cog):
     """
     Cog for interacting with other users or the bot
     """
-    def __new__(cls, *args, **kwargs):
-        self = super().__new__(cls)
-        return self
+    def make_social_command(self, file):
+        async def social_command(ctx, *, user=None):
+            mentioned_users = ctx.message.mentions
+            file_name = file.replace(".json", "")
+            images = find_file(file_name)
+            if mentioned_users or not user:
+                await ctx.send(random.choice(images))
+            else:
+                user = user.replace("\"", "")
+                found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
+                fmt = '{0}\n{1}'
+                await ctx.send(fmt.format(found_user.mention, random.choice(images)))
+        return social_command
 
     def __init__(self, bot):
         self.bot = bot
         files = os.listdir("data/social/")
         for file in files:
             description = f"send a {file.replace('.json', '')} to a user or to yourself"
-            @commands.command(name=file.replace('.json',''), description=description, help=description)
-            async def social_command(self,ctx, *, user=None):
-                mentioned_users = ctx.message.mentions
-                file_name = file.replace(".json", "")
-                images = find_file(file_name)
-                if mentioned_users or not user:
-                    await ctx.send(random.choice(images))
-                else:
-                    user = user.replace("\"", "")
-                    found_user = await commands.MemberConverter().convert(ctx=ctx, argument=user)
-                    fmt = '{0}\n{1}'
-                    await ctx.send(fmt.format(found_user.mention, random.choice(images)))
+            new_command = commands.Command(self.make_social_command(file), name=file.replace(".json", ""),
+                                           hidden=False, description=description, help=description)
+            bot.add_command(new_command)
 
-            social_command.cog = self        
 
     @commands.command(name="iloveyou", aliases=['ily'])
     async def iloveyou(self, ctx):
