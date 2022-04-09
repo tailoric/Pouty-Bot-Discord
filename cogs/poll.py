@@ -15,12 +15,12 @@ from dataclasses import dataclass, field
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
 
-@dataclass
+@dataclass(frozen=True)
 class PollOption:
     id: UUID
     text: str
     
-@dataclass
+@dataclass(frozen=True)
 class PollVote:
     id: UUID
     user: Union[int, discord.User]
@@ -40,46 +40,55 @@ class PollData:
     votes: dict = field(default_factory=dict)
 
     async def add_vote(self, vote: PollVote):
-        existing_votes = self.votes.get(vote.user.id)
-        if existing_votes and self.type == "single":
-            self.votes[vote.user.id] = [vote]
-        elif existing_votes and self.type == "multi" and vote.option.id not in [ex.option.id for ex in existing_votes]:
-            self.votes[vote.user.id].append(vote)
-        elif existing_votes is None:
-            self.votes[vote.user.id] = [vote]
-            
+        user_id = vote.user.id
+        if user_id not in self.votes: 
+            self.votes[user_id] = set()
+
+        if self.type == "single":
+            self.votes[user_id] = set([vote])
+            return
+        if self.type == "multi":
+            self.votes[user_id].add(vote)
+
+    async def sync_votes(self, db):
+        for user_id, votes in self.votes.items():
+            await db.execute("""
+                DELETE FROM poll.vote WHERE user_id = $1;
+            """, user_id)
+            await db.executemany("""
+                INSERT INTO poll.vote VALUES ($1, $2, $3, $4)
+            """, [(uuid4(), vote.user.id, vote.option.id, self.poll.id) for vote in votes])
 
 
 class PollOptionSelect(discord.ui.Select):
-    def __init__(self, *, poll: PollData) -> None:
+    def __init__(self, *, bot: commands.Bot, poll: PollData) -> None:
+        self.bot = bot
         self.poll = poll
         self.is_multi = poll.type == "multi"
         max_values = 1
         if self.is_multi:
             max_values = len(poll.options) - 1
-        super().__init__(placeholder="Choose an option to vote on", max_values=max_values, row=0)
+        super().__init__(placeholder="Choose an option to vote on", max_values=max_values, row=0, custom_id=f"{poll.id}:select")
         for option in poll.options:
             self.add_option(label=option.text, value=str(option.id))
 
     async def callback(self, interaction: discord.Interaction):
-        print(self.poll.options)
+        if self.is_multi:
+            self.poll.votes[interaction.user.id] = set()
         for selection in self.values:
-            print(selection)
             option = next(filter(lambda o: o.id == UUID(selection) , self.poll.options))
             await self.poll.add_vote(PollVote(id=uuid4(), user=interaction.user, option=option))
-        await interaction.response.send_message(content=f"Voted for {[v.option.text for v in self.poll.votes[interaction.user.id]]}")
+        await self.poll.sync_votes(self.bot.db)
+        await interaction.response.send_message(content=f"Voted for {[v.option.text for v in self.poll.votes[interaction.user.id]]}", ephemeral=True)
 
 
 class PollView(discord.ui.View):
-    def __init__(self, *, poll: PollData):
+    def __init__(self, *, bot, poll: PollData):
         super().__init__(timeout=None)
+        self.bot = bot
         self.options = []
-        self.select = PollOptionSelect(poll=poll)
+        self.select = PollOptionSelect(bot=bot, poll=poll)
         self.add_item(self.select)
-
-    @discord.ui.button(label="Submit", style=discord.ButtonStyle.blurple, row=1)
-    async def submit_vote(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(f"Vote counted for `{self.select.values}`", ephemeral=True)
 
 class PollModal(discord.ui.Modal):
 
@@ -98,7 +107,7 @@ class PollModal(discord.ui.Modal):
         for idx,txt_input in enumerate(self.children):
             self.poll_data.options.append(PollOption(uuid4(), txt_input.value))
             embed.add_field(name=idx+1, value=txt_input.value, inline=False)
-        await interaction.response.send_message(embed=embed, view=PollView(poll=self.poll_data))
+        await interaction.response.send_message(embed=embed, view=PollView(bot=self.bot, poll=self.poll_data))
         self.poll_data.message = await interaction.original_message()
         await self.bot.db.execute('''
         INSERT INTO poll.data VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -112,14 +121,15 @@ class Poll(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+
     async def cog_load(self):
         await self.create_database()
+        await self.load_views()
     async def cog_unload(self):
         pass
 
-    @tasks.loop(seconds=5.0)
-    async def check_polls(self):
-        pass
+    async def load_views(self):
+        polls = await self.bot.db.fetch("SELECT * FROM poll.data dt JOIN poll.vote v on ")
 
 
     async def create_database(self):
