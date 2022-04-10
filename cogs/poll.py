@@ -6,11 +6,10 @@ from discord.utils import find, utcnow
 from .utils.checks import is_owner_or_moderator
 from .utils.converters import ReferenceOrMessage, TimeConverter
 from typing import Literal, Optional, List, TypedDict, Union, Sequence
-import logging
 import re
-import asyncpg
 from uuid import UUID, uuid4
 from dataclasses import dataclass, field
+import itertools
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
@@ -33,11 +32,29 @@ class PollData:
     type: Literal["single","multi"]
     channel: Union[int, discord.TextChannel, discord.VoiceChannel]
     guild: Union[int, discord.Guild]
-    creator: Union[int, discord.User, discord.Member]
+    creator: Union[discord.User, discord.Member]
     end_date: datetime
-    message: Union[int, discord.Message, None] = None
+    message: Union[discord.Message, discord.PartialMessage, None] = None
     options: List[PollOption] = field(default_factory=list)
     votes: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_database_entries(cls, bot: commands.Bot, entries: List):
+        first = next(iter(entries), None)
+        if first:
+            guild=bot.get_guild(first.get("guild_id"))
+            channel = guild.get_channel(first.get("channel_id"))
+            return cls(
+                    id=first.get("poll_id"),
+                    title=first.get("title"),
+                    type=first.get("type"),
+                    guild=guild,
+                    channel=channel,   
+                    creator=guild.get_member(first.get("creator_id")),
+                    message=channel.get_partial_message(first.get("message_id")),
+                    end_date=first.get("end_date"),
+                    options=[PollOption(id=o.get("option_id"), text=o.get("text")) for o in entries]
+                    )
 
     async def add_vote(self, vote: PollVote):
         user_id = vote.user.id
@@ -57,7 +74,7 @@ class PollData:
             """, user_id)
             await db.executemany("""
                 INSERT INTO poll.vote VALUES ($1, $2, $3, $4)
-            """, [(uuid4(), vote.user.id, vote.option.id, self.poll.id) for vote in votes])
+            """, [(uuid4(), vote.user.id, vote.option.id, self.id) for vote in votes])
 
 
 class PollOptionSelect(discord.ui.Select):
@@ -129,8 +146,11 @@ class Poll(commands.Cog):
         pass
 
     async def load_views(self):
-        polls = await self.bot.db.fetch("SELECT * FROM poll.data dt JOIN poll.vote v on ")
-
+        polls = await self.bot.db.fetch("SELECT * FROM poll.data dt JOIN poll.option o on dt.poll_id = o.poll")
+        for poll_id, data in itertools.groupby(polls, lambda p: p.get("poll_id")):
+            poll = PollData.from_database_entries(self.bot, list(data))
+            self.bot.add_view(PollView(bot=self.bot,poll=poll))
+         
 
     async def create_database(self):
         query = """
