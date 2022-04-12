@@ -182,9 +182,7 @@ class Userinfo(commands.Cog):
         """
         Provide a mention or id of an discord object (channel, user, message, emote) to find out when it was created
         """
-        time_diff = datetime.utcnow() - discord_id.created_at
-        creation_date_str = discord_id.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-        embed = discord.Embed(title="Age of Discord Object", description=f"This discord object was created at **{creation_date_str}** ({time_diff.days} days ago)", colour=ctx.guild.me.colour)
+        embed = discord.Embed(title="Age of Discord Object", description=f"This discord object was created at {discord.utils.format_dt(discord_id.created_at)} ({discord.utils.format_dt(discord_id.created_at, 'R')})", colour=ctx.guild.me.colour)
         await ctx.send(embed=embed)
 
 
