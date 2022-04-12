@@ -1,5 +1,3 @@
-import wikipedia
-
 from discord.ext import commands
 
 class Wikipedia(commands.Cog):
