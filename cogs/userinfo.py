@@ -148,7 +148,7 @@ class Userinfo(commands.Cog):
             user_embed = discord.Embed(title=f"{member}'s user avatar",colour=member.colour).set_image(url=member.avatar.url)
             embeds.append(user_embed)
         if isinstance(member, discord.Member) and member.guild_avatar:
-            server_embed = discord.Embed(title="{member}'s server avatar",colour=member.colour).set_image(url=member.guild_avatar.url)
+            server_embed = discord.Embed(title=f"{member}'s server avatar",colour=member.colour).set_image(url=member.guild_avatar.url)
             embeds.append(server_embed)
         if len(embeds) == 0:
             embeds.append(discord.Embed(url=member.default_avatar, colour=member.colour).set_image(url=member.default_avatar))
