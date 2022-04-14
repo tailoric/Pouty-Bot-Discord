@@ -16,6 +16,7 @@ class ShowAllAvatars(discord.ui.View):
     def __init__(self, member: discord.Member):
         super().__init__()
         self.member = member
+        self.add_item(discord.ui.Button(label="Default avatar", url=member.default_avatar.url)) 
         if member.avatar:
             self.add_item(discord.ui.Button(label="User avatar",url=member.avatar.url))
         if member.guild_avatar:
@@ -144,12 +145,14 @@ class Userinfo(commands.Cog):
         embeds = []
         view = None
         if member.avatar:
-            user_embed = discord.Embed(title=f"{member}'s avatar", colour=member.colour or Embed.Empty).set_image(url=member.avatar.url)
+            user_embed = discord.Embed(title=f"{member}'s user avatar",colour=member.colour).set_image(url=member.avatar.url)
             embeds.append(user_embed)
         if isinstance(member, discord.Member) and member.guild_avatar:
-            server_embed = discord.Embed(title=f"{member}'s server avatar", colour=member.colour or Embed.Empty).set_image(url=member.guild_avatar.url)
+            server_embed = discord.Embed(title="{member}'s server avatar",colour=member.colour).set_image(url=member.guild_avatar.url)
             embeds.append(server_embed)
-            view = ShowAllAvatars(member)
+        if len(embeds) == 0:
+            embeds.append(discord.Embed(url=member.default_avatar, colour=member.colour).set_image(url=member.default_avatar))
+        view = ShowAllAvatars(member)
         await ctx.send(embeds=embeds, view=view)
 
     @commands.command()
