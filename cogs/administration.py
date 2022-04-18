@@ -312,7 +312,7 @@ class Admin(commands.Cog):
             await ctx.send("provide at least one user who's messages will be deleted")
             return
         try:
-            history_mes = await ctx.channel.history(limit=100).flatten()
+            history_mes = [hist async for hist in ctx.channel.history(limit=100)]
             messages_to_delete = [mes for mes in history_mes if mes.author.id in [u.id for u in users]]
             messages_to_delete = messages_to_delete[:number]
             await ctx.channel.delete_messages(messages_to_delete)

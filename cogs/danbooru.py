@@ -625,7 +625,7 @@ class Danbooru(commands.Cog):
             await message.delete()
             return await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
         elif number:
-            messages = await ctx.channel.history(limit=100, before=ctx.message).flatten()
+            messages = [m async for m in ctx.channel.history(limit=100, before=ctx.message)]
             to_delete = []
             for index, msg in enumerate(messages):
                 if msg.author.id == ctx.author.id and "http" in messages[index -1].content:
