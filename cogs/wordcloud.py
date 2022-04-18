@@ -109,7 +109,7 @@ class Wordcloud(commands.Cog):
     ##################
     @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="wc [user|channel]")
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
-    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel, None]):
+    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel,discord.Thread, None]):
         """
         generate a word cloud from the last 500 messages of a user or a channel. 
         for users it only applies to messages the bot recorded after getting your consent for recording messages, see `wc consent`
@@ -117,7 +117,7 @@ class Wordcloud(commands.Cog):
         text = ""
         if target is None:
             target = ctx.author
-        if isinstance(target, discord.TextChannel):
+        if isinstance(target, discord.TextChannel) or isinstance(target, discord.Thread):
             permissions = target.permissions_for(ctx.author)
             if not permissions.read_messages:
                 return await ctx.send("Can't create wordcloud since you don't have the permission to view that channel")
