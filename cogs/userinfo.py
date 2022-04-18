@@ -13,13 +13,13 @@ import json
 snowflake_regex = re.compile(r"(\d{17,19})")
 class ShowAllAvatars(discord.ui.View):
 
-    def __init__(self, member: discord.Member):
+    def __init__(self, member: Union[discord.Member, discord.User]):
         super().__init__()
         self.member = member
         self.add_item(discord.ui.Button(label="Default avatar", url=member.default_avatar.url)) 
         if member.avatar:
             self.add_item(discord.ui.Button(label="User avatar",url=member.avatar.url))
-        if member.guild_avatar:
+        if isinstance(member, discord.Member) and member.guild_avatar:
             self.add_item(discord.ui.Button(label="Server avatar", url=member.guild_avatar.url)) 
 
 class ShowUserAvatarView(discord.ui.View):
