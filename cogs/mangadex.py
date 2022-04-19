@@ -85,9 +85,12 @@ class Mangadex(commands.Cog):
             uuid.UUID(title)
             await interaction.response.send_message(f"https://mangadex.org/title/{title}")
         except ValueError:
+            await interaction.response.defer()
             manga = next(iter(await self.search_for_title(title)), None)
             if manga:
-                await interaction.response.send_message(f"https://mangadex.org/title/{manga._id}")
+                await interaction.followup.send(f"https://mangadex.org/title/{manga._id}")
+            else:
+                await interaction.followup.send("Nothing found")
 
     @app_mangadex_search.autocomplete('title')
     async def title_autocomplete(self, interaction: discord.Interaction, current: str):
