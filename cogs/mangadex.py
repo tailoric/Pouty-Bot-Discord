@@ -82,8 +82,9 @@ class Mangadex(commands.Cog):
         Search mangadex.org for manga and post the result in chat.
         """
         try:
-            uuid.UUID(title)
-            await interaction.response.send_message(f"https://mangadex.org/title/{title}")
+            
+            uuid.UUID(title[:36])
+            await interaction.response.send_message(f"https://mangadex.org/title/{title[:36]}")
         except ValueError:
             await interaction.response.defer()
             manga = next(iter(await self.search_for_title(title)), None)
