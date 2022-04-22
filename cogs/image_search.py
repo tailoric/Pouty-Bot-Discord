@@ -447,7 +447,7 @@ class Search(commands.Cog):
                     data = anilist_data.get("data")
                     title = data.get("Media", {}).get("title", {}).get("userPreferred", None)
 
-        embed = discord.Embed(title=title or first_result.get("filename"), url=anilist_url or discord.Embed.Empty)
+        embed = discord.Embed(title=title or first_result.get("filename"), url=anilist_url or None)
         start_min, start_seconds = divmod(int(first_result.get('from')), 60)
         start_hours, start_min = divmod(start_min, 60)
         embed.add_field(name=f"Episode {first_result.get('episode')}", value=f"At {start_hours:02d}:{start_min:02d}:{start_seconds:02d}", inline=False)
@@ -460,7 +460,7 @@ class Search(commands.Cog):
             if color:
                 val = int(color.strip("#"), 16)
                 embed.color = discord.Colour(val)
-        embed.set_thumbnail(url=first_result.get("image", discord.Embed.Empty))
+        embed.set_thumbnail(url=first_result.get("image", None))
         return embed
 
     def build_mal_link_from_id(self, id):
