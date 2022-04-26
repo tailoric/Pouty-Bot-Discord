@@ -10,6 +10,7 @@ import re
 from uuid import UUID, uuid4
 from dataclasses import dataclass, field
 import itertools
+import asyncpg
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
@@ -56,7 +57,21 @@ class PollData:
                     options=[PollOption(id=o.get("option_id"), text=o.get("text")) for o in entries]
                     )
 
-    async def add_vote(self, vote: PollVote):
+    async def create_in_store(self, db: Union[asyncpg.Connection, asyncpg.Pool]):
+        await db.execute('''
+        INSERT INTO poll.data VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ''', self.id, self.channel.id, self.message.id, self.guild.id, self.creator.id, self.type, self.title, self.end_date)
+        await db.executemany('''
+        INSERT INTO poll.option VALUES ($1, $2, $3)
+        ''', [(opt.id, opt.text, self.id) for opt in self.options]
+        )
+    async def add_options(self, db: Union[asyncpg.Connection, asyncpg.Pool], options: List[PollOption]) -> None:
+        if self.options:
+            self.options.extend(options)
+        else:
+            self.options = options
+
+    async def add_vote(self, vote: PollVote) -> None:
         user_id = vote.user.id
         if user_id not in self.votes: 
             self.votes[user_id] = set()
@@ -67,7 +82,7 @@ class PollData:
         if self.type == "multi":
             self.votes[user_id].add(vote)
 
-    async def sync_votes(self, db):
+    async def sync_votes(self, db: Union[asyncpg.Pool, asyncpg.Connection]):
         for user_id, votes in self.votes.items():
             await db.execute("""
                 DELETE FROM poll.vote WHERE user_id = $1;
@@ -99,40 +114,66 @@ class PollOptionSelect(discord.ui.Select):
         await interaction.response.send_message(content=f"Voted for {[v.option.text for v in self.poll.votes[interaction.user.id]]}", ephemeral=True)
 
 
+class PollCreateMenu(discord.ui.View):
+    def __init__(self, *, poll: PollData, bot: commands.Bot):
+        self.poll = poll
+        self.bot = bot
+        self.interaction: Optional[discord.Interaction] = None
+        super().__init__(timeout=None)
+
+
+    @discord.ui.button(label="+Options")
+    async def more_opts_btn(self, inter: discord.Interaction, btn: discord.ui.Button):
+        poll = PollModal(bot=self.bot, title=self.poll.title)
+        await inter.response.send_modal(poll)
+        await poll.wait()
+        await self.poll.add_options(db=self.bot.db, options=poll.created_options)
+        menu_message = await inter.original_message()
+        await menu_message.edit(embed=self.embed, view=self)
+
+    @discord.ui.button(label="Start Poll", style=discord.ButtonStyle.green)
+    async def create_poll(self, inter: discord.Interaction, btn: discord.ui.Button):
+        await self.poll.create_in_store(db=self.bot.db)
+        poll_view = PollView(bot=self.bot, poll=self.poll)
+        await inter.response.send_message(embed=self.embed, view=poll_view)
+        
+    @property
+    def embed(self):
+        embed = discord.Embed(title=self.poll.title)
+        for idx,option in enumerate(self.poll.options):
+            embed.add_field(name=idx+1, value=option.text, inline=False)
+
+        return embed
+
+    async def start(self, interaction: discord.Interaction):
+        self.interaction = interaction
+        await interaction.response.send_message(embed=self.embed, view=self, ephemeral=True)
+        self.poll.message = await interaction.original_message()
+
 class PollView(discord.ui.View):
     def __init__(self, *, bot, poll: PollData):
         super().__init__(timeout=None)
         self.bot = bot
-        self.options = []
         self.select = PollOptionSelect(bot=bot, poll=poll)
         self.add_item(self.select)
 
 class PollModal(discord.ui.Modal):
 
-    def __init__(self, *, bot: commands.Bot, num_options, poll_data: PollData) -> None:
-        self.poll_data = poll_data
-        self.num_options = num_options
-        self.is_multi = poll_data.type == "multi"
+    def __init__(self, *, bot: commands.Bot, title="Poll Title") -> None:
         self.bot = bot
-        super().__init__(title=poll_data.title, timeout=None)
-        for i in range(1, num_options+1):
-            txt_input = discord.ui.TextInput(label=f"Option {i}")
+        self.created_options : List[PollOption]= []
+        super().__init__(title=title, timeout=None)
+        for i in range(0, 5):
+            txt_input = discord.ui.TextInput(label=f"Option {i+1}", required=False, style=discord.TextStyle.short, max_length=100)
             self.add_item(txt_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(title=self.title)
-        for idx,txt_input in enumerate(self.children):
-            self.poll_data.options.append(PollOption(uuid4(), txt_input.value))
-            embed.add_field(name=idx+1, value=txt_input.value, inline=False)
-        await interaction.response.send_message(embed=embed, view=PollView(bot=self.bot, poll=self.poll_data))
-        self.poll_data.message = await interaction.original_message()
-        await self.bot.db.execute('''
-        INSERT INTO poll.data VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ''', self.poll_data.id, self.poll_data.channel.id, self.poll_data.message.id, self.poll_data.guild.id, self.poll_data.creator.id, self.poll_data.type, self.poll_data.title, self.poll_data.end_date)
-        await self.bot.db.executemany('''
-        INSERT INTO poll.option VALUES ($1, $2, $3)
-        ''', [(opt.id, opt.text, self.poll_data.id) for opt in self.poll_data.options]
-        )
+        await interaction.response.defer()
+        for child in self.children:
+            if child.value:
+                self.created_options.append(PollOption(uuid4(), child.value))
+        self.stop()
+
 class Poll(commands.Cog):
 
     def __init__(self, bot):
@@ -189,8 +230,9 @@ class Poll(commands.Cog):
         create a single choice poll
         """
         poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=discord.utils.utcnow() + timedelta(minutes=5))
-        poll = (PollModal(bot=self.bot, poll_data=poll_data, num_options=options))
-        await interaction.response.send_modal(poll)
+        menu = PollCreateMenu(bot=self.bot, poll=poll_data)
+        await menu.start(interaction=interaction)
+
 
     @poll.command(name="multi")
     @app_commands.describe(title="The title of the Poll")
@@ -200,8 +242,8 @@ class Poll(commands.Cog):
         create a single choice poll
         """
         poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=discord.utils.utcnow() + timedelta(minutes=5))
-        poll = (PollModal(bot=self.bot, poll_data=poll_data, num_options=options))
-        await interaction.response.send_modal(poll)
+        menu = PollCreateMenu(bot=self.bot, poll=poll_data)
+        await menu.start(interaction=interaction)
 
     
 
