@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from functools import reduce
 from discord.ext import commands, tasks
-from discord import Embed, Message, NotFound, Forbidden, HTTPException, app_commands
+from discord import app_commands
 import discord
 from discord.utils import find, utcnow
 from .utils.checks import is_owner_or_moderator
@@ -39,6 +40,23 @@ class PollData:
     options: List[PollOption] = field(default_factory=list)
     votes: dict = field(default_factory=dict)
 
+    @property
+    def embed(self):
+        embed = discord.Embed(title=self.title, description="Vote for your favourite option via the dropdown below")
+        for option in self.options:
+            embed.add_field(name=option.text, value=self.get_vote_count(option))
+        return embed
+    
+    def get_vote_count(self, option: PollOption):
+        if self.votes:
+            count = 0
+            for votes in self.votes.values():
+                for _ in filter(lambda v: v.option.id == option.id , votes):
+                    count = count + 1
+            return count
+        else: 
+            return 0
+
     @classmethod
     def from_database_entries(cls, bot: commands.Bot, entries: List):
         first = next(iter(entries), None)
@@ -71,7 +89,7 @@ class PollData:
         else:
             self.options = options
 
-    async def add_vote(self, vote: PollVote) -> None:
+    def add_vote(self, vote: PollVote) -> None:
         user_id = vote.user.id
         if user_id not in self.votes: 
             self.votes[user_id] = set()
@@ -109,16 +127,18 @@ class PollOptionSelect(discord.ui.Select):
             self.poll.votes[interaction.user.id] = set()
         for selection in self.values:
             option = next(filter(lambda o: o.id == UUID(selection) , self.poll.options))
-            await self.poll.add_vote(PollVote(id=uuid4(), user=interaction.user, option=option))
+            self.poll.add_vote(PollVote(id=uuid4(), user=interaction.user, option=option))
         await self.poll.sync_votes(self.bot.db)
         await interaction.response.send_message(content=f"Voted for {[v.option.text for v in self.poll.votes[interaction.user.id]]}", ephemeral=True)
+        if self.poll.message:
+            await self.poll.message.edit(embed=self.poll.embed)
 
 
 class PollCreateMenu(discord.ui.View):
     def __init__(self, *, poll: PollData, bot: commands.Bot):
         self.poll = poll
         self.bot = bot
-        self.interaction: Optional[discord.Interaction] = None
+        self.message: Optional[discord.Message] = None
         super().__init__(timeout=None)
 
 
@@ -131,15 +151,23 @@ class PollCreateMenu(discord.ui.View):
         menu_message = await inter.original_message()
         await menu_message.edit(embed=self.embed, view=self)
 
+
     @discord.ui.button(label="Start Poll", style=discord.ButtonStyle.green)
     async def create_poll(self, inter: discord.Interaction, btn: discord.ui.Button):
-        await self.poll.create_in_store(db=self.bot.db)
         poll_view = PollView(bot=self.bot, poll=self.poll)
-        await inter.response.send_message(embed=self.embed, view=poll_view)
+        await inter.response.send_message(embed=self.poll.embed, view=poll_view)
+        self.poll.message = await inter.original_message()
+        await self.poll.create_in_store(db=self.bot.db)
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+        if self.message:
+            await self.message.edit(embed=None, content="Poll started you can now dismiss this message", view=self)
+        self.stop()
         
     @property
     def embed(self):
-        embed = discord.Embed(title=self.poll.title)
+        embed = discord.Embed(title=self.poll.title, description="This is an interactive menu to add options to your poll use the +Options button to add vote options to the poll")
         for idx,option in enumerate(self.poll.options):
             embed.add_field(name=idx+1, value=option.text, inline=False)
 
@@ -148,7 +176,7 @@ class PollCreateMenu(discord.ui.View):
     async def start(self, interaction: discord.Interaction):
         self.interaction = interaction
         await interaction.response.send_message(embed=self.embed, view=self, ephemeral=True)
-        self.poll.message = await interaction.original_message()
+        self.message = await interaction.original_message()
 
 class PollView(discord.ui.View):
     def __init__(self, *, bot, poll: PollData):
@@ -190,6 +218,11 @@ class Poll(commands.Cog):
         polls = await self.bot.db.fetch("SELECT * FROM poll.data dt JOIN poll.option o on dt.poll_id = o.poll")
         for poll_id, data in itertools.groupby(polls, lambda p: p.get("poll_id")):
             poll = PollData.from_database_entries(self.bot, list(data))
+            votes = await self.bot.db.fetch("SELECT * FROM poll.vote WHERE poll = $1", poll_id)
+            for vote in votes:
+                option = next(filter(lambda opt: opt.id == vote.get("option"), poll.options))
+                vote = PollVote(vote.get("vote_id"), user=self.bot.get_user(vote.get("user_id")), option=option)
+                poll.add_vote(vote=vote)
             self.bot.add_view(PollView(bot=self.bot,poll=poll))
          
 
@@ -224,8 +257,7 @@ class Poll(commands.Cog):
 
     @poll.command(name="single")
     @app_commands.describe(title="The title of the Poll")
-    @app_commands.describe(options="Number of poll options")
-    async def poll_single(self, interaction: discord.Interaction, title: str, options: app_commands.Range[int, 2, 25]):
+    async def poll_single(self, interaction: discord.Interaction, title: str):
         """
         create a single choice poll
         """
@@ -236,8 +268,7 @@ class Poll(commands.Cog):
 
     @poll.command(name="multi")
     @app_commands.describe(title="The title of the Poll")
-    @app_commands.describe(options="Number of poll options")
-    async def poll_multi(self, interaction: discord.Interaction, title: str, options: app_commands.Range[int, 3, 25]):
+    async def poll_multi(self, interaction: discord.Interaction, title: str):
         """
         create a single choice poll
         """
