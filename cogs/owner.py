@@ -1,5 +1,7 @@
+from typing import Optional
 from discord.ext import commands
 from discord import User
+import discord
 from .utils import checks, views
 import traceback
 import json
@@ -50,12 +52,12 @@ class Owner(commands.Cog):
         for module in modules_to_reload:
             importlib.reload(module)
 
-    @commands.command(name="rlslash", aliases=["reload_slash"])
+    @commands.command(name="sync", aliases=["rlslash"])
     @checks.is_owner()
-    async def reload_slash(self, ctx: commands.Context):
-        await ctx.bot.tree.sync()
-        for guild in ctx.bot.guilds:
-            await ctx.bot.tree.sync(guild=guild)
+    async def reload_slash(self, ctx: commands.Context,guild_to_sync: Optional[discord.Object]):
+        if guild_to_sync:
+            ctx.bot.tree.copy_global_to(guild=guild_to_sync)
+            await ctx.bot.tree.sync(guild=guild_to_sync)
         await ctx.bot.tree.sync()
         await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
 
