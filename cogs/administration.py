@@ -222,7 +222,7 @@ class Admin(commands.Cog):
     @commands.has_permissions(ban_members=True)
     async def banlist(self, ctx, *, username):
         """search for user in the ban list"""
-        bans = await ctx.guild.bans()
+        bans = [b async for b in ctx.guild.bans()]
         match = mention_regex.match(username)
         if match and match.group(2):
             list_of_matched_entries = list(filter(lambda ban: int(match.group(2)) == ban.user.id, bans))
@@ -245,7 +245,7 @@ class Admin(commands.Cog):
         """
         search through the ban list for the reason
         """
-        bans = await ctx.guild.bans()
+        bans = [b async for b in ctx.guild.bans()]
         list_of_matched_entries = list(filter(lambda ban: reason is None or (ban.reason and reason.lower() in ban.reason.lower()), bans))
         entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
