@@ -110,7 +110,7 @@ class Boost(commands.Cog):
         if not role:
             await ctx.send("Couldn't get boost colour role, please set one first")
         if isinstance(icon, discord.Emoji):
-            await role.edit(icon=await icon.read())
+            await role.edit(display_icon=await icon.read())
         elif isinstance(icon, discord.PartialEmoji) and icon.is_custom_emoji():
             await role.edit(display_icon=await icon.read())
         elif isinstance(icon, str) and icon.startswith("http"):
