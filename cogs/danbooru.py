@@ -58,8 +58,10 @@ class Helper:
             if response.status == 200:
                 json_dump = await response.json()
                 for image in json_dump:
-                    if image['has_large'] and image['file_ext'] == 'zip':
-                        image['file_url'] = self.build_url(url, image['large_file_url'])
+                    if not image.get('id'):
+                        continue
+                    if image['has_large'] and image['file_ext'] == 'zip' and not image.get('is_deleted'):
+                        image['file_url'] = self.build_url(url, image['large_file_url']) if image.get('large_file_url') else image.get('source')
                     else:
                         image['file_url'] = self.build_url(url, image['file_url'])
                 return json_dump
@@ -80,8 +82,10 @@ class Helper:
             if response.status == 200:
                 json_dump = await response.json()
                 for image in json_dump:
-                    if image.get('has_large', None) and image.get('file_ext', None) == 'zip':
-                        image['file_url'] = self.build_url(url, image['large_file_url'])
+                    if not image.get('id'):
+                        continue
+                    if image.get('has_large', None) and image.get('file_ext', None) == 'zip' and not image.get('is_deleted'):
+                        image['file_url'] = self.build_url(url, image['large_file_url']) if image.get('large_file_url') else image.get('source')
                     elif image.get('file_url', None):
                         image['file_url'] = self.build_url(url, image['file_url'])
                     elif image.get('source', None):
@@ -255,7 +259,7 @@ class Scheduler:
         if not images:
             return
         for image in images:
-            if not image['file_url']:
+            if not image.get('file_url'):
                 continue
             created = parser.parse(image['created_at'])
             if not sub.old_timestamp:
