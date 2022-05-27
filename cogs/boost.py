@@ -42,7 +42,7 @@ class Boost(commands.Cog):
             color_val INTEGER
         )
         ''')
-    @commands.command(name="mycolor", aliases=["mc"])
+    @commands.command(name="mycolor", aliases=["mycolour", "mc"])
     @commands.cooldown(rate=1, per=300, type=commands.BucketType.user)
     @is_boost()
     async def set_boost_color(self, ctx: commands.Context, colour : discord.Colour):
