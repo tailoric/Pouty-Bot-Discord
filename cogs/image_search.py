@@ -190,7 +190,7 @@ class Search(commands.Cog):
             await ctx.send('Message didn\'t contain Image')
         else:
             try:
-                await ctx.trigger_typing()
+                await ctx.typing()
             except:
                 self.logger.exception("error during typing")
             if link:
@@ -265,7 +265,7 @@ class Search(commands.Cog):
             return await ctx.send("No more searches available for today. Please wait 24 hours before doing another search")
         else:
             try:
-                await ctx.trigger_typing()
+                await ctx.typing()
             except:
                 self.logger.exception("exception during typing")
             if file:
@@ -388,7 +388,7 @@ class Search(commands.Cog):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("error during typing")
         if similarity < 1 or similarity > 99:

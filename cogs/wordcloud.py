@@ -121,7 +121,7 @@ class Wordcloud(commands.Cog):
             permissions = target.permissions_for(ctx.author)
             if not permissions.read_messages:
                 return await ctx.send("Can't create wordcloud since you don't have the permission to view that channel")
-            await ctx.trigger_typing()
+            await ctx.typing()
             text = "\n".join([self.url_regex.sub("", m.clean_content) async for m in target.history(limit=300)])
             text = self.spoiler_regex.sub("", text)
         if isinstance(target, discord.Member):
@@ -138,7 +138,7 @@ class Wordcloud(commands.Cog):
             text = " ".join([m['message_content'] for m in messages])
 
         gen_file = partial(self.generate_file_from_text, text)
-        await ctx.trigger_typing()
+        await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
         await ctx.send(file=f)
 
@@ -184,7 +184,7 @@ class Wordcloud(commands.Cog):
         """, member.id)
         text = " ".join([m['message_content'] for m in messages])
         gen_file = partial(self.generate_with_avatar, bAvatar, text, colour)
-        await ctx.trigger_typing()
+        await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
         await ctx.send(file=f)
 

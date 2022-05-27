@@ -62,7 +62,7 @@ class Wolfram(commands.Cog):
         url = 'http://api.wolframalpha.com/v2/query'
         params = {'appid': self.api_key, 'input': query, 'format': 'image'}
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("Error during typing")
             

@@ -75,7 +75,7 @@ class LinkExpander(commands.Cog):
             return await ctx.send("Could not extract an id from this link.")
         illust_id = match_url.group(1)
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("failure during typing")
         async with self.session.get(details_url.format(illust_id)) as resp:
@@ -129,7 +129,7 @@ class LinkExpander(commands.Cog):
         if not match:
             return await ctx.send("Couldn't get id from link")
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("error during typing")
         params = {
@@ -237,7 +237,7 @@ class LinkExpander(commands.Cog):
             reddit_request = f"https://www.reddit.com/{reddit_match.group('post_id')}.json"
 
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("error during typing")
         results = []
