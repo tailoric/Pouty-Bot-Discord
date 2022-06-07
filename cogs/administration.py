@@ -876,13 +876,18 @@ class Admin(commands.Cog):
     @checks.is_owner_or_moderator()
     @commands.guild_only()
     @channel_group.command(name="create")
-    @app_commands.describe(name="the new name of the channel")
+    @app_commands.describe(category="under what category to put the new channel")
     async def channel_create(self, ctx: commands.Context, category: typing.Optional[discord.CategoryChannel], * , name: str):
         """
         create a channel via bot command which allows spaces and default emoji
         """
+        overwrites = {
+                    ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                    ctx.guild.me: discord.PermissionOverwrite(read_messages=True),
+                    ctx.author: discord.PermissionOverwrite(read_messages=True)
+                }
         async with ctx.typing(ephemeral=True):
-            await ctx.guild.create_text_channel(name=name, category=category)
+            await ctx.guild.create_text_channel(name=name, category=category, overwrites=overwrites)
             if ctx.interaction:
                 await ctx.send("\N{WHITE HEAVY CHECK MARK}", ephemeral=True)
             else:
