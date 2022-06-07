@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 from discord.utils import get
 import os.path
@@ -851,6 +852,41 @@ class Admin(commands.Cog):
         mute_role = get(ctx.message.guild.roles, name=role)
         self.mute_role = mute_role
 
+    @checks.is_owner_or_moderator()
+    @commands.hybrid_group(name="channel", with_app_command=True)
+    async def channel_group(self, ctx):
+        pass
+
+    @checks.is_owner_or_moderator()
+    @channel_group.command(name="rename")
+    @app_commands.rename(new_name="name")
+    @app_commands.describe(new_name="the new name of the channel")
+    @app_commands.describe(channel="the channel to rename")
+    async def channel_rename(self, ctx: commands.Context, channel: discord.TextChannel, *,new_name: str):
+        """
+        rename a channel via bot command which allows spaces and default emoji
+        """
+        async with ctx.typing(ephemeral=True):
+            await channel.edit(name=new_name)
+            if ctx.interaction:
+                await ctx.send("\N{WHITE HEAVY CHECK MARK}", ephemeral=True)
+            else:
+                await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+
+    @checks.is_owner_or_moderator()
+    @commands.guild_only()
+    @channel_group.command(name="create")
+    @app_commands.describe(name="the new name of the channel")
+    async def channel_create(self, ctx: commands.Context, category: typing.Optional[discord.CategoryChannel], * , name: str):
+        """
+        create a channel via bot command which allows spaces and default emoji
+        """
+        async with ctx.typing(ephemeral=True):
+            await ctx.guild.create_text_channel(name=name, category=category)
+            if ctx.interaction:
+                await ctx.send("\N{WHITE HEAVY CHECK MARK}", ephemeral=True)
+            else:
+                await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
     @commands.Cog.listener()
     async def on_member_join(self, member):
         muted_user_ids = [m['user_id'] for m in await self.mutes]

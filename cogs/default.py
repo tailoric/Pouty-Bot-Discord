@@ -270,7 +270,7 @@ class Default(commands.Cog):
                 await ctx.send_help(ctx.command)
             return
         elif isinstance(error, commands.CheckFailure):
-            await ctx.send(error)
+            await ctx.send(error, ephemeral=True)
             return
         elif isinstance(error, commands.CommandInvokeError):
             await self.create_and_send_traceback(ctx, error.original)

@@ -58,7 +58,8 @@ class Owner(commands.Cog):
         if guild_to_sync:
             ctx.bot.tree.copy_global_to(guild=guild_to_sync)
             await ctx.bot.tree.sync(guild=guild_to_sync)
-        await ctx.bot.tree.sync()
+        else:
+            await ctx.bot.tree.sync()
         await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
 
     #
