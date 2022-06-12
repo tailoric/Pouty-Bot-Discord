@@ -1,3 +1,4 @@
+from discord import app_commands
 from .utils import checks
 from .utils import paginator
 from .utils import views
@@ -188,6 +189,7 @@ class Default(commands.Cog):
         self.bot.add_listener(self.on_command_error, "on_command_error")
         self.bot.add_check(self.check_for_black_list_user, call_once=True)
         self.bot.add_check(self.check_disabled_command, call_once=True)
+        self.bot.tree.on_error = self.app_command_error
         self.data_io = DataIO()
         self.credentials = self.data_io.load_json("credentials")
         self.logger = logging.getLogger("PoutyBot")
@@ -342,6 +344,11 @@ class Default(commands.Cog):
                                            f"tried to use command")
         return True
 
+    async def app_command_error(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.send_message(content=error, ephemeral=True)
+        else:
+            await interaction.followup.send(content=error)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Default(bot))

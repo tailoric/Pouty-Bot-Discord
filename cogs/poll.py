@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -12,9 +12,32 @@ from uuid import UUID, uuid4
 from dataclasses import dataclass, field
 import itertools
 import asyncpg
+import matplotlib.pyplot as plt
+import io
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
+class TimeCodeConversionError(app_commands.AppCommandError):
+    pass
+
+class TimeTransformer(app_commands.Transformer):
+
+    @classmethod
+    async def transform(cls, interaction: discord.Interaction, argument: str) -> datetime:
+        match = timing_regex.match(argument)
+        if not match:
+            raise TimeCodeConversionError("Could not transform duration")
+        if not any(match.groupdict().values()):
+            raise TimeCodeConversionError("Could not transform duration")
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return datetime.now(timezone.utc) + delta
 
 @dataclass(frozen=True)
 class PollOption:
@@ -39,12 +62,19 @@ class PollData:
     message: Union[discord.Message, discord.PartialMessage, None] = None
     options: List[PollOption] = field(default_factory=list)
     votes: dict = field(default_factory=dict)
+    should_update = False
 
+    @tasks.loop(seconds=2)
+    async def update_count(self):
+        if self.should_update:
+            await self.message.edit(embed=self.embed)
+            self.should_update = False
     @property
     def embed(self):
-        embed = discord.Embed(title=self.title, description="Vote for your favourite option via the dropdown below")
+        embed = discord.Embed(title=self.title, description=f"Vote for your favourite option{'s' if self.type == 'multi' else ''} via the dropdown below\nEnds {discord.utils.format_dt(self.end_date, 'R')}")
+        embed.set_author(name=self.creator.display_name, icon_url=self.creator.display_avatar)
         for option in self.options:
-            embed.add_field(name=option.text, value=self.get_vote_count(option))
+            embed.add_field(name=option.text, value=self.get_vote_count(option), inline=False)
         return embed
     
     def get_vote_count(self, option: PollOption):
@@ -99,6 +129,7 @@ class PollData:
             return
         if self.type == "multi":
             self.votes[user_id].add(vote)
+        self.should_update = True
 
     async def sync_votes(self, db: Union[asyncpg.Pool, asyncpg.Connection]):
         for user_id, votes in self.votes.items():
@@ -109,29 +140,41 @@ class PollData:
                 INSERT INTO poll.vote VALUES ($1, $2, $3, $4)
             """, [(uuid4(), vote.user.id, vote.option.id, self.id) for vote in votes])
 
+    async def finish(self, db: Union[asyncpg.Pool, asyncpg.Connection], interaction: Optional[discord.Interaction]):
+        await db.execute("""
+        DELETE FROM poll.data WHERE poll_id = $1
+        """, self.id)
+        embed = self.embed
+        description = 'Results:\n'
+        embed.clear_fields()
+        embed.set_image(url="attachment://result.png")
+        labels = []
+        counts = []
+        for option in self.options:
+            count =self.get_vote_count(option)
+            if count > 0:
+                labels.append(option.text)
+                counts.append(count)
+        if counts:
+            results = list(sorted(zip(counts, labels), reverse=True))
+            description += '\n'.join(f'`{r[1]}: {r[0]}`' for r in results)
+            embed.description = description
+            fig, ax = plt.subplots()
+            ax.pie(list(map(lambda c: c/sum(counts), counts)),labels=labels,autopct='%1.1f%%')
+            buffer = io.BytesIO()
+            fig.savefig(buffer, format='png')
+            buffer.seek(0)
+            f = discord.File(buffer, filename='result.png')
+            if interaction:
+                await interaction.response.send_message(embed=embed, file=f)
+            else:
+                await self.message.reply(embed=embed, file=f)
+            plt.close(fig)
+        else:
+            await interaction.response.send_message("Poll finished without any votes")
 
-class PollOptionSelect(discord.ui.Select):
-    def __init__(self, *, bot: commands.Bot, poll: PollData) -> None:
-        self.bot = bot
-        self.poll = poll
-        self.is_multi = poll.type == "multi"
-        max_values = 1
-        if self.is_multi:
-            max_values = len(poll.options) - 1
-        super().__init__(placeholder="Choose an option to vote on", max_values=max_values, row=0, custom_id=f"{poll.id}:select")
-        for option in poll.options:
-            self.add_option(label=option.text, value=str(option.id))
-
-    async def callback(self, interaction: discord.Interaction):
-        if self.is_multi:
-            self.poll.votes[interaction.user.id] = set()
-        for selection in self.values:
-            option = next(filter(lambda o: o.id == UUID(selection) , self.poll.options))
-            self.poll.add_vote(PollVote(id=uuid4(), user=interaction.user, option=option))
-        await self.poll.sync_votes(self.bot.db)
-        await interaction.response.send_message(content=f"Voted for {[v.option.text for v in self.poll.votes[interaction.user.id]]}", ephemeral=True)
-        if self.poll.message:
-            await self.poll.message.edit(embed=self.poll.embed)
+        await self.message.edit(embed=self.embed, view=None)
+        self.update_count.stop()
 
 
 class PollCreateMenu(discord.ui.View):
@@ -142,17 +185,27 @@ class PollCreateMenu(discord.ui.View):
         super().__init__(timeout=None)
 
 
-    @discord.ui.button(label="+Options")
+    @discord.ui.button(label="Options", emoji="\N{HEAVY PLUS SIGN}")
     async def more_opts_btn(self, inter: discord.Interaction, btn: discord.ui.Button):
-        poll = PollModal(bot=self.bot, title=self.poll.title)
+        poll = PollModal(bot=self.bot, title=self.poll.title, start=len(self.poll.options))
         await inter.response.send_modal(poll)
         await poll.wait()
         await self.poll.add_options(db=self.bot.db, options=poll.created_options)
         menu_message = await inter.original_message()
+        if len(self.poll.options) >= 2:
+            self.create_poll.disabled = False
+        if len(self.poll.options) >= 25:
+            self.poll.options = self.poll.options[:25]
+            self.more_opts_btn.disabled = True
         await menu_message.edit(embed=self.embed, view=self)
 
+    @discord.ui.button(label="Reset Options")
+    async def reset_options(self, inter: discord.Interaction, btn: discord.ui.Button):
+        self.poll.options.clear()
+        self.create_poll.disabled = True
+        await inter.response.edit_message(embed=self.embed, view=self)
 
-    @discord.ui.button(label="Start Poll", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="Start Poll", style=discord.ButtonStyle.green, disabled=True)
     async def create_poll(self, inter: discord.Interaction, btn: discord.ui.Button):
         poll_view = PollView(bot=self.bot, poll=self.poll)
         await inter.response.send_message(embed=self.poll.embed, view=poll_view)
@@ -178,20 +231,69 @@ class PollCreateMenu(discord.ui.View):
         await interaction.response.send_message(embed=self.embed, view=self, ephemeral=True)
         self.message = await interaction.original_message()
 
+class TimerButton(discord.ui.Button):
+    def __init__(self, *, poll: PollData):
+        self.poll = poll
+        super().__init__(style=discord.ButtonStyle.gray, emoji="\N{HOURGLASS}", custom_id=f"{poll.id}-timer")
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Poll ends in: {discord.utils.format_dt(self.poll.end_date, style='R')}", ephemeral=True)
+
+class EndPollButton(discord.ui.Button):
+    def __init__(self, *, bot: commands.Bot, poll: PollData):
+        self.bot = bot
+        self.poll = poll
+        super().__init__(style=discord.ButtonStyle.gray, emoji="\N{BLACK SQUARE FOR STOP}\N{VARIATION SELECTOR-16}", custom_id=f"{poll.id}-close")
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id == self.poll.creator.id:
+            await self.poll.finish(self.bot.db, interaction=interaction)
+        else:
+            await interaction.response.send_message("You can't close that poll since it is not yours", ephemeral=True)
+
+class PollOptionSelect(discord.ui.Select):
+    def __init__(self, *, bot: commands.Bot, poll: PollData) -> None:
+        self.bot = bot
+        self.poll = poll
+        self.is_multi = poll.type == "multi"
+        max_values = 1
+        if self.is_multi:
+            max_values = len(poll.options) - 1
+        super().__init__(placeholder="Choose an option to vote on", max_values=max_values, row=0, custom_id=f"{poll.id}:select")
+        for option in poll.options:
+            self.add_option(label=option.text, value=str(option.id))
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.is_multi:
+            self.poll.votes[interaction.user.id] = set()
+        for selection in self.values:
+            option = next(filter(lambda o: o.id == UUID(selection) , self.poll.options))
+            self.poll.add_vote(PollVote(id=uuid4(), user=interaction.user, option=option))
+        await self.poll.sync_votes(self.bot.db)
+        await interaction.response.send_message(content=f"Voted for {','.join('`'+v.option.text+'`' for v in self.poll.votes[interaction.user.id])}", ephemeral=True)
+        self.poll.should_update = True
+        if not self.poll.update_count.is_running():
+            self.poll.update_count.start()
+
 class PollView(discord.ui.View):
     def __init__(self, *, bot, poll: PollData):
         super().__init__(timeout=None)
         self.bot = bot
+        self.poll = poll
         self.select = PollOptionSelect(bot=bot, poll=poll)
+        self.end_button = EndPollButton(bot=bot, poll=poll)
+        self.timer_button = TimerButton(poll=poll)
         self.add_item(self.select)
+        self.add_item(self.end_button)
+        self.add_item(self.timer_button)
 
 class PollModal(discord.ui.Modal):
 
-    def __init__(self, *, bot: commands.Bot, title="Poll Title") -> None:
+    def __init__(self, *, bot: commands.Bot, title="Poll Title", start=0) -> None:
         self.bot = bot
         self.created_options : List[PollOption]= []
         super().__init__(title=title, timeout=None)
-        for i in range(0, 5):
+        for i in range(start, start+5):
             txt_input = discord.ui.TextInput(label=f"Option {i+1}", required=False, style=discord.TextStyle.short, max_length=100)
             self.add_item(txt_input)
 
@@ -206,24 +308,49 @@ class Poll(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.open_polls: List[PollData] = []
+
+
+    @tasks.loop(minutes=1)
+    async def check_poll_status(self):
+        finished_polls = []
+        for poll in self.open_polls:
+            if poll.end_date < datetime.now(tz=timezone.utc):
+                await poll.finish(self.bot.db, interaction=None)
+                finished_polls.append(poll)
+            elif poll.end_date < self.check_poll_status.next_iteration:
+                self.bot.loop.create_task(self.finish_up_poll(poll))
+                finished_polls.append(poll)
+        for poll in finished_polls:
+            self.open_polls.remove(poll)
+
+
+
+    async def finish_up_poll(self, poll):
+        await discord.utils.sleep_until(poll.end_date)
+        await poll.finish(self.bot.db, interaction=None)
 
 
     async def cog_load(self):
         await self.create_database()
         await self.load_views()
+        self.check_poll_status.start()
     async def cog_unload(self):
-        pass
+        self.check_poll_status.stop()
 
     async def load_views(self):
         polls = await self.bot.db.fetch("SELECT * FROM poll.data dt JOIN poll.option o on dt.poll_id = o.poll")
         for poll_id, data in itertools.groupby(polls, lambda p: p.get("poll_id")):
             poll = PollData.from_database_entries(self.bot, list(data))
+            if not poll:
+                continue
             votes = await self.bot.db.fetch("SELECT * FROM poll.vote WHERE poll = $1", poll_id)
             for vote in votes:
                 option = next(filter(lambda opt: opt.id == vote.get("option"), poll.options))
                 vote = PollVote(vote.get("vote_id"), user=self.bot.get_user(vote.get("user_id")), option=option)
                 poll.add_vote(vote=vote)
             self.bot.add_view(PollView(bot=self.bot,poll=poll))
+            self.open_polls.append(poll)
          
 
     async def create_database(self):
@@ -254,28 +381,37 @@ class Poll(commands.Cog):
         await self.bot.db.execute(query)
 
     poll = app_commands.Group(name="poll", description="Commands for creating polls")
+    
 
     @poll.command(name="single")
     @app_commands.describe(title="The title of the Poll")
-    async def poll_single(self, interaction: discord.Interaction, title: str):
+    @app_commands.describe(duration="How long the poll should run")
+    async def poll_single(self, interaction: discord.Interaction, title: str, duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
         """
-        create a single choice poll
+        create a single choice poll runs for 24 hours by default
         """
-        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=discord.utils.utcnow() + timedelta(minutes=5))
+        if not duration:
+            duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
+        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration)
         menu = PollCreateMenu(bot=self.bot, poll=poll_data)
         await menu.start(interaction=interaction)
+        await menu.wait()
+        self.open_polls.append(menu.poll)
 
 
     @poll.command(name="multi")
     @app_commands.describe(title="The title of the Poll")
-    async def poll_multi(self, interaction: discord.Interaction, title: str):
+    async def poll_multi(self, interaction: discord.Interaction, title: str, duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
         """
         create a single choice poll
         """
-        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=discord.utils.utcnow() + timedelta(minutes=5))
+        if not duration:
+            duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
+        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=duration)
         menu = PollCreateMenu(bot=self.bot, poll=poll_data)
         await menu.start(interaction=interaction)
-
+        await menu.wait()
+        self.open_polls.append(menu.poll)
     
 
 async def setup(bot):
