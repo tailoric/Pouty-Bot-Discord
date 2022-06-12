@@ -318,7 +318,7 @@ class Poll(commands.Cog):
             if poll.end_date < datetime.now(tz=timezone.utc):
                 await poll.finish(self.bot.db, interaction=None)
                 finished_polls.append(poll)
-            elif poll.end_date < self.check_poll_status.next_iteration:
+            elif self.check_poll_status.next_iteration and poll.end_date < self.check_poll_status.next_iteration:
                 self.bot.loop.create_task(self.finish_up_poll(poll))
                 finished_polls.append(poll)
         for poll in finished_polls:
