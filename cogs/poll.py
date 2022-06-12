@@ -63,6 +63,7 @@ class PollData:
     options: List[PollOption] = field(default_factory=list)
     votes: dict = field(default_factory=dict)
     should_update = False
+    finished = False
 
     @tasks.loop(seconds=2)
     async def update_count(self):
@@ -174,6 +175,7 @@ class PollData:
             await interaction.response.send_message("Poll finished without any votes")
 
         await self.message.edit(embed=self.embed, view=None)
+        self.finished = True
         self.update_count.stop()
 
 
@@ -315,7 +317,9 @@ class Poll(commands.Cog):
     async def check_poll_status(self):
         finished_polls = []
         for poll in self.open_polls:
-            if poll.end_date < datetime.now(tz=timezone.utc):
+            if poll.finished:
+                finished_polls.append(poll)
+            elif poll.end_date < datetime.now(tz=timezone.utc):
                 await poll.finish(self.bot.db, interaction=None)
                 finished_polls.append(poll)
             elif self.check_poll_status.next_iteration and poll.end_date < self.check_poll_status.next_iteration:
