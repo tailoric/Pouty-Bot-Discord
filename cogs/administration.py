@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 from discord.utils import get
 import os.path
@@ -222,7 +223,7 @@ class Admin(commands.Cog):
     @commands.has_permissions(ban_members=True)
     async def banlist(self, ctx, *, username):
         """search for user in the ban list"""
-        bans = await ctx.guild.bans()
+        bans = [b async for b in ctx.guild.bans()]
         match = mention_regex.match(username)
         if match and match.group(2):
             list_of_matched_entries = list(filter(lambda ban: int(match.group(2)) == ban.user.id, bans))
@@ -245,7 +246,7 @@ class Admin(commands.Cog):
         """
         search through the ban list for the reason
         """
-        bans = await ctx.guild.bans()
+        bans = [b async for b in ctx.guild.bans()]
         list_of_matched_entries = list(filter(lambda ban: reason is None or (ban.reason and reason.lower() in ban.reason.lower()), bans))
         entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
@@ -312,7 +313,7 @@ class Admin(commands.Cog):
             await ctx.send("provide at least one user who's messages will be deleted")
             return
         try:
-            history_mes = await ctx.channel.history(limit=100).flatten()
+            history_mes = [hist async for hist in ctx.channel.history(limit=100)]
             messages_to_delete = [mes for mes in history_mes if mes.author.id in [u.id for u in users]]
             messages_to_delete = messages_to_delete[:number]
             await ctx.channel.delete_messages(messages_to_delete)
@@ -851,6 +852,46 @@ class Admin(commands.Cog):
         mute_role = get(ctx.message.guild.roles, name=role)
         self.mute_role = mute_role
 
+    @checks.is_owner_or_moderator()
+    @commands.hybrid_group(name="channel", with_app_command=True)
+    async def channel_group(self, ctx):
+        pass
+
+    @checks.is_owner_or_moderator()
+    @channel_group.command(name="rename")
+    @app_commands.rename(new_name="name")
+    @app_commands.describe(new_name="the new name of the channel")
+    @app_commands.describe(channel="the channel to rename")
+    async def channel_rename(self, ctx: commands.Context, channel: discord.TextChannel, *,new_name: str):
+        """
+        rename a channel via bot command which allows spaces and default emoji
+        """
+        async with ctx.typing(ephemeral=True):
+            await channel.edit(name=new_name)
+            if ctx.interaction:
+                await ctx.send("\N{WHITE HEAVY CHECK MARK}", ephemeral=True)
+            else:
+                await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+
+    @checks.is_owner_or_moderator()
+    @commands.guild_only()
+    @channel_group.command(name="create")
+    @app_commands.describe(category="under what category to put the new channel")
+    async def channel_create(self, ctx: commands.Context, category: typing.Optional[discord.CategoryChannel], * , name: str):
+        """
+        create a channel via bot command which allows spaces and default emoji
+        """
+        overwrites = {
+                    ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                    ctx.guild.me: discord.PermissionOverwrite(read_messages=True),
+                    ctx.author: discord.PermissionOverwrite(read_messages=True)
+                }
+        async with ctx.typing(ephemeral=True):
+            await ctx.guild.create_text_channel(name=name, category=category, overwrites=overwrites)
+            if ctx.interaction:
+                await ctx.send("\N{WHITE HEAVY CHECK MARK}", ephemeral=True)
+            else:
+                await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
     @commands.Cog.listener()
     async def on_member_join(self, member):
         muted_user_ids = [m['user_id'] for m in await self.mutes]

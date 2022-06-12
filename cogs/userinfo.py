@@ -13,12 +13,13 @@ import json
 snowflake_regex = re.compile(r"(\d{17,19})")
 class ShowAllAvatars(discord.ui.View):
 
-    def __init__(self, member: discord.Member):
+    def __init__(self, member: Union[discord.Member, discord.User]):
         super().__init__()
         self.member = member
+        self.add_item(discord.ui.Button(label="Default avatar", url=member.default_avatar.url)) 
         if member.avatar:
             self.add_item(discord.ui.Button(label="User avatar",url=member.avatar.url))
-        if member.guild_avatar:
+        if isinstance(member, discord.Member) and member.guild_avatar:
             self.add_item(discord.ui.Button(label="Server avatar", url=member.guild_avatar.url)) 
 
 class ShowUserAvatarView(discord.ui.View):
@@ -144,12 +145,14 @@ class Userinfo(commands.Cog):
         embeds = []
         view = None
         if member.avatar:
-            user_embed = discord.Embed(title=f"{member}'s avatar", colour=member.colour or Embed.Empty).set_image(url=member.avatar.url)
+            user_embed = discord.Embed(title=f"{member}'s user avatar",colour=member.colour).set_image(url=member.avatar.url)
             embeds.append(user_embed)
         if isinstance(member, discord.Member) and member.guild_avatar:
-            server_embed = discord.Embed(title=f"{member}'s server avatar", colour=member.colour or Embed.Empty).set_image(url=member.guild_avatar.url)
+            server_embed = discord.Embed(title=f"{member}'s server avatar",colour=member.colour).set_image(url=member.guild_avatar.url)
             embeds.append(server_embed)
-            view = ShowAllAvatars(member)
+        if len(embeds) == 0:
+            embeds.append(discord.Embed(url=member.default_avatar, colour=member.colour).set_image(url=member.default_avatar))
+        view = ShowAllAvatars(member)
         await ctx.send(embeds=embeds, view=view)
 
     @commands.command()
@@ -182,9 +185,7 @@ class Userinfo(commands.Cog):
         """
         Provide a mention or id of an discord object (channel, user, message, emote) to find out when it was created
         """
-        time_diff = datetime.utcnow() - discord_id.created_at
-        creation_date_str = discord_id.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")
-        embed = discord.Embed(title="Age of Discord Object", description=f"This discord object was created at **{creation_date_str}** ({time_diff.days} days ago)", colour=ctx.guild.me.colour)
+        embed = discord.Embed(title="Age of Discord Object", description=f"This discord object was created at {discord.utils.format_dt(discord_id.created_at)} ({discord.utils.format_dt(discord_id.created_at, 'R')})", colour=ctx.guild.me.colour)
         await ctx.send(embed=embed)
 
 

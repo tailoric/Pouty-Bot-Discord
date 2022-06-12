@@ -22,7 +22,7 @@
       "user" : "postgres",
       "dbname": "postgres",
       "password": "pouty"
-      "hostaddr": "postgres"
+      "hostaddr": "localhost"
     }
   ```
   inside the `data` folder and put in the necessary information
@@ -41,9 +41,17 @@
 
 If you have docker installed simply build the Dockerfile and run the docker-compose.yml  
 files mentioned above need to be prepared as explained however
-
 ```bash
 $ docker build -t pouty-bot .
 $ docker compose up
 ```
 
+`data/postgres.json` needs to have the same values set as defined in the docker-compose.yaml file
+```json
+    {
+      "user" : "postgres",
+      "dbname": "botdb",
+      "password": "postgres_pouty"
+      "hostaddr": "postgres"
+    }
+```

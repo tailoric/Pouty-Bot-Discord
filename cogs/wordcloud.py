@@ -109,7 +109,7 @@ class Wordcloud(commands.Cog):
     ##################
     @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="wc [user|channel]")
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
-    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel, None]):
+    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel,discord.Thread, None]):
         """
         generate a word cloud from the last 500 messages of a user or a channel. 
         for users it only applies to messages the bot recorded after getting your consent for recording messages, see `wc consent`
@@ -117,12 +117,12 @@ class Wordcloud(commands.Cog):
         text = ""
         if target is None:
             target = ctx.author
-        if isinstance(target, discord.TextChannel):
+        if isinstance(target, discord.TextChannel) or isinstance(target, discord.Thread):
             permissions = target.permissions_for(ctx.author)
             if not permissions.read_messages:
                 return await ctx.send("Can't create wordcloud since you don't have the permission to view that channel")
-            messages = await target.history(limit=300).flatten()
-            text = "\n".join([self.url_regex.sub("", m.clean_content) for m in messages])
+            await ctx.typing()
+            text = "\n".join([self.url_regex.sub("", m.clean_content) async for m in target.history(limit=300)])
             text = self.spoiler_regex.sub("", text)
         if isinstance(target, discord.Member):
             consent = await self.bot.db.fetchrow("SELECT user_id FROM wc_consent where user_id = $1", target.id)
@@ -138,7 +138,7 @@ class Wordcloud(commands.Cog):
             text = " ".join([m['message_content'] for m in messages])
 
         gen_file = partial(self.generate_file_from_text, text)
-        await ctx.trigger_typing()
+        await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
         await ctx.send(file=f)
 
@@ -184,7 +184,7 @@ class Wordcloud(commands.Cog):
         """, member.id)
         text = " ".join([m['message_content'] for m in messages])
         gen_file = partial(self.generate_with_avatar, bAvatar, text, colour)
-        await ctx.trigger_typing()
+        await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
         await ctx.send(file=f)
 

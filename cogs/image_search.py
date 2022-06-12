@@ -190,7 +190,7 @@ class Search(commands.Cog):
             await ctx.send('Message didn\'t contain Image')
         else:
             try:
-                await ctx.trigger_typing()
+                await ctx.typing()
             except:
                 self.logger.exception("error during typing")
             if link:
@@ -265,7 +265,7 @@ class Search(commands.Cog):
             return await ctx.send("No more searches available for today. Please wait 24 hours before doing another search")
         else:
             try:
-                await ctx.trigger_typing()
+                await ctx.typing()
             except:
                 self.logger.exception("exception during typing")
             if file:
@@ -388,7 +388,7 @@ class Search(commands.Cog):
         """search image either via link or direct upload
             example: .whatanime https://i.redd.it/y4jqyr8383o21.png"""
         try:
-            await ctx.trigger_typing()
+            await ctx.typing()
         except:
             self.logger.exception("error during typing")
         if similarity < 1 or similarity > 99:
@@ -447,7 +447,7 @@ class Search(commands.Cog):
                     data = anilist_data.get("data")
                     title = data.get("Media", {}).get("title", {}).get("userPreferred", None)
 
-        embed = discord.Embed(title=title or first_result.get("filename"), url=anilist_url or discord.Embed.Empty)
+        embed = discord.Embed(title=title or first_result.get("filename"), url=anilist_url or None)
         start_min, start_seconds = divmod(int(first_result.get('from')), 60)
         start_hours, start_min = divmod(start_min, 60)
         embed.add_field(name=f"Episode {first_result.get('episode')}", value=f"At {start_hours:02d}:{start_min:02d}:{start_seconds:02d}", inline=False)
@@ -460,7 +460,7 @@ class Search(commands.Cog):
             if color:
                 val = int(color.strip("#"), 16)
                 embed.color = discord.Colour(val)
-        embed.set_thumbnail(url=first_result.get("image", discord.Embed.Empty))
+        embed.set_thumbnail(url=first_result.get("image", None))
         return embed
 
     def build_mal_link_from_id(self, id):

@@ -42,7 +42,7 @@ class Boost(commands.Cog):
             color_val INTEGER
         )
         ''')
-    @commands.command(name="mycolor", aliases=["mc"])
+    @commands.command(name="mycolor", aliases=["mycolour", "mc"])
     @commands.cooldown(rate=1, per=300, type=commands.BucketType.user)
     @is_boost()
     async def set_boost_color(self, ctx: commands.Context, colour : discord.Colour):
@@ -110,7 +110,7 @@ class Boost(commands.Cog):
         if not role:
             await ctx.send("Couldn't get boost colour role, please set one first")
         if isinstance(icon, discord.Emoji):
-            await role.edit(icon=await icon.read())
+            await role.edit(display_icon=await icon.read())
         elif isinstance(icon, discord.PartialEmoji) and icon.is_custom_emoji():
             await role.edit(display_icon=await icon.read())
         elif isinstance(icon, str) and icon.startswith("http"):

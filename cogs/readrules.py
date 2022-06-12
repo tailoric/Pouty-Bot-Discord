@@ -107,8 +107,8 @@ class ReadRules(commands.Cog):
             self.join_limit = settings["join_limit"]
             self.join_timer = settings["join_timer"]
         self.limit_reset.change_interval(hours=self.join_timer)
-        self.word_filter = re.compile(r"(\bfagg*(ott*)?\b|\bretard)")
-        self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)")
+        self.word_filter = re.compile(r"(\bfagg*(ott*)?\b|\bretard)", re.IGNORECASE)
+        self.nword_filter = re.compile(r"(?<!s)(?P<main>[n\U0001F1F3]+(?:(?P<_nc>.)(?P=_nc)*)?[i1!|l\U0001f1ee]+(?:(?P<_ic>.)(?P=_ic)*)?[g9\U0001F1EC](?:(?P<_gc>.)(?P=_gc)*)?[g9\U0001F1EC]+(?:(?P<_gc_>.)(?P=_gc_)*)?(?:[e3€£ÉÈëeÊêËéE\U0001f1ea]+(?:(?P<_ec>.)(?P=_ec)*)?[r\U0001F1F7]+|(?P<soft>[a\U0001F1E6])))((?:(?P<_rc>.)(?P=_rc)*)?[s5]+)?(?!rd)", re.IGNORECASE)
 
     async def cog_load(self):
         self.bot.loop.create_task(self.init_database())
