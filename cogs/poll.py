@@ -68,6 +68,8 @@ class PollData:
     @tasks.loop(seconds=2)
     async def update_count(self):
         if self.should_update:
+            if isinstance(self.message, discord.InteractionMessage) or isinstance(self.message, discord.PartialMessage):
+                self.message = await self.message.fetch()
             await self.message.edit(embed=self.embed)
             self.should_update = False
     @property
