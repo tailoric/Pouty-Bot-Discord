@@ -152,7 +152,7 @@ class PollData:
 
     async def finish(self, db: Union[asyncpg.Pool, asyncpg.Connection], interaction: Optional[discord.Interaction]):
         embed = self.embed
-        description = 'Results:\n'
+        description = f"{self.description}\nResults:\n"
         embed.clear_fields()
         embed.set_image(url="attachment://result.png")
         labels = []
