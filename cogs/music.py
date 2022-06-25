@@ -14,6 +14,7 @@ from .utils import checks
 from typing import List
 import asyncio
 import logging
+import traceback
 
 url_rx = re.compile('https?:\\/\\/(?:www\\.)?.+')  # noqa: W605
 
@@ -39,7 +40,7 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
         await self.lavalink.voice_update_handler(lavalink_data)
 
 
-    async def connect(self, *, timeout: float, reconnect: bool) -> None:
+    async def connect(self, *, timeout: float, reconnect: bool, self_deaf=True, self_mute=False) -> None:
         await self.channel.guild.change_voice_state(channel=self.channel)
         try:
             self.lavalink : lavalink.Client = self.client.lavalink
@@ -568,10 +569,13 @@ class Music(commands.Cog):
     async def ensure_voice(self, ctx):
         """ This check ensures that the bot and command author are in the same voicechannel. """
         should_connect = ctx.command.name in ('play', 'junbi_ok','soundcloud')  # Add commands that require joining voice to work.
-
         if should_connect and self.current_voice_channel(ctx) is None:
             if self.bot.lavalink.node_manager.available_nodes:
-                voice_client = await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+                try:
+                    voice_client = await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+                except Exception as e:
+                    raise e
+
                 player : lavalink.DefaultPlayer = self.bot.lavalink.player_manager.create(ctx.guild.id)
                 player.store("channel", ctx.channel)
             else:
