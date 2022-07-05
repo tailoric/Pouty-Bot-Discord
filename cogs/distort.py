@@ -1,4 +1,4 @@
-from discord import File, PartialEmoji, Member
+from discord import File, PartialEmoji, Member, User
 from discord.ext import commands
 from typing import Optional, Union
 import aiohttp
@@ -10,6 +10,8 @@ import sys
 import uuid
 import re
 import mimetypes
+
+from discord.user import ClientUser
 
 class Distort(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -34,7 +36,7 @@ class Distort(commands.Cog):
 
     @commands.command()
     @commands.max_concurrency(number=1, per=commands.BucketType.default)
-    async def distort(self, ctx: commands.Context, file:Optional[Union[PartialEmoji, str]]):
+    async def distort(self, ctx: commands.Context, file:Optional[Union[PartialEmoji, User,ClientUser, str]]):
         """
         distort an emote link or attachment
 
@@ -47,6 +49,11 @@ class Distort(commands.Cog):
             f = io.BytesIO(await file.read())
             filename = f"{file.name}.{file.url.split('.')[-1]}"
             filetype = filename.split(".")[-1]
+        elif isinstance(file, User) or isinstance(file, ClientUser):
+            avatar = file.avatar or file.default_avatar 
+            filename = avatar.url.split("/")[-1].split("?")[0]
+            filetype = filename.split(".")[-1].split("?")[0]
+            f = io.BytesIO(await avatar.read())
         elif file and isinstance(file, str) and file_url_regex.match(file):
             async with self.session.get(file) as response:
                 if response.content_type in ['image/png', 'image/jpeg', 'image/gif']:
