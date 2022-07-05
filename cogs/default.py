@@ -181,7 +181,7 @@ class Default(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.bot.debug = True
+        self.bot.debug = False
         self._original_help_command = bot.help_command
         self.bot.help_command = CustomHelpCommand()
         self.bot.help_command.cog = self

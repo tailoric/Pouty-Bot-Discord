@@ -8,6 +8,8 @@ import uuid
 import os
 import sys
 import uuid
+import re
+import mimetypes
 
 class Distort(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -22,16 +24,57 @@ class Distort(commands.Cog):
     async def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
 
-    async def spawn_magick(self, filename, filetype):
-        output_path_temp = os.path.join('data', filename)
-        output_path_distort = os.path.join('data', str(uuid.uuid4()) + filetype)
+    async def spawn_magick(self, file: io.BytesIO) -> io.BytesIO:
         proc = await asyncio.create_subprocess_exec(
-            self.image_magick_command, output_path_temp, '-layers', 'coalesce', '-liquid-rescale', '50%x50%',
-            '-resize', '200%', output_path_distort
+            self.image_magick_command, '-', '-layers', 'coalesce', '-liquid-rescale', '50%x50%',
+            '-resize', '200%', '-', stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
         )
-        await proc.communicate()
-        os.remove(output_path_temp)
-        return output_path_distort
+        stdout, stderr = await proc.communicate(file.read())
+        return io.BytesIO(stdout)
+
+    @commands.command()
+    @commands.max_concurrency(number=1, per=commands.BucketType.default)
+    async def distort(self, ctx: commands.Context, file:Optional[Union[PartialEmoji, str]]):
+        """
+        distort an emote link or attachment
+
+        """
+        f = None
+        filename = None
+        file_url_regex = re.compile(r"^https?://.*\.(gif|png|jpeg|jpg)")
+        filetype = None
+        if file and isinstance(file, PartialEmoji):
+            f = io.BytesIO(await file.read())
+            filename = f"{file.name}.{file.url.split('.')[-1]}"
+            filetype = filename.split(".")[-1]
+        elif file and isinstance(file, str) and file_url_regex.match(file):
+            async with self.session.get(file) as response:
+                if response.content_type in ['image/png', 'image/jpeg', 'image/gif']:
+                    filename = file.split("/")[-1]
+                    filetype = filename.split(".")[-1]
+                    f = io.BytesIO(await response.read())
+        elif ctx.message.attachments:
+            attachment = ctx.message.attachments[0]
+            filetype = attachment.filename.split(".")[-1]
+            if (attachment.size > 1024 * 1024 and filetype == 'gif') or (attachment.size > 1024 * 1024 * 5):
+                return await ctx.send("This file is too big for this command, please only submit gifs smaller than 1MB or files smaller than 5MB")
+            f = io.BytesIO(await attachment.read())
+            filename = attachment.filename
+        if f:
+            async with ctx.typing():
+                filesize = len(f.read())
+                if (filesize > 1024 * 1024 and filetype == 'gif') or (filesize > 1024 * 1024 * 5):
+                    return await ctx.send("This file is too big for this command, please only submit gifs smaller than 1MB or files smaller than 5MB")
+                f.seek(0)
+                out = await self.spawn_magick(f)
+                filesize = len(out.read())
+                if filesize > ctx.guild.filesize_limit:
+                    return await ctx.send("File too big for upload on this server")
+                out.seek(0)
+                outFile = File(out, filename) 
+                await ctx.send(file=outFile)
+        else:
+            await ctx.send("No file specified")
 
     @commands.command()
     async def blur(self, ctx: commands.Context, intensity: Optional[int], link: Optional[Union[PartialEmoji, Member, str]]):
