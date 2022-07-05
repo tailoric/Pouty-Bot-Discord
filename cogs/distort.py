@@ -49,7 +49,9 @@ class Distort(commands.Cog):
             f = io.BytesIO(await file.read())
             filename = f"{file.name}.{file.url.split('.')[-1]}"
             filetype = filename.split(".")[-1]
-        elif isinstance(file, User) or isinstance(file, ClientUser):
+        elif isinstance(file, User) or isinstance(file, ClientUser) or file == "me":
+            if file == "me":
+                file = ctx.author
             avatar = file.avatar or file.default_avatar 
             filename = avatar.url.split("/")[-1].split("?")[0]
             filetype = filename.split(".")[-1].split("?")[0]
