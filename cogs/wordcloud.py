@@ -147,7 +147,7 @@ class Wordcloud(commands.Cog):
 
         embed = discord.Embed(title=f"{target}'s Wordcloud")
         if isinstance(target, discord.Member):
-            embed.set_author(name=target.display_name, icon_url=ctx.author.display_avatar)
+            embed.set_author(name=target.display_name, icon_url=target.display_avatar)
             embed.colour = target.colour if isinstance(ctx.author, discord.Member) else discord.Colour.blurple()
         embed.set_image(url=f"attachment://{file.filename}")
         await ctx.send(embed=embed,file=file, allowed_mentions=AllowedMentions.none())
