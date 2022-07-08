@@ -1,6 +1,7 @@
 from discord.ext import commands, tasks
 import discord
 from typing import Union, Optional
+from discord.mentions import AllowedMentions
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 import typing
 from io import BytesIO
@@ -109,7 +110,7 @@ class Wordcloud(commands.Cog):
     ##################
     @commands.group(invoke_without_command=True,aliases=["wc"], name="wordcloud", usage="wc [user|channel]")
     @commands.max_concurrency(3, per=commands.BucketType.default, wait=True)
-    async def word_cloud(self, ctx, *,target: Union[discord.Member, discord.TextChannel,discord.Thread, None]):
+    async def word_cloud(self, ctx: commands.Context, *,target: Union[discord.Member, discord.TextChannel,discord.Thread, None]):
         """
         generate a word cloud from the last 500 messages of a user or a channel. 
         for users it only applies to messages the bot recorded after getting your consent for recording messages, see `wc consent`
@@ -140,8 +141,16 @@ class Wordcloud(commands.Cog):
         gen_file = partial(self.generate_file_from_text, text)
         await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
-        await ctx.send(file=f)
+        await self.send_wordcloud(ctx, target, f)
 
+    async def send_wordcloud(self, ctx, target, file):
+
+        embed = discord.Embed(title=f"{target}'s Wordcloud")
+        if isinstance(target, discord.Member):
+            embed.set_author(name=target.display_name, icon_url=ctx.author.display_avatar)
+            embed.colour = target.colour if isinstance(ctx.author, discord.Member) else discord.Colour.blurple()
+        embed.set_image(url=f"attachment://{file.filename}")
+        await ctx.send(embed=embed,file=file, allowed_mentions=AllowedMentions.none())
     @word_cloud.command(name="consent")
     async def word_cloud_consent(self, ctx):
         """
@@ -186,7 +195,7 @@ class Wordcloud(commands.Cog):
         gen_file = partial(self.generate_with_avatar, bAvatar, text, colour)
         await ctx.typing()
         f = await ctx.bot.loop.run_in_executor(None, gen_file)
-        await ctx.send(file=f)
+        await self.send_wordcloud(ctx, member, f)
 
     def generate_with_avatar(self, avatar: io.BytesIO, text, color):
         im = np.array(Image.open(avatar))
