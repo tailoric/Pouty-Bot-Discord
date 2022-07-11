@@ -573,13 +573,12 @@ class Admin(commands.Cog):
         """
         A command for cleaning up an already banned user after they've been banned
         """
-        bans = await ctx.guild.bans()
-        print(bans)
-        banned_user = discord.utils.get(bans, user=member)
-        if not banned_user:
+        ban = await ctx.guild.fetch_ban(member)
+        if not ban:
             return await ctx.send("User hasn't been banned, please use the normal ban command with the `dd` flag.")
         await ctx.guild.unban(member)
-        await ctx.guild.ban(member, reason=banned_user.reason, delete_message_days=days)
+        await ctx.guild.ban(member, reason=ban.reason, delete_message_days=days)
+        await ctx.message.add_reaction("\N{THUMBS UP SIGN}")
 
 
     @commands.group(name="banimg", aliases=["pban", "pb", "set_ban_image"])
