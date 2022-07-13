@@ -14,6 +14,7 @@ from itertools import filterfalse
 from pathlib import Path
 from textwrap import shorten
 from youtube_dl import YoutubeDL, DownloadError
+from typing import Optional
 
 spoiler_regex = re.compile(r"\|\|\s?(?P<link>.+?)\s?\|\|")
 class SpoilerLinkConverter(commands.Converter):
@@ -301,14 +302,42 @@ class LinkExpander(commands.Cog):
         if status != 1:
             await message.edit(content=message.content + " ")
 
-    @app_commands.command(name="fclyde", description="get around the clyde filter for upload")
-    async def fuck_clyde(self, interaction: discord.Interaction, attachment: discord.Attachment) -> None:
+    fclyde = app_commands.Group(name="fclyde", description="get around the clyde filter for upload")
+
+    @fclyde.command(name="file")
+    @app_commands.describe(
+            attachment="a file you want to upload that gets blocked by clyde",
+            is_spoiler="specify if the file or image is a spoiler, please",
+            warning="The content warning for a spoiler"
+            )
+    @app_commands.rename(
+            is_spoiler="spoiler"
+            )
+    async def fuck_clyde(self, interaction: discord.Interaction, attachment: discord.Attachment, warning: Optional[str], is_spoiler: bool=False) -> None:
+        if is_spoiler and not warning:
+            return await interaction.response.send_message("Please set a `warning:` when sending a spoiler", ephemeral=True)
         await interaction.response.defer()
         try:
-            await interaction.followup.send(file=await attachment.to_file())
+                await interaction.followup.send(file=await attachment.to_file(spoiler=is_spoiler), content=warning if is_spoiler else None)
         except discord.HTTPException as e:
             await interaction.followup.send(content=str(e))
 
+    @fclyde.command(name="link")
+    @app_commands.describe(
+            link="a link you want to send that doesn't get embedded",
+            is_spoiler="specify if the file or image is a spoiler, please",
+            warning="The content warning for a spoiler"
+            )
+    @app_commands.rename(
+            is_spoiler="spoiler"
+            )
+    async def fuck_clyde(self, interaction: discord.Interaction, link:str , warning: Optional[str], is_spoiler: bool=False) -> None:
+        if is_spoiler and not warning:
+            return await interaction.response.send_message("Please set a `warning:` when sending a spoiler", ephemeral=True)
+        try:
+            await interaction.response.send_message(content=f"{warning} || {link} ||" if is_spoiler else link)
+        except discord.HTTPException as e:
+            await interaction.followup.send(content=str(e))
 
 async def setup(bot):
     await bot.add_cog(LinkExpander(bot))
