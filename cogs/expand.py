@@ -313,7 +313,7 @@ class LinkExpander(commands.Cog):
     @app_commands.rename(
             is_spoiler="spoiler"
             )
-    async def fuck_clyde(self, interaction: discord.Interaction, attachment: discord.Attachment, warning: Optional[str], is_spoiler: bool=False) -> None:
+    async def fuck_clyde_file(self, interaction: discord.Interaction, attachment: discord.Attachment, warning: Optional[str], is_spoiler: bool=False) -> None:
         if is_spoiler and not warning:
             return await interaction.response.send_message("Please set a `warning:` when sending a spoiler", ephemeral=True)
         await interaction.response.defer()
@@ -331,7 +331,7 @@ class LinkExpander(commands.Cog):
     @app_commands.rename(
             is_spoiler="spoiler"
             )
-    async def fuck_clyde(self, interaction: discord.Interaction, link:str , warning: Optional[str], is_spoiler: bool=False) -> None:
+    async def fuck_clyde_link(self, interaction: discord.Interaction, link:str , warning: Optional[str], is_spoiler: bool=False) -> None:
         if is_spoiler and not warning:
             return await interaction.response.send_message("Please set a `warning:` when sending a spoiler", ephemeral=True)
         try:
