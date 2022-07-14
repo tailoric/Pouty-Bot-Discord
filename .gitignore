@@ -13,3 +13,7 @@ data/wuxia.db
 discord.log
 tags
 wuxia_feed/
+data/postgres.json
+README.md
+data/*.log
+data/*.json
