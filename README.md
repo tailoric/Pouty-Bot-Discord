@@ -21,7 +21,7 @@
     {
       "user" : "postgres",
       "dbname": "postgres",
-      "password": "pouty"
+      "password": "pouty",
       "hostaddr": "localhost"
     }
   ```
@@ -51,7 +51,7 @@ $ docker compose up
     {
       "user" : "postgres",
       "dbname": "botdb",
-      "password": "postgres_pouty"
+      "password": "postgres_pouty",
       "hostaddr": "postgres"
     }
 ```
