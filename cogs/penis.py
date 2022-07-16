@@ -46,7 +46,7 @@ class Penis(commands.Cog):
             size = 'DDD'
         for i in range(height):
             boob_string = f'{"*": >{i+3}}{"*": >{15-(i*2)-1}}\n' + boob_string
-        cup_message = f"**User {user.display_name}'s tits have a cup size of __{size}__**\n"
+        cup_message = f"**{user.display_name}'s tits have a cup size of __{size}__**\n"
         await ctx.send(cup_message + '```\n' + boob_string + '\n```')
 
 async def setup(bot):
