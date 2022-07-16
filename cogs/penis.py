@@ -40,22 +40,22 @@ class Boobs(commands.Cog):
     
     @commands.command(pass_context=True)
     @channel_only(*allowed_channels)
-    async def boobs(self, ctx, member: discord.Member = None):
+    async def boobs(self, ctx, user: discord.User = None):
         """accurately measure a user's penis size or compare the penis size of multiple users"""
-        if not member:
-            member = ctx.author
+        if not user:
+            user = ctx.author
         boob_string = ' *       *       *\n*       * *       *\n*  o   *   *   o  *\n * * *       * * * \n'
-        rand = random.Random(member.id)
+        rand = random.Random(user.id)
         """Boob size"""
         height = rand.randint(0, 5)
         size = chr(65 + height)
         if size == 'E':
             size = 'DD'
         if size == 'F':
-            size == 'DDD'
+            size = 'DDD'
         for i in range(height):
             boob_string = f'{"*": >{i+3}}{"*": >{15-(i*2)-1}}\n' + boob_string
-        cup_message = f"**User {member.display_name}'s tits have a cup size of __{size}__**\n"
+        cup_message = f"**User {user.display_name}'s tits have a cup size of __{size}__**\n"
         await ctx.send(cup_message + '```\n' + boob_string + '\n```')
 
 
