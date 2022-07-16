@@ -41,7 +41,7 @@ class LinkExpander(commands.Cog):
                 "Referer" : "https://pixiv.net"
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
-        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?twitter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?(vx)?tw(i|x)tter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
@@ -189,7 +189,7 @@ class LinkExpander(commands.Cog):
                                 file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
                                 
                     else:
-                        async with self.session.get(url=m.get('url')) as img:
+                        async with self.session.get(url=f"{m.get('url')}?name=orig") as img:
                             filename = m.get('url').split('/')[-1]
                             if img.status < 400:
                                 content_length = img.headers.get('Content-Length')
