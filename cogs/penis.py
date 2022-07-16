@@ -28,19 +28,11 @@ class Penis(commands.Cog):
         for entry in length_list:
             message_string += "**{0}'s size:**\n8{1}D\n".format(entry["username"], "=" * entry["length"])
         await ctx.send(message_string)
-
-class Boobs(commands.Cog):
-    """cog for finding the cup size of a user"""
-    data_io = DataIO()
-    allowed_channels = data_io.load_json("bot_channels")
-
-    def __init__(self, bot:Bot):
-        self.bot = bot
     
     @commands.command(pass_context=True)
     @channel_only(*allowed_channels)
     async def boobs(self, ctx, user: discord.User = None):
-        """accurately measure a user's penis size or compare the penis size of multiple users"""
+        """accurately measures a user's cup size"""
         if not user:
             user = ctx.author
         boob_string = ' *       *       *\n*       * *       *\n*  o   *   *   o  *\n * * *       * * * \n'
@@ -57,7 +49,5 @@ class Boobs(commands.Cog):
         cup_message = f"**User {user.display_name}'s tits have a cup size of __{size}__**\n"
         await ctx.send(cup_message + '```\n' + boob_string + '\n```')
 
-
 async def setup(bot):
     await bot.add_cog(Penis(bot))
-    await bot.add_cog(Boobs(bot))
