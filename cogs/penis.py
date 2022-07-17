@@ -34,13 +34,13 @@ class Penis(commands.Cog):
 
     @commands.command(pass_context=True)
     @channel_only(*allowed_channels)
-    async def boobs(self, ctx, width: int, user: discord.User = None):
+    async def boobs(self, ctx, user: discord.User = None):
         """accurately measures a user's cup size"""
         if not user:
             user = ctx.author
         rand = random.Random(user.id)
-        size_int = rand.randint(0, 5)
-        size = chr(65 + size_int)
+        width = rand.randint(0, 5)
+        size = chr(65 + width)
         if size == 'E':
             size = 'DD'
         if size == 'F':
