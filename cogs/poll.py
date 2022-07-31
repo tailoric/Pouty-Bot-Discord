@@ -309,7 +309,7 @@ class PollModal(discord.ui.Modal):
     def __init__(self, *, bot: commands.Bot, title="Poll Title", start=0) -> None:
         self.bot = bot
         self.created_options : List[PollOption]= []
-        super().__init__(title=title, timeout=None)
+        super().__init__(title=title if len(title) < 25 else "Add Options", timeout=None)
         for i in range(start, start+5):
             txt_input = discord.ui.TextInput(label=f"Option {i+1}", required=False, style=discord.TextStyle.short, max_length=100)
             self.add_item(txt_input)
