@@ -181,7 +181,10 @@ class PollData:
                 await self.message.reply(embed=embed, file=f)
             plt.close(fig)
         else:
-            await interaction.response.send_message("Poll finished without any votes")
+            if interaction:
+                await interaction.response.send_message("Poll finished without any votes")
+            elif self.message:
+                await self.message.reply(content="Poll finished without any votes")
 
         await self.message.edit(embed=self.embed, view=None)
         await db.execute("""
