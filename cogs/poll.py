@@ -406,7 +406,7 @@ class Poll(commands.Cog):
     @app_commands.describe(title="The title of the Poll")
     @app_commands.describe(description="Describe the purpose of this poll")
     @app_commands.describe(duration="How long the poll should run")
-    async def poll_single(self, interaction: discord.Interaction, title: str, description: Optional[str], duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
+    async def poll_single(self, interaction: discord.Interaction, title: app_commands.Range[str, 1, 255], description: Optional[str], duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
         """
         create a single choice poll runs for 24 hours by default
         """
@@ -422,7 +422,7 @@ class Poll(commands.Cog):
     @poll.command(name="multi")
     @app_commands.describe(title="The title of the Poll")
     @app_commands.describe(description="Describe the purpose of this poll")
-    async def poll_multi(self, interaction: discord.Interaction, title: str, description: Optional[str], duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
+    async def poll_multi(self, interaction: discord.Interaction, title: app_commands.Range[str, 1, 255], description: Optional[str], duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None):
         """
         create a single choice poll
         """
