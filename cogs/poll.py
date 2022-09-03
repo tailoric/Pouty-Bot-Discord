@@ -102,7 +102,7 @@ class PollData:
         first = next(iter(entries), None)
         if first:
             guild=bot.get_guild(first.get("guild_id"))
-            channel = guild.get_channel(first.get("channel_id"))
+            channel = guild.get_channel(first.get("channel_id")) or bot.get_partial_messageable(first.get("channel_id"))
             return cls(
                     id=first.get("poll_id"),
                     title=first.get("title"),
