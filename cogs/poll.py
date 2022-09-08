@@ -15,6 +15,7 @@ import itertools
 import asyncpg
 import matplotlib.pyplot as plt
 import io
+import logging
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
@@ -208,7 +209,7 @@ class PollCreateMenu(discord.ui.View):
         await inter.response.send_modal(poll)
         await poll.wait()
         await self.poll.add_options(db=self.bot.db, options=poll.created_options)
-        menu_message = await inter.original_message()
+        menu_message = await inter.original_response()
         if len(self.poll.options) >= 2:
             self.create_poll.disabled = False
         if len(self.poll.options) >= 25:
@@ -226,7 +227,7 @@ class PollCreateMenu(discord.ui.View):
     async def create_poll(self, inter: discord.Interaction, btn: discord.ui.Button):
         poll_view = PollView(bot=self.bot, poll=self.poll)
         await inter.response.send_message(embed=self.poll.embed, view=poll_view)
-        self.poll.message = await inter.original_message()
+        self.poll.message = await inter.original_response()
         await self.poll.create_in_store(db=self.bot.db)
         for child in self.children:
             if isinstance(child, discord.ui.Button):
@@ -246,7 +247,7 @@ class PollCreateMenu(discord.ui.View):
     async def start(self, interaction: discord.Interaction):
         self.interaction = interaction
         await interaction.response.send_message(embed=self.embed, view=self, ephemeral=True)
-        self.message = await interaction.original_message()
+        self.message = await interaction.original_response()
 
 class TimerButton(discord.ui.Button):
     def __init__(self, *, poll: PollData):
@@ -342,7 +343,6 @@ class Poll(commands.Cog):
                 finished_polls.append(poll)
         for poll in finished_polls:
             self.open_polls.remove(poll)
-
 
 
     async def finish_up_poll(self, poll):

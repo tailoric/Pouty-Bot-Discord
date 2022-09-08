@@ -1,5 +1,5 @@
 discord-ext-menus @ git+https://github.com/Rapptz/discord-ext-menus@309c70222eec33acacb8c21bbb0fbe9bc57de661
-discord.py @ git+https://github.com/Rapptz/discord.py@24b619a5
+discord.py==2.0.1
 lavalink
 fuzzywuzzy
 jishaku
