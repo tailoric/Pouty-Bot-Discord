@@ -98,7 +98,8 @@ class ArchiveSelect(discord.ui.Select):
             """, chosen)
             thread = await self.ctx.bot.fetch_channel(chosen)
             new_options = list(filterfalse(lambda o: o.value == str(chosen), self.options))
-            await thread.edit(archived=True)
+            if not thread.archived:
+                await thread.edit(archived=True)
             if new_options:
                 self.options = new_options
             else:
@@ -401,7 +402,10 @@ class GroupWatch(commands.Cog):
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
                 found_thread = ctx.guild.get_thread(int(thread))
-                await found_thread.edit(archived=True, locked=True)
+                if not found_thread:
+                    found_thread = await ctx.guild.fetch_channel(int(thread))
+                if not found_thread.archived:    
+                    await found_thread.edit(archived=True, locked=True)
                 if ctx.interaction:
                     await ctx.send(f"{found_thread.mention} archived", ephemeral=True)
                 await ctx.bot.db.execute("DELETE FROM groupwatches WHERE thread_id = $1", found_thread.id)
