@@ -161,7 +161,7 @@ class LinkExpander(commands.Cog):
                             filename = f"{match.group('post_id')}.{best_format.get('ext')}"
                             if not best_format:
                                 continue
-                            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
+                            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
                             result, err = await proc.communicate()
                             file_size = os.path.getsize(filename=f'export/{filename}')
                             file_limit = 8388608
