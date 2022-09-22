@@ -158,7 +158,7 @@ class Reddit(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        if not hasattr(after.channel, "guild"):
+        if not after.guild:
             return
         if "subreddit-discussion" in after.channel.name.lower() or 522729174780084225 == after.channel.id:
             return
