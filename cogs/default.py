@@ -248,8 +248,8 @@ class Default(commands.Cog):
         print('-' * 8)
 
     @commands.Cog.listener()
-    async def on_message(self, message):
-        if isinstance(message.channel, discord.DMChannel):
+    async def on_message(self, message: discord.Message):
+        if not message.guild and not message.flags.ephemeral:
             user = message.author
             self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
 
