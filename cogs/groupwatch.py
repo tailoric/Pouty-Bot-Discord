@@ -12,13 +12,21 @@ from .utils import checks
 from itertools import filterfalse
 
 async def author_groupwatches_complete(interaction: discord.Interaction, current: str)->List[app_commands.Choice[str]]:
-    print(current)
     if not interaction.guild:
         return []
     await interaction.response.defer()
     groupwatches = await interaction.client.db.fetch("""
     SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND creator_id = $2 AND title ILIKE $3
     """, interaction.guild.id, interaction.user.id, f"%{current}%")
+    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 5))
+
+async def all_groupwatches_complete(interaction: discord.Interaction, current: str)-> List[app_commands.Choice[str]]:
+    if not interaction.guild:
+        return []
+    await interaction.response.defer()
+    groupwatches = await interaction.client.db.fetch("""
+    SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND title ILIKE $2
+    """, interaction.guild.id, f"%{current}%")
     return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 5))
 
 class JoinButton(discord.ui.Button):
@@ -135,10 +143,7 @@ class GroupwatchJoinSelect(discord.ui.Select):
             if thread.archived:
                 await thread.edit(archived=False)
             await thread.add_user(interaction.user)
-            await interaction.response.edit_message(view=self.view)
-            if thread.archived:
-                await thread.edit(archived=True)
-                await interaction.response.send_message("You have been added to the thread but it is currently archived you will see it when the channel is opened again", ephemeral=True)
+            await interaction.response.send_message(f"You have been added to {thread.mention}", ephemeral=True)
 
 
 class ArchiveSelectView(discord.ui.View):
@@ -190,10 +195,34 @@ class GroupWatch(commands.Cog):
     
     @groupwatch.command(name="join")
     @commands.guild_only()
-    async def gw_join(self, ctx: commands.Context):
+    @app_commands.autocomplete(thread=all_groupwatches_complete)
+    async def gw_join(self, ctx: commands.Context, thread: Optional[str]):
         """
         Join any currently running groupwatch
+
+        Parameters
+        ---------
+        thread: str
+            The groupwatch you want to join
         """
+        if thread:
+            await ctx.defer(ephemeral=True)
+            exists = await self.bot.db.fetchval("""
+            SELECT thread_id FROM groupwatches WHERE thread_id = $1
+            """, int(thread))
+            found = ctx.guild.get_thread(exists)
+            if not found and exists:
+                found = await ctx.guild.fetch_channel(exists)
+            if not exists:
+                return await ctx.send("Something went wrong could not find thread", ephemeral=True)
+            else:
+                was_archived = found.archived
+                if was_archived:
+                    await found.edit(archived=False)
+                await found.add_user(ctx.author)
+                if ctx.interaction:
+                    await ctx.send(f"You have been added to {found.mention}", ephemeral=True)
+            return
         groupwatches = await self.bot.db.fetch("""
         SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
         """, ctx.guild.id)
@@ -212,6 +241,11 @@ class GroupWatch(commands.Cog):
     async def gw_leave(self, ctx: commands.Context, thread: Optional[discord.Thread]):
         """
         leave a groupwatch thread
+        
+        Parameters
+        ----------
+        thread: discord.Thread
+           The thread you want to leave
         """
         if isinstance(ctx.channel, discord.Thread):
             groupwatches = await self.bot.db.fetch("""
@@ -237,6 +271,11 @@ class GroupWatch(commands.Cog):
     async def gw_create(self, ctx, *, title):
         """
         Create a groupwatch thread and add it to the database
+
+        Parameters
+        ----------
+        title: str
+           the title of the thread
         """
         if ctx.guild.premium_tier >= 2:
             thread_type = discord.ChannelType.private_thread
@@ -257,7 +296,12 @@ class GroupWatch(commands.Cog):
     @app_commands.autocomplete(thread=author_groupwatches_complete)
     async def gw_start(self, ctx: commands.Context, thread: Optional[str]):
         """
-        start a groupwatch by selecting one of the currently active groupwatches from the dropdown
+        start a groupwatch, will ping everyone inside the thread
+
+        Parameters
+        ----------
+        thread: 
+            The thread to open for the groupwatch
         """
         if thread:
             await ctx.defer(ephemeral=False)
@@ -302,6 +346,11 @@ class GroupWatch(commands.Cog):
     async def gw_end(self, ctx: commands.Context, thread: Optional[str]):
         """
         end the current groupwatch or select one groupwatch to end for this episode/view session
+
+        Parameters
+        ----------
+        thread: 
+            The thread to close
         """
         if thread:
             creator = await self.bot.db.fetchval("""
@@ -338,6 +387,11 @@ class GroupWatch(commands.Cog):
     async def gw_archive(self, ctx:commands.Context, thread: Optional[str]):
         """
         Finish a groupwatch and remove it from the list of active groupwatches
+
+        Parameters
+        ----------
+        thread:
+            The groupwatch thread you want to archive
         """ 
         if thread:
             creator = await self.bot.db.fetchval("""
