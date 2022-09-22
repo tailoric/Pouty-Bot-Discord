@@ -46,10 +46,5 @@ if __name__ == '__main__':
                                   mode='a',
                                   maxBytes=LOG_SIZE,
                                   backupCount=2)
-    handler.setFormatter(
-            logging.Formatter(
-                '%(asctime)s:%(levelname)s:%(name)s: %(message)s'
-                )
-            )
-    discord.utils.setup_logging(handler=handler, level=logging.WARNING)
+    discord.utils.setup_logging(handler=handler, level=logging.WARNING, root=False)
     asyncio.run(connect_db_and_start_bot())
