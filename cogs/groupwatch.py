@@ -130,7 +130,7 @@ class GroupWatchJoinSelectView(discord.ui.View):
 class GroupwatchJoinSelect(discord.ui.Select):
 
     def __init__(self, threads: List[discord.Thread]):
-        options = [discord.SelectOption(label=textwrap.shorten(thread.name, 25), value=str(thread.id)) for thread in threads]
+        options = list(itertools.islice([discord.SelectOption(label=textwrap.shorten(thread.name, 25), value=str(thread.id)) for thread in threads], 25))
         self.threads = {t.id : t for t in threads}
         placeholder = "Choose which groupwatch thread to join"
         super().__init__(placeholder=placeholder, options=options, max_values=1)
