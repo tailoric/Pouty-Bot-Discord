@@ -27,7 +27,7 @@ async def all_groupwatches_complete(interaction: discord.Interaction, current: s
     groupwatches = await interaction.client.db.fetch("""
     SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND title ILIKE $2
     """, interaction.guild.id, f"%{current}%")
-    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 5))
+    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 25))
 
 class JoinButton(discord.ui.Button):
     def __init__(self, thread):
