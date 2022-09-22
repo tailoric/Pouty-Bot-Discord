@@ -18,7 +18,7 @@ async def author_groupwatches_complete(interaction: discord.Interaction, current
     groupwatches = await interaction.client.db.fetch("""
     SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND creator_id = $2 AND title ILIKE $3
     """, interaction.guild.id, interaction.user.id, f"%{current}%")
-    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 5))
+    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 25))
 
 async def all_groupwatches_complete(interaction: discord.Interaction, current: str)-> List[app_commands.Choice[str]]:
     if not interaction.guild:
