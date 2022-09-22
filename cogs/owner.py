@@ -54,13 +54,16 @@ class Owner(commands.Cog):
 
     @commands.command(name="sync", aliases=["rlslash"])
     @checks.is_owner()
-    async def reload_slash(self, ctx: commands.Context,guild_to_sync: Optional[discord.Object]):
-        if guild_to_sync:
-            ctx.bot.tree.copy_global_to(guild=guild_to_sync)
-            await ctx.bot.tree.sync(guild=guild_to_sync)
-        else:
+    async def reload_slash(self, ctx: commands.Context, sync_context: str="*"):
+        if sync_context == "~":
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+        elif sync_context == "*":
             await ctx.bot.tree.sync()
-        await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+            await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+        else:
+            await ctx.send("invalid context provided for sync")
 
     #
     #
