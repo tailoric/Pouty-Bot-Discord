@@ -2,6 +2,8 @@ import asyncio
 import textwrap
 import typing
 import itertools
+from thefuzz import process
+from thefuzz import fuzz
 from typing import Dict, List, Optional
 
 import discord
@@ -10,24 +12,6 @@ from discord.ext import commands
 
 from .utils import checks
 from itertools import filterfalse
-
-async def author_groupwatches_complete(interaction: discord.Interaction, current: str)->List[app_commands.Choice[str]]:
-    if not interaction.guild:
-        return []
-    await interaction.response.defer()
-    groupwatches = await interaction.client.db.fetch("""
-    SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND creator_id = $2 AND title ILIKE $3
-    """, interaction.guild.id, interaction.user.id, f"%{current}%")
-    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 25))
-
-async def all_groupwatches_complete(interaction: discord.Interaction, current: str)-> List[app_commands.Choice[str]]:
-    if not interaction.guild:
-        return []
-    await interaction.response.defer()
-    groupwatches = await interaction.client.db.fetch("""
-    SELECT thread_id, title from groupwatches WHERE guild_id = $1 AND title ILIKE $2
-    """, interaction.guild.id, f"%{current}%")
-    return list(itertools.islice([app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in groupwatches], 25))
 
 class JoinButton(discord.ui.Button):
     def __init__(self, thread):
@@ -93,9 +77,12 @@ class ArchiveSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         if self.view:
             chosen = int(self.values.pop())
-            await self.ctx.bot.db.execute("""
-            DELETE FROM groupwatches WHERE thread_id = $1
-            """, chosen)
+            async with self.ctx.bot.db.acquire() as con, con.transaction():
+                deleted = await con.fetchrow("""
+                DELETE FROM groupwatches WHERE thread_id = $1
+                RETURNING guild_id
+                """, chosen)
+                await con.execute("""SELECT pg_notify('groupwatch', $1)""", str(deleted.get("guild_id")))
             thread = await self.ctx.bot.fetch_channel(chosen)
             new_options = list(filterfalse(lambda o: o.value == str(chosen), self.options))
             if not thread.archived:
@@ -161,14 +148,87 @@ class ArchiveSelectView(discord.ui.View):
         else:
             return False
 
+class GroupwatchThreadNotFound(app_commands.AppCommandError):
+    pass
+class GroupWatchAuthorThreadTransformer(app_commands.Transformer):
+
+    async def transform(self, interaction: discord.Interaction, value: str) -> discord.Thread:
+        if interaction.guild:
+            try:
+                thread = await interaction.guild.fetch_channel(int(value))
+                if isinstance(thread, discord.Thread):
+                    return thread
+            except discord.NotFound:
+                raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
+
+        raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
+
+    async def autocomplete(self, interaction: discord.Interaction, current: str)->List[app_commands.Choice[str]]:
+        if not interaction.guild:
+            return []
+        await interaction.response.defer()
+        if interaction.guild.id not in interaction.client.groupwatches:
+            interaction.client.groupwatches[interaction.guild.id] = await interaction.client.db.fetch("""
+            SELECT thread_id, title, creator_id from groupwatches WHERE guild_id = $1
+        """, interaction.guild.id)
+        guild_threads = filter(lambda g: g.get("creator_id") == interaction.user.id, interaction.client.groupwatches[interaction.guild.id])
+        if len(current) == 0:
+            choices = [app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in guild_threads]
+        else:
+            choices = [app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in guild_threads if fuzz.partial_ratio(current.lower(), g.get("title").lower()) > 70]
+        return choices[:25]
+
+class GroupWatchGuildThreadTransformer(app_commands.Transformer):
+
+    async def transform(self, interaction: discord.Interaction, value: str) -> discord.Thread:
+        if interaction.guild:
+            try:
+                thread = await interaction.guild.fetch_channel(int(value))
+                if isinstance(thread, discord.Thread):
+                    return thread
+            except discord.NotFound:
+                raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
+
+        raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
+
+    async def autocomplete(self, interaction: discord.Interaction, current: str)->List[app_commands.Choice[str]]:
+        if not interaction.guild:
+            return []
+        await interaction.response.defer()
+        if interaction.guild.id not in interaction.client.groupwatches:
+            interaction.client.groupwatches[interaction.guild.id] = await interaction.client.db.fetch("""
+            SELECT thread_id, title, creator_id from groupwatches WHERE guild_id = $1
+        """, interaction.guild.id)
+        guild_threads = interaction.client.groupwatches[interaction.guild.id]
+        if len(current) == 0:
+            choices = [app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in guild_threads]
+        else:
+            choices = [app_commands.Choice(name=g.get("title"), value=str(g.get("thread_id"))) for g in guild_threads if fuzz.partial_ratio(current.lower(), g.get("title").lower()) > 70]
+        return choices[:25]
+
 class GroupWatch(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        if not hasattr(self.bot, "groupwatches"):
+            self.bot.groupwatches = {}
         self.start_message = None
 
     async def cog_load(self):
         self.initialize_table = self.bot.loop.create_task(self.groupwatch_threads_table())
+        async def listener_callback(connection, pid, channel, payload):
+            self.bot.groupwatches[int(payload)] = await self.bot.db.fetch("""
+            SELECT thread_id, title, creator_id from groupwatches WHERE guild_id = $1
+            """, int(payload))
+        self.con = await self.bot.db.acquire()
+        await self.con.add_listener('groupwatch', listener_callback)
+        for guild in self.bot.guilds:
+            self.bot.groupwatches[guild.id] = await self.bot.db.fetch("""
+            SELECT thread_id, title, creator_id from groupwatches WHERE guild_id = $1
+            """, guild.id)
+             
+    async def cog_unload(self):
+        await self.con.close()
     async def groupwatch_threads_table(self):
         await self.bot.db.execute("""
         CREATE TABLE IF NOT EXISTS groupwatches(
@@ -196,8 +256,7 @@ class GroupWatch(commands.Cog):
     
     @groupwatch.command(name="join")
     @commands.guild_only()
-    @app_commands.autocomplete(thread=all_groupwatches_complete)
-    async def gw_join(self, ctx: commands.Context, thread: Optional[str]):
+    async def gw_join(self, ctx: commands.Context, thread: Optional[app_commands.Transform[discord.Thread, GroupWatchGuildThreadTransformer]]):
         """
         Join any currently running groupwatch
 
@@ -287,15 +346,16 @@ class GroupWatch(commands.Cog):
         groupwatch_view = JoinView(groupwatch_thread)
         groupwatch_view.cog = self
         start_message = await ctx.send(embed=embed, view=groupwatch_view)
-        await self.bot.db.execute("""
-        INSERT INTO groupwatches(thread_id, title, message_id, channel_id, guild_id, creator_id) 
-        VALUES ($1, $2, $3, $4, $5, $6)
-        """, groupwatch_thread.id, title, start_message.id, start_message.channel.id, start_message.guild.id, ctx.author.id)
+        async with self.bot.db.acquire() as con, con.transaction():
+            await self.bot.db.execute("""
+            INSERT INTO groupwatches(thread_id, title, message_id, channel_id, guild_id, creator_id) 
+            VALUES ($1, $2, $3, $4, $5, $6);
+            """, groupwatch_thread.id, title, start_message.id, start_message.channel.id, start_message.guild.id, ctx.author.id)
+            await self.bot.db.execute("""SELECT pg_notify('groupwatch', $1)""", str(start_message.guild.id))
 
     @groupwatch.command(name="start")
     @commands.guild_only()
-    @app_commands.autocomplete(thread=author_groupwatches_complete)
-    async def gw_start(self, ctx: commands.Context, thread: Optional[str]):
+    async def gw_start(self, ctx: commands.Context, thread: Optional[app_commands.Transform[discord.Thread,GroupWatchAuthorThreadTransformer]]):
         """
         start a groupwatch, will ping everyone inside the thread
 
@@ -308,15 +368,14 @@ class GroupWatch(commands.Cog):
             await ctx.defer(ephemeral=False)
             creator = await self.bot.db.fetchval("""
             SELECT creator_id FROM groupwatches WHERE thread_id = $1
-            """, int(thread))            
+            """, thread.id)            
             if not creator:
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
-                found_thread = ctx.guild.get_thread(int(thread))
-                await found_thread.edit(archived=False)
-                await found_thread.send("@everyone")
-                groupwatch_view = JoinView(found_thread)
-                await ctx.send(embed=discord.Embed(title=found_thread.name, description="Groupwatch thread created join via button", colour=found_thread.guild.me.colour), view=groupwatch_view)
+                await thread.edit(archived=False)
+                await thread.send("@everyone")
+                groupwatch_view = JoinView(thread)
+                await ctx.send(embed=discord.Embed(title=thread.name, description="Groupwatch thread created join via button", colour=thread.guild.me.colour), view=groupwatch_view)
             else:
                 await ctx.send("You don't own this groupwatch")
                 return
@@ -333,9 +392,12 @@ class GroupWatch(commands.Cog):
                     if thread:
                         groupwatch_threads.append(thread)
                 except discord.NotFound:
-                    await self.bot.db.execute("""
-                    DELETE FROM groupwatches WHERE thread_id = $1
-                    """, groupwatch.get('thread_id'))
+                    async with self.bot.db.acquire() as con, con.transaction():
+                        deleted = await con.fetchrow("""
+                        DELETE FROM groupwatches WHERE thread_id = $1
+                        RETURNING guild_id
+                        """, groupwatch.get('thread_id'))
+                        await con.execute("""SELECT pg_notify('groupwatch', $1)""", str(deleted.get("guild_id")))
 
             if(len(groupwatch_threads) == 0):
                 return await ctx.send("There are no groupwatches active, create one with `gw create`")
@@ -343,8 +405,7 @@ class GroupWatch(commands.Cog):
 
     @groupwatch.command(name="end")
     @commands.guild_only()
-    @app_commands.autocomplete(thread=author_groupwatches_complete)
-    async def gw_end(self, ctx: commands.Context, thread: Optional[str]):
+    async def gw_end(self, ctx: commands.Context, thread: Optional[app_commands.Transform[discord.Thread, GroupWatchAuthorThreadTransformer]]):
         """
         end the current groupwatch or select one groupwatch to end for this episode/view session
 
@@ -356,14 +417,13 @@ class GroupWatch(commands.Cog):
         if thread:
             creator = await self.bot.db.fetchval("""
             SELECT creator_id FROM groupwatches WHERE thread_id = $1
-            """, int(thread))
+            """, thread)
             if not creator:
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
-                found_thread = ctx.guild.get_thread(int(thread))
-                await found_thread.edit(archived=True)
+                await thread.edit(archived=True)
                 if ctx.interaction:
-                    await ctx.send(f"{found_thread.mention} closed", ephemeral=True)
+                    await ctx.send(f"{thread.mention} closed", ephemeral=True)
             else:
                 await ctx.send("You don't own this groupwatch", ephemeral=True)
             return
@@ -384,8 +444,7 @@ class GroupWatch(commands.Cog):
 
     @groupwatch.command(name="complete", aliases=["over", "finish"])
     @commands.guild_only()
-    @app_commands.autocomplete(thread=author_groupwatches_complete)
-    async def gw_archive(self, ctx:commands.Context, thread: Optional[str]):
+    async def gw_archive(self, ctx:commands.Context, thread: Optional[app_commands.Transform[discord.Thread, GroupWatchAuthorThreadTransformer]]):
         """
         Finish a groupwatch and remove it from the list of active groupwatches
 
@@ -397,33 +456,32 @@ class GroupWatch(commands.Cog):
         if thread:
             creator = await self.bot.db.fetchval("""
             SELECT creator_id FROM groupwatches WHERE thread_id = $1
-            """, int(thread))
+            """, thread.id)
             if not creator:
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
-                found_thread = ctx.guild.get_thread(int(thread))
-                if not found_thread:
-                    found_thread = await ctx.guild.fetch_channel(int(thread))
-                if not found_thread.archived:    
-                    await found_thread.edit(archived=True, locked=True)
+                await thread.edit(archived=True, locked=True)
                 if ctx.interaction:
-                    await ctx.send(f"{found_thread.mention} archived", ephemeral=True)
-                await ctx.bot.db.execute("DELETE FROM groupwatches WHERE thread_id = $1", found_thread.id)
+                    await ctx.send(f"{thread.mention} archived", ephemeral=True)
+                async with ctx.bot.db.acquire() as con, con.transaction():
+                    await con.execute("DELETE FROM groupwatches WHERE thread_id = $1", thread.id)
+                    await con.execute("""SELECT pg_notify('groupwatch', $1)""", str(thread.guild.id))
             else:
                 await ctx.send("You don't own this groupwatch")
             return
-        groupwatches = await self.bot.db.fetch("""
-        SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1 AND creator_id = $2
-        """, ctx.guild.id, ctx.author.id)
-        if len(groupwatches) == 0:
-            return await ctx.send("No active groupwatches in the list, create one with `gw create`")
-        threads = []
-        for groupwatch in groupwatches:
-            try:
-                threads.append(await self.bot.fetch_channel(groupwatch.get("thread_id")))
-            except discord.NotFound:
-                continue
-        archive = ArchiveSelectView(threads, ctx)
+        async with ctx.typing():
+            groupwatches = await self.bot.db.fetch("""
+            SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1 AND creator_id = $2
+            """, ctx.guild.id, ctx.author.id)
+            if len(groupwatches) == 0:
+                return await ctx.send("No active groupwatches in the list, create one with `gw create`")
+            threads = []
+            for groupwatch in groupwatches:
+                try:
+                    threads.append(await self.bot.fetch_channel(groupwatch.get("thread_id")))
+                except discord.NotFound:
+                    continue
+            archive = ArchiveSelectView(threads, ctx)
         await ctx.send("Choose a groupwatch to archive", view=archive)
 
 
