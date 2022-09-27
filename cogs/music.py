@@ -5,6 +5,7 @@ f-strings.
 """
 import math
 import re
+import json
 
 import discord
 import lavalink
@@ -106,12 +107,14 @@ def can_stop():
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        with open("config/lavalink.json") as f:
+            self.settings = json.load(f)
         if not hasattr(self.bot, 'lavalink'):
             self.bot.lavalink = lavalink.Client(self.bot.user.id)
             self.bot.lavalink.add_node(
-                    'localhost',
-                    2333,
-                    'youshallnotpass',
+                    self.settings['hostaddr'],
+                    self.settings['port'],
+                    self.settings['password'],
                     'us',
                     'default-node')
             self.bot.lavalink.add_event_hook(self.track_hook)
