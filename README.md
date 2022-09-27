@@ -55,3 +55,24 @@ $ docker compose up
       "hostaddr": "postgres"
     }
 ```
+### Music/Lavalink
+
+To use the music functionality you need [Lavalink](https://github.com/freyacodes/Lavalink) running as a server somewhere.
+The docker file includes a container running at port 2333
+to configure it create a file at `config/lavalink.json` with the following contents (Docker):
+```json
+{
+    "hostaddr": "lavalink",
+    "port": 2333,
+    "password": "youshallnotpass"
+}
+```
+
+If you host it directly on the system or somewhere else rewrite the file for your configurations for example:
+```json
+{
+    "hostaddr": "localhost",
+    "port": 2333,
+    "password": "totallysavepassword"
+}
+```
