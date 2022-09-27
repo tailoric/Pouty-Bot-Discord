@@ -366,7 +366,7 @@ class Poll(commands.Cog):
             votes = await self.bot.db.fetch("SELECT * FROM poll.vote WHERE poll = $1", poll_id)
             for vote in votes:
                 option = next(filter(lambda opt: opt.id == vote.get("option"), poll.options))
-                vote = PollVote(vote.get("vote_id"), user=self.bot.get_user(vote.get("user_id")), option=option)
+                vote = PollVote(vote.get("vote_id"), user=discord.Object(vote.get("user_id")), option=option)
                 poll.add_vote(vote=vote)
             self.bot.add_view(PollView(bot=self.bot,poll=poll))
             self.open_polls.append(poll)
