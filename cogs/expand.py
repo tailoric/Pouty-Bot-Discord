@@ -134,16 +134,17 @@ class LinkExpander(commands.Cog):
         except:
             self.logger.exception("error during typing")
         params = {
-                "expansions": "attachments.media_keys,author_id",
+                "expansions": "attachments.media_keys,author_id,referenced_tweets.id",
                 "media.fields" : "type,url",
                 "user.fields" : "profile_image_url,username",
                 "tweet.fields": "attachments"
                 }
-        api_url = f"https://api.twitter.com/2/tweets/{match.group('post_id')}"
+        api_url = "https://api.twitter.com/2/tweets/{}"
         file_list = []
-        async with self.session.get(url=api_url, headers=self.twitter_header, params=params) as response:
+        async with self.session.get(url=api_url.format(match.group('post_id')), headers=self.twitter_header, params=params) as response:
             if response.status < 400:
                 tweet = await response.json()            
+                referenced = tweet['data'].get("referenced_tweets")
                 text = tweet['data'].get('text', "No Text")
                 includes = tweet.get('includes', [])
                 if includes:
@@ -152,6 +153,22 @@ class LinkExpander(commands.Cog):
                 else:
                     users = []
                     media = []
+                embed = discord.Embed(description=text.center(len(text) +4, '|') if is_spoiler else text, url=link, color=discord.Colour(0x5dbaec))
+                if users:
+                    user = users[0]
+                    embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
+                quote_tweet = None
+                if referenced and any(r['type'] == 'quoted' for r in referenced) and not media:
+                    quote_tweet = next(filter(lambda r: r['type'] == 'quoted', referenced), None)
+                    async with self.session.get(api_url.format(quote_tweet['id']), headers=self.twitter_header,params=params) as q_response:
+                        tweet = await q_response.json()
+                    includes = tweet.get('includes', [])
+                    if includes:
+                        users = includes.get("users", [])
+                        media = includes.get('media', [])
+                    else:
+                        users = []
+                        media = []
                 for m in media:
                     if m.get('type') == 'video':
                         with YoutubeDL({'format': 'best'}) as ydl:
@@ -201,12 +218,12 @@ class LinkExpander(commands.Cog):
                                 buffer = io.BytesIO(await img.read())
                                 buffer.seek(0)
                                 file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
-                embed = discord.Embed(title=f"Extracted {len(file_list)} images", description=text.center(len(text) +4, '|') if is_spoiler else text, url=link, color=discord.Colour(0x5dbaec))
-                if users:
-                    user = users[0]
-                    embed.set_author(name=user.get('name'), url=f"https://twitter.com/{user.get('username')}/", icon_url=user.get('profile_image_url'))
                 if len(file_list) == 0:
                     return await ctx.send("Sorry no images found in that Tweet")
+                embed.title =f"Extracted {len(file_list)} images/videos"
+                if quote_tweet:
+                    user = users[0]
+                    embed.add_field(name="Quoted Tweet", value=f"https://twitter.com/{user.get('username')}/status/{tweet.get('data').get('id')}")
                 await ctx.send(embed=embed, files=file_list)
                 if ctx.guild and ctx.guild.me.guild_permissions.manage_messages:
                     await ctx.message.edit(suppress=True)
