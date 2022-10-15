@@ -260,6 +260,9 @@ class RemindMe(commands.Cog):
                         continue
                     if reminder.get("channel_id", None):
                         channel : discord.TextChannel = self.bot.get_channel(reminder["channel_id"])
+                        if not channel:
+                            to_remove.append(reminder)
+                            continue
                         mention = ''
                         message = None
                         try:
