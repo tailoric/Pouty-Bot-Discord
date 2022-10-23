@@ -267,21 +267,12 @@ class GroupWatch(commands.Cog):
         """
         if thread:
             await ctx.defer(ephemeral=True)
-            exists = await self.bot.db.fetchval("""
-            SELECT thread_id FROM groupwatches WHERE thread_id = $1
-            """, int(thread))
-            found = ctx.guild.get_thread(exists)
-            if not found and exists:
-                found = await ctx.guild.fetch_channel(exists)
-            if not exists:
-                return await ctx.send("Something went wrong could not find thread", ephemeral=True)
-            else:
-                was_archived = found.archived
-                if was_archived:
-                    await found.edit(archived=False)
-                await found.add_user(ctx.author)
-                if ctx.interaction:
-                    await ctx.send(f"You have been added to {found.mention}", ephemeral=True)
+            was_archived = thread.archived
+            if was_archived:
+                await thread.edit(archived=False)
+            await thread.add_user(ctx.author)
+            if ctx.interaction:
+                await ctx.send(f"You have been added to {thread.mention}", ephemeral=True)
             return
         groupwatches = await self.bot.db.fetch("""
         SELECT thread_id, channel_id from groupwatches WHERE guild_id = $1
