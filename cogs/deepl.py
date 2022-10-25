@@ -3,7 +3,6 @@ from discord import app_commands
 from typing import Optional, NamedTuple
 import discord
 import json
-import textwrap
 
 class JumpView(discord.ui.View):
     def __init__(self, message: discord.Message, timeout=None):
@@ -168,9 +167,8 @@ class Deepl(commands.Cog):
         if message.embeds:
             source_text = message.embeds[0].description
         else:
-            source_text = textwrap.shorten(
-                    discord.utils.remove_markdown(message.content),
-                    300)
+            source_text = discord.utils.remove_markdown(message.content)
+            source_text = source_text[:295] + '[...]' if len(source_text) >= 300 else source_text
         params = {
                 "text": source_text,
                 "target_lang": "EN"
@@ -184,8 +182,12 @@ class Deepl(commands.Cog):
             if not translation:
                 return await interaction.followup.send("No translation found.")
             translation = translation[0]
+            if interaction.guild and interaction.guild.me.colour.value:
+                colour = interaction.guild.me.colour
+            else:
+                colour = discord.Colour.blurple()
             embed = discord.Embed(title=f"Detected Language: {InputTransformer.languages[translation.get('detected_source_language')]}",
-                    description=translation.get("text"))
+                    description=translation.get("text"), colour=colour)
             view = JumpView(message)
             await interaction.followup.send(embed=embed,
                     view=view,
