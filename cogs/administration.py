@@ -59,6 +59,40 @@ class DeleteDaysFlag(commands.FlagConverter):
         return await super().convert(ctx, argument=argument)
 
 
+class ReportModal(discord.ui.Modal):
+    def __init__(self, 
+            user: typing.Optional[discord.Member],
+            channel: typing.Optional[discord.abc.GuildChannel],
+            bot: commands.Bot,
+            report_channel: discord.TextChannel
+            ):
+        self.bot = bot
+        self.channel = channel
+        self.user = user 
+        self.logger = logging.getLogger('report')
+        self.report_channel = report_channel
+        super().__init__(title="Report Form", timeout=None)
+
+    report = discord.ui.TextInput(label="Report Reason", style=discord.TextStyle.paragraph)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="User report", description=self.report)
+        user_copy_string = None
+        if self.channel:
+            embed.add_field(name="Channel", value=self.channel.mention)
+        elif interaction.channel:
+            embed.add_field(name="Channel", value=interaction.channel.mention)
+        if self.user:
+            embed.add_field(name="User", value=self.user.mention)
+            user_copy_string = f"**{self.user.display_name}** id: {self.user.id} ({self.user.mention})"
+            embed.set_thumbnail(url=self.user.display_avatar)
+            if last_msg := next(filter(lambda m: m.guild == self.user.guild and m.author == self.user, reversed(self.bot.cached_messages)), None):
+                embed.add_field(name="Last Message", value=last_msg.jump_url, inline=False)
+        reporter = interaction.user
+        self.logger.info('User %s#%s(id:%s) reported: "%s"', reporter.name, reporter.discriminator, reporter.id, self.report)
+        await interaction.response.send_message(content="Sent the following report",embed=embed, ephemeral=True)
+        await self.report_channel.send(embed=embed, content=user_copy_string)
+
 class Admin(commands.Cog):
     """Administration commands and anonymous reporting to the moderators"""
 
@@ -413,78 +447,40 @@ class Admin(commands.Cog):
             return False
         return True
 
-    @commands.cooldown(rate=1, per=60, type=commands.BucketType.user)
-    @commands.group(usage=f'"report message" "Username With Space" 13142313324232 general-channel [...]')
-    @commands.dm_only()
-    async def report(self, ctx: commands.Context, report: typing.Optional[str], args: commands.Greedy[typing.Union[discord.User, discord.TextChannel]]):
+    report = app_commands.Group(name="report", description="Command for reporting users of this server to the moderators")
+
+    @app_commands.checks.cooldown(1,60)
+    @report.command(name="user")
+    @app_commands.guild_only()
+    async def report_user(self, interaction: discord.Interaction,
+            channel: typing.Union[discord.TextChannel,discord.VoiceChannel,discord.Thread,None],
+            user: typing.Optional[discord.Member]):
         """
-        anonymously report a user to the moderators
-        usage:
-        ONLY WORKS IN PRIVATE MESSAGES TO THE BOT!
-        !report "report reason" reported_user [name/id] (optional) channel_id [name/id] (optional)
+        anonymously send a report to the moderators
 
-        don't forget the quotes around the reason, optionally you can attach a screenshot via file upload
-
-        examples:
-        !report "I was meanly bullied by <user>" 123456789 0987654321
-        !report "I was bullied by <user>"
-        !report "I was bullied by <user>" User_Name general
+        Parameters:
+        ----------
+        report: str
+            the report reason
+        channel: 
+            the channel the report happened in
+        user: 
+            the user that you are reporting
         """
-        author = ctx.message.author
-        if report == 'setup':
-            if checks.is_owner_or_moderator_check(ctx.message):
-                await ctx.invoke(self.setup)
-                return
-            else:
-                await ctx.send("You don't have permission to do this")
-                ctx.command.reset_cooldown(ctx)
-                return
-        if not await self.report_checks(report, ctx):
-            return
-        embed, file_list_reply, file_list = await self.build_message(ctx.message, report, args)
-        user_copy = await ctx.author.send(f"going to send the following report message:"
-                                          f"\n check with {self.reactions[0]} to send"
-                                          f" or {self.reactions[1]} to abort",
-                                          files=file_list_reply, embed=embed)
-        for reaction in self.reactions:
-            await user_copy.add_reaction(reaction)
-
-        def react_check(reaction, user):
-            if user is None or user.id != ctx.author.id:
-                return False
-            if reaction.message.id != user_copy.id:
-                return False
-            if reaction.emoji in self.reactions:
-                return True
-            return False
-        try:
-            reaction, user = await self.bot.wait_for('reaction_add', check=react_check, timeout=60)
-        except asyncio.TimeoutError as tm:
-            await user_copy.edit(content="You waited too long, use the command again to send a report")
-            await user_copy.remove_reaction(self.reactions[0], self.bot.user)
-            await user_copy.remove_reaction(self.reactions[1], self.bot.user)
-            ctx.command.reset_cooldown(ctx)
-            return
-        else:
-            if reaction.emoji == self.reactions[0]:
-                await self.report_channel.send(embed=embed, files=file_list)
-                self.logger.info('User %s#%s(id:%s) reported: "%s"', author.name, author.discriminator, author.id, report)
-                await author.send("successfully sent")
-            else:
-                await user_copy.delete()
-                ctx.command.reset_cooldown(ctx)
+        await interaction.response.send_modal(ReportModal(user,channel,self.bot, self.report_channel))
 
 
+    @app_commands.checks.has_any_role("Discord-Senpai", "Admin")
+    @app_commands.default_permissions(manage_channels=True)
     @report.command(name="setup")
-    @commands.has_any_role("Discord-Senpai", "Admin")
-    async def setup(self, ctx):
+    async def report_setup(self, interaction: discord.Interaction, channel: typing.Union[discord.TextChannel, discord.Thread]):
         """
-        use '[.,!]report setup' in the channel that should become the report channel
+        Set the channel where reports go to
         """
-        self.report_channel = ctx.message.channel
+        self.report_channel = channel
         with open('data/report_channel.json', 'w') as f:
             json.dump({"channel": self.report_channel.id}, f)
-        await ctx.send('This channel is now the report channel')
+        await interaction.response.send_message(f'{channel.mention} has been set to the report channel')
 
     @commands.command(name="mban", aliases=["banm"])
     @commands.has_permissions(ban_members=True)
