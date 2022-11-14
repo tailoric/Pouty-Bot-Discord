@@ -70,12 +70,13 @@ class MessageLink(commands.Cog):
         if message.author == self.bot.user:
             return
         # Checking if the message sent is a link to a discord message.
+        id_regex = re.compile(r'(?:(?P<channel_id>[0-9]{15,20})-)?(?P<message_id>[0-9]{15,20})$')
         link_regex = re.compile(
             r'https?://(?:(ptb|canary|www)\.)?discord(?:app)?\.com/channels/'
             r'(?P<guild_id>[0-9]{15,20}|@me)'
             r'/(?P<channel_id>[0-9]{15,20})/(?P<message_id>[0-9]{15,20})/?$'
         )
-        match = link_regex.match(message.content)
+        match = link_regex.match(message.content) or id_regex.match(message.content)
         # If it's not a message link, we simply return.
         if not match:
             return
@@ -87,7 +88,7 @@ class MessageLink(commands.Cog):
         partial_linked_message = linked_channel.get_partial_message(message_id)
         # Fetching the full message.
         linked_message = await partial_linked_message.fetch()
-        # Constructing the embed, and then deleting the original message.
+        # Constructing the embed, and then deleting the original
         jump_view = JumpView(linked_message)
         await message.channel.send(embed=jump_view.create_embed(message.author), view=jump_view)
         await message.delete()
