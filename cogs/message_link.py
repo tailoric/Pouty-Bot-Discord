@@ -54,6 +54,8 @@ class JumpView(discord.ui.View):
                 embed.add_field(
                     name="Attachment", value=f"[{file.filename}]({file.url})", inline=False)
         embed.add_field(name="Channel", value=msg.channel.mention)
+        embed.add_field(name="Posted",
+                        value=discord.utils.format_dt(msg.created_at, style='R'))
         # The footer is the person who linked the message.
         embed.set_footer(text=f"Linked by {author.display_name}",
                          icon_url=author.display_avatar.replace(format="png"))
@@ -70,13 +72,15 @@ class MessageLink(commands.Cog):
         if message.author == self.bot.user:
             return
         # Checking if the message sent is a link to a discord message.
-        id_regex = re.compile(r'(?:(?P<channel_id>[0-9]{15,20})-)?(?P<message_id>[0-9]{15,20})$')
+        id_regex = re.compile(
+            r'(?:(?P<channel_id>[0-9]{15,20})-)?(?P<message_id>[0-9]{15,20})$')
         link_regex = re.compile(
             r'https?://(?:(ptb|canary|www)\.)?discord(?:app)?\.com/channels/'
             r'(?P<guild_id>[0-9]{15,20}|@me)'
             r'/(?P<channel_id>[0-9]{15,20})/(?P<message_id>[0-9]{15,20})/?$'
         )
-        match = link_regex.match(message.content) or id_regex.match(message.content)
+        match = link_regex.match(
+            message.content) or id_regex.match(message.content)
         # If it's not a message link, we simply return.
         if not match:
             return
