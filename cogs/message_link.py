@@ -86,8 +86,7 @@ class MessageLink(commands.Cog):
             return
         # Parsing out the channel ID and message ID from the regular expression.
         data = match.groupdict()
-        channel_id = discord.utils._get_as_snowflake(data, 'channel_id')
-        message_id = int(data['message_id'])
+        channel_id, message_id = int(data['channel_id']), int(data['message_id'])
         linked_channel = self.bot.get_channel(channel_id)
         partial_linked_message = linked_channel.get_partial_message(message_id)
         # Fetching the full message.
@@ -95,7 +94,9 @@ class MessageLink(commands.Cog):
         # Constructing the embed, and then deleting the original
         jump_view = JumpView(linked_message)
         await message.channel.send(embed=jump_view.create_embed(message.author), view=jump_view)
-        await message.delete()
+        # Only deleting if this is within a server, rather than a DM channel.
+        if message.guild:
+            await message.delete()
 
 
 async def setup(bot: commands.Bot):
