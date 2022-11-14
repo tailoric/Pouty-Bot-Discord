@@ -54,6 +54,8 @@ class JumpView(discord.ui.View):
                 embed.add_field(
                     name="Attachment", value=f"[{file.filename}]({file.url})", inline=False)
         embed.add_field(name="Channel", value=msg.channel.mention)
+        embed.add_field(name="Posted",
+                        value=discord.utils.format_dt(msg.created_at, style='R'))
         # The footer is the person who linked the message.
         embed.set_footer(text=f"Linked by {author.display_name}",
                          icon_url=author.display_avatar.replace(format="png"))
@@ -61,16 +63,40 @@ class JumpView(discord.ui.View):
 
 
 class MessageLink(commands.Cog):
-
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name="link")
-    async def message_link(self, ctx: commands.Context, message: discord.Message):
+    @commands.Cog.listener('on_message')
+    async def link_message(self, message: discord.Message):
         """Command for embedding a linked message."""
-        jump_view = JumpView(message)
-        await ctx.send(embed=jump_view.create_embed(ctx.author), view=jump_view)
-        await ctx.message.delete()
+        if message.author == self.bot.user:
+            return
+        # Checking if the message sent is a link to a discord message.
+        id_regex = re.compile(
+            r'(?:(?P<channel_id>[0-9]{15,20})-)?(?P<message_id>[0-9]{15,20})$')
+        link_regex = re.compile(
+            r'https?://(?:(ptb|canary|www)\.)?discord(?:app)?\.com/channels/'
+            r'(?P<guild_id>[0-9]{15,20}|@me)'
+            r'/(?P<channel_id>[0-9]{15,20})/(?P<message_id>[0-9]{15,20})/?$'
+        )
+        match = link_regex.match(
+            message.content) or id_regex.match(message.content)
+        # If it's not a message link, we simply return.
+        if not match:
+            return
+        # Parsing out the channel ID and message ID from the regular expression.
+        data = match.groupdict()
+        channel_id, message_id = int(data['channel_id']), int(data['message_id'])
+        linked_channel = self.bot.get_channel(channel_id)
+        partial_linked_message = linked_channel.get_partial_message(message_id)
+        # Fetching the full message.
+        linked_message = await partial_linked_message.fetch()
+        # Constructing the embed, and then deleting the original
+        jump_view = JumpView(linked_message)
+        await message.channel.send(embed=jump_view.create_embed(message.author), view=jump_view)
+        # Only deleting if this is within a server, rather than a DM channel.
+        if message.guild:
+            await message.delete()
 
 
 async def setup(bot: commands.Bot):
