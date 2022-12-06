@@ -13,7 +13,7 @@ from functools import partial
 from itertools import filterfalse
 from pathlib import Path
 from textwrap import shorten
-from youtube_dl import YoutubeDL, DownloadError
+from yt_dlp import YoutubeDL, DownloadError
 from typing import Optional
 
 spoiler_regex = re.compile(r"\|\|\s?(?P<link>.+?)\s?\|\|")
@@ -41,7 +41,7 @@ class LinkExpander(commands.Cog):
                 "Referer" : "https://pixiv.net"
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
-        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?(vx)?tw(i|x)tter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?([vf]x)?tw(i|x)tter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
@@ -169,25 +169,34 @@ class LinkExpander(commands.Cog):
                     else:
                         users = []
                         media = []
+                videos_extracted = False
                 for m in media:
                     if m.get('type') == 'video':
+                        if videos_extracted:
+                            continue
                         with YoutubeDL({'format': 'best'}) as ydl:
                             extract = partial(ydl.extract_info, link, download=False)
                             result = await self.bot.loop.run_in_executor(None, extract)
-                            best_format = next(iter(sorted(result.get('formats'),key=lambda v: v.get('width') * v.get('height'), reverse=True)), None)
-                            filename = f"{match.group('post_id')}.{best_format.get('ext')}"
-                            if not best_format:
-                                continue
-                            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
-                            result, err = await proc.communicate()
-                            file_size = os.path.getsize(filename=f'export/{filename}')
-                            file_limit = 8388608
-                            if ctx.guild:
-                                file_limit = ctx.guild.filesize_limit
-                            if file_size > file_limit:
-                                os.remove(f"export/{filename}")
-                                return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
-                            file_list.append(discord.File(f'export/{filename}', filename=filename, spoiler=is_spoiler))
+                            if result.get("playlist_count"):
+                                entries = result.get("entries")
+                            else:
+                                entries = [result]
+                            for entry in entries:
+                                best_format = next(iter(sorted(entry.get('formats'),key=lambda v: v.get('width') * v.get('height'), reverse=True)), None)
+                                filename = f"{entry.get('id')}.{best_format.get('ext')}"
+                                if not best_format:
+                                    continue
+                                proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error", "-i",  best_format.get('url'), '-c', 'copy', '-y', f'export/{filename}')
+                                result, err = await proc.communicate()
+                                file_size = os.path.getsize(filename=f'export/{filename}')
+                                file_limit = 8388608
+                                if ctx.guild:
+                                    file_limit = ctx.guild.filesize_limit
+                                if file_size > file_limit:
+                                    os.remove(f"export/{filename}")
+                                    return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
+                                file_list.append(discord.File(f'export/{filename}', filename=filename, spoiler=is_spoiler))
+                        videos_extracted = True
                     elif m.get('type') == 'animated_gif':
                         with YoutubeDL({'format': 'best'}) as ydl:
                             extract = partial(ydl.extract_info, link, download=False)

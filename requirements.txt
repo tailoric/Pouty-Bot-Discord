@@ -9,7 +9,7 @@ PyNaCl
 pytz
 wikipedia
 wordcloud
-youtube-dl
+yt-dlp
 bs4
 Emojipedia
 asyncpg
