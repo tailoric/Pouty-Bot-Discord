@@ -228,9 +228,6 @@ class Default(commands.Cog):
                 print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
                 continue
         self.bot.extensions_loaded = True
-        await self.bot.tree.sync()
-        for guild in self.bot.guilds:
-            await self.bot.tree.sync(guild=guild)
 
     def cog_unload(self):
         self.bot.remove_listener(self.on_ready, 'on_ready')
