@@ -261,6 +261,7 @@ class LinkExpander(commands.Cog):
             url = f"https://www.reddit.com/{reddit_match.group('short_id')}"
             reddit_request = f"https://www.reddit.com/{reddit_match.group('short_id')}.json"
         else:
+            url = url.partition("?")[0]
             reddit_request = f"{url}.json"
 
         try:
