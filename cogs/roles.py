@@ -224,7 +224,7 @@ class Roles(commands.Cog):
             await ctx.send("You either don't have that role or I am not allowed to remove it")
 
     @commands.command(name="assignable_roles", aliases=["asroles", "icanbe"])
-    @channel_only("bot-shenanigans",191536772352573440,390617633147453444)
+    @channel_only("bot-shenanigans",191536772352573440,390617633147453444, 208765039727869954)
     @commands.guild_only()
     async def get_assignable_roles(self, ctx):
         """
