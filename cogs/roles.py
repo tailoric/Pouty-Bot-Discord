@@ -159,14 +159,14 @@ class Roles(commands.Cog):
             """)
             return await statement.fetchrow(role_id)
 
-    async def create_role_description(self, role_id, desc):
+    async def create_role_description(self, role_id, desc, guild):
         async with self.bot.db.acquire() as con:
             statement = await con.prepare("""
-                INSERT INTO role_info VALUES
-                ($1, $2)
+                INSERT INTO role_info (role_id, description, guild_id) VALUES
+                ($1, $2, $3)
                 ON CONFLICT (role_id) DO UPDATE SET description = EXCLUDED.description 
             """)
-            await statement.fetch(role_id, desc)
+            await statement.fetch(role_id, desc, guild.id)
 
     @checks.is_owner_or_moderator()
     @commands.command()
@@ -287,7 +287,7 @@ class Roles(commands.Cog):
         """
         set the description of a certain role
         """
-        await self.create_role_description(role.id, description)
+        await self.create_role_description(role.id, description, ctx.guild)
         return await ctx.send("Role description set.")
 
 
@@ -329,13 +329,29 @@ class Roles(commands.Cog):
                 return
             new_role = await server.create_role(name=role_name, colour=set_colour)
             ret = await self.bot.db.execute("""
-            INSERT INTO role_info (role_id, pingable) VALUES ($1, $2)
+            INSERT INTO role_info (role_id, pingable, guild_id) VALUES ($1, $2, $3)
             ON CONFLICT (role_id) DO 
                 UPDATE SET pingable = $2
-            """, new_role.id, mentionable)
+            """, new_role.id, mentionable, ctx.guild.id)
             await ctx.send("role `{}` created".format(new_role.name))
         except discord.Forbidden:
             await ctx.send("Sorry I don't have the permission add a role")
+
+    @roles.command(name="remove")
+    @commands.has_permissions(manage_roles=True)
+    @commands.guild_only()
+    async def _remove_role(self, ctx, role: discord.Role):
+        """
+        Remove a role from the database and the server
+        """
+        await ctx.bot.db.execute("""
+        DELETE FROM role_info WHERE role_id = $1
+        """, role.id)
+        try:
+            await role.delete()
+            await ctx.message.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+        except discord.Forbidden:
+            await ctx.send("Sorry, I don't have the permission to delete that role")
 
     @roles.command(name="mentionable", aliases=["pingable"])  
     @commands.has_permissions(manage_roles=True)
