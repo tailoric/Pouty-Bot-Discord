@@ -248,7 +248,7 @@ class Roles(commands.Cog):
         roles = server.roles
         embed = discord.Embed()
         command_invoke_str = ctx.message.content.removeprefix(f"{ctx.clean_prefix}{ctx.invoked_with}")
-        if command_invoke_str:
+        if command_invoke_str and not role:
             return await ctx.send("Role not found.")
         if not role:
             for role in roles:
