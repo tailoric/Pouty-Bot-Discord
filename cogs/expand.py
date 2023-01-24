@@ -171,7 +171,7 @@ class LinkExpander(commands.Cog):
                         media = []
                 videos_extracted = False
                 for m in media:
-                    if m.get('type') == 'video':
+                    if m.get('type') == 'video' or m.get('type') == "animated_gif":
                         if videos_extracted:
                             continue
                         with YoutubeDL({'format': 'best'}) as ydl:
@@ -182,7 +182,7 @@ class LinkExpander(commands.Cog):
                             else:
                                 entries = [result]
                             for entry in entries:
-                                best_format = next(iter(sorted(entry.get('formats'),key=lambda v: v.get('width') * v.get('height'), reverse=True)), None)
+                                best_format = next(iter(sorted(entry.get('formats'),key=lambda v: v.get('width', 0) * v.get('height', 0), reverse=True)), None)
                                 filename = f"{entry.get('id')}.{best_format.get('ext')}"
                                 if not best_format:
                                     continue
@@ -197,23 +197,6 @@ class LinkExpander(commands.Cog):
                                     return await ctx.send(f"The video was too big for reupload ({round(file_size/(1024 * 1024), 2)} MB)")
                                 file_list.append(discord.File(f'export/{filename}', filename=filename, spoiler=is_spoiler))
                         videos_extracted = True
-                    elif m.get('type') == 'animated_gif':
-                        with YoutubeDL({'format': 'best'}) as ydl:
-                            extract = partial(ydl.extract_info, link, download=False)
-                            result = await self.bot.loop.run_in_executor(None, extract)
-                            gif_url = result.get('formats')[0].get('url')
-                            async with self.session.get(gif_url) as gif:
-                                filename = gif_url.split('/')[-1]
-                                content_length = gif.headers.get('Content-Length')
-                                file_limit = 8388608
-                                if ctx.guild:
-                                    file_limit = ctx.guild.filesize_limit
-                                if content_length and int(content_length) > file_limit:
-                                    continue
-                                buffer = io.BytesIO(await gif.read())
-                                buffer.seek(0)
-                                file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
-                                
                     else:
                         async with self.session.get(url=f"{m.get('url')}?name=orig") as img:
                             filename = m.get('url').split('/')[-1]
