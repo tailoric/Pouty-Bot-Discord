@@ -130,7 +130,7 @@ class PollData:
         INSERT INTO poll.option VALUES ($1, $2, $3)
         ''', [(opt.id, opt.text, self.id) for opt in self.options]
         )
-    async def add_options(self, db: Union[asyncpg.Connection, asyncpg.Pool], options: List[PollOption]) -> None:
+    def add_options(self, options: List[PollOption]) -> None:
         if self.options:
             self.options.extend(options)
         else:
@@ -234,7 +234,7 @@ class PollCreateMenu(discord.ui.View):
         poll = PollModal(bot=self.bot, title=self.poll.title, start=len(self.poll.options))
         await inter.response.send_modal(poll)
         await poll.wait()
-        await self.poll.add_options(db=self.bot.db, options=poll.created_options)
+        self.poll.add_options(options=poll.created_options)
         menu_message = await inter.original_response()
         if len(self.poll.options) >= 2:
             self.create_poll.disabled = False
@@ -325,7 +325,7 @@ class VoterButton(discord.ui.Button):
     def __init__(self, *, poll: PollData, bot):
         self.poll = poll
         self.bot = bot
-        super().__init__(label="Show Votes", emoji="\N{EYES}", custom_id="f{poll.id}-voters")
+        super().__init__(label="Show Votes", emoji="\N{EYES}", custom_id=f"{poll.id}-voters")
 
     async def callback(self, interaction: discord.Interaction) -> Any:
         view = VotesView(poll=self.poll) 
