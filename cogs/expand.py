@@ -268,26 +268,12 @@ class LinkExpander(commands.Cog):
                         
             )
         video_url = post_data['url']
-        with YoutubeDL({'format': 'bestvideo', 'quiet': True}) as ytdl_v, YoutubeDL({'format': 'bestaudio', 'quiet': True}) as ytdl_a:
-            extract_video = partial(ytdl_v.extract_info, video_url, download=False)
-            extract_audio = partial(ytdl_a.extract_info, video_url, download=False)
-            results = await asyncio.gather(
-                    self.bot.loop.run_in_executor(None, extract_video),
-                    self.bot.loop.run_in_executor(None, extract_audio),
-                    return_exceptions=True
-                    )
+        with YoutubeDL({'format': 'bestvideo+bestaudio', 'quiet': True, 'outtmpl': 'export/%(id)s.%(ext)s'}) as ytdl:
+            extract_video = partial(ytdl.extract_info, video_url, download=True)
+            result = await self.bot.loop.run_in_executor(None, extract_video)
         
-        results = list(filterfalse(lambda r: isinstance(r, DownloadError), results))
-        if len(results) == 0:
-            return await ctx.send("No video found please check if this link contains a video file (not a gif) preferably use the v.redd.it link")
-        filename = f"{results[0].get('id')}.{results[0].get('ext')}"
-        if len(results) == 1:
-            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-c', 'copy', '-y', f'export/{filename}')
-        else:
-            proc = await asyncio.create_subprocess_exec(f"ffmpeg", "-hide_banner", "-loglevel" , "error","-i",  results[0].get('url'), '-i', results[1].get('url'),  '-c', 'copy', '-y', f'export/{filename}')
-        result, err = await proc.communicate()
+        filename = f"{result.get('id')}.{result.get('ext')}"
         file_size = os.path.getsize(filename=f'export/{filename}')
-        
         file_limit = 8388608
         if ctx.guild:
             file_limit = ctx.guild.filesize_limit
