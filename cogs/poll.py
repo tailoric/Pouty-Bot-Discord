@@ -151,8 +151,8 @@ class PollData:
     async def sync_votes(self, db: Union[asyncpg.Pool, asyncpg.Connection]):
         for user_id, votes in self.votes.items():
             await db.execute("""
-                DELETE FROM poll.vote WHERE user_id = $1;
-            """, user_id)
+                DELETE FROM poll.vote WHERE user_id = $1 AND poll = $2;
+            """, user_id, self.id)
             await db.executemany("""
                 INSERT INTO poll.vote VALUES ($1, $2, $3, $4)
             """, [(uuid4(), vote.user.id, vote.option.id, self.id) for vote in votes])
