@@ -271,10 +271,6 @@ class PollCreateMenu(discord.ui.View):
     async def change_duration(self, inter: discord.Interaction, btn: discord.ui.Button):
         time_modal = DurationChangeModal(title="Change Duration", timeout=60, view=self)
         await inter.response.send_modal(time_modal)
-        await time_modal.wait()
-        if time_modal.duration:
-            self.poll.end_date = time_modal.duration
-            await inter.followup.edit_message(embed=self.embed, view=self)
 
     @property
     def embed(self):
