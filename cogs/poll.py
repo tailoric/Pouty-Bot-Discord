@@ -124,8 +124,8 @@ class PollData:
 
     async def create_in_store(self, db: Union[asyncpg.Connection, asyncpg.Pool]):
         await db.execute('''
-        INSERT INTO poll.data VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ''', self.id, self.channel.id, self.message.id, self.guild.id, self.creator.id, self.type, self.title, self.end_date)
+        INSERT INTO poll.data (poll_id, channel_id, message_id, guild_id, creator_id, type, title, end_date, anonymous ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ''', self.id, self.channel.id, self.message.id, self.guild.id, self.creator.id, self.type, self.title, self.end_date, self.anonymous)
         await db.executemany('''
         INSERT INTO poll.option VALUES ($1, $2, $3)
         ''', [(opt.id, opt.text, self.id) for opt in self.options]
@@ -259,7 +259,7 @@ class PollCreateMenu(discord.ui.View):
             if isinstance(child, discord.ui.Button):
                 child.disabled = True
         if self.message:
-            await self.message.edit(embed=None, content="Poll started you can now dismiss this message", view=self)
+            await self.message.delete()
         self.stop()
         
     @discord.ui.button(label="Toggle Anonymous", emoji="\N{SLEUTH OR SPY}\N{VARIATION SELECTOR-16}", row=1)
