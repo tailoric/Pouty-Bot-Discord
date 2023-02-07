@@ -268,7 +268,7 @@ class LinkExpander(commands.Cog):
                         
             )
         video_url = post_data['url']
-        with YoutubeDL({'format': 'bestvideo+bestaudio', 'quiet': True, 'outtmpl': 'export/%(id)s.%(ext)s'}) as ytdl:
+        with YoutubeDL({'quiet': True, 'outtmpl': 'export/%(id)s.%(ext)s'}) as ytdl:
             extract_video = partial(ytdl.extract_info, video_url, download=True)
             result = await self.bot.loop.run_in_executor(None, extract_video)
         
