@@ -210,6 +210,10 @@ class Owner(commands.Cog):
             await self.bot.reload_extension(module)
         except commands.ExtensionNotLoaded:
             await self.bot.load_extension(module)
+            if module != "cogs.default":
+                await self.bot.db.execute("""
+                INSERT INTO cogs VALUES ($1) ON CONFLICT DO NOTHING;
+                """, module)
 
     @commands.command()
     @commands.is_owner()
