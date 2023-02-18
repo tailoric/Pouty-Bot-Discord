@@ -9,7 +9,7 @@ PyNaCl
 pytz
 wikipedia
 wordcloud
-yt-dlp
+yt-dlp @ git+hhttps://github.com/yt-dlp/yt-dlp@master
 bs4
 Emojipedia
 asyncpg
