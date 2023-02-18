@@ -58,22 +58,6 @@ class FriendCodes(commands.GroupCog, group_name="friend-codes"):
         super().__init__()
 
     async def cog_load(self) -> None:
-        if not hasattr(self.bot, 'friend_codes'):
-            self.bot.friend_codes = {
-                    f.get('platform_id'): Platform(**f) for f in 
-                    await self.bot.db.fetch("""
-                        SELECT * FROM friend_code.platform;
-                    """)
-            }
-        self.connection = await self.bot.db.acquire()
-        async def refresh_cache(connection, pid, channel, payload):
-            self.bot.friend_codes = {
-                    f.get('platform_id'): Platform(**f) for f in 
-                    await self.bot.db.fetch("""
-                        SELECT * FROM friend_code.platform;
-                    """)
-            }
-        await self.connection.add_listener('friend_code.platforms', refresh_cache)
         await self.bot.db.execute("""
         CREATE SCHEMA IF NOT EXISTS friend_code;
         CREATE TABLE IF NOT EXISTS friend_code.platform (
@@ -92,6 +76,22 @@ class FriendCodes(commands.GroupCog, group_name="friend-codes"):
                 UNIQUE (user_id, platform)
             );
         """)
+        if not hasattr(self.bot, 'friend_codes'):
+            self.bot.friend_codes = {
+                    f.get('platform_id'): Platform(**f) for f in 
+                    await self.bot.db.fetch("""
+                        SELECT * FROM friend_code.platform;
+                    """)
+            }
+        self.connection = await self.bot.db.acquire()
+        async def refresh_cache(connection, pid, channel, payload):
+            self.bot.friend_codes = {
+                    f.get('platform_id'): Platform(**f) for f in 
+                    await self.bot.db.fetch("""
+                        SELECT * FROM friend_code.platform;
+                    """)
+            }
+        await self.connection.add_listener('friend_code.platforms', refresh_cache)
         
 
     @app_commands.command(name="set", description="set your friend code for a game")
