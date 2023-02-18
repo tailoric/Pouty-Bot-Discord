@@ -31,6 +31,7 @@ class Owner(commands.Cog):
         self.confirmation_reacts = [
             '\N{WHITE HEAVY CHECK MARK}', '\N{CROSS MARK}'
         ]
+        self.last_module: Optional[str] = None
 
     def reload_submodules(self, module, prefix='cogs.'):
         module_self = sys.modules.get(prefix + module)
@@ -74,6 +75,7 @@ class Owner(commands.Cog):
     @checks.is_owner_or_moderator()
     async def load(self, ctx, module: str, with_prefix=True):
         """Loads a module"""
+        self.last_module = module
         try:
             if with_prefix:
                 self.reload_submodules(module)
@@ -110,11 +112,18 @@ class Owner(commands.Cog):
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
 
-    @commands.command(name='reload', hidden=True)
+    @commands.command(name='reload', hidden=True, aliases=["rl"])
     @checks.is_owner_or_moderator()
-    async def _reload(self, ctx, module : str, with_prefix=True):
+    async def _reload(self, ctx, module : Optional[str], with_prefix=True):
         """Reloads a module."""
+        if module:
+            self.last_module = module
+        elif not (module or self.last_module):
+            return await ctx.send("please provide a module to load, I currently don't have the last module stored")
+        else:
+            module = self.last_module
         try:
+
             if with_prefix:
                 self.reload_submodules(module)
                 await self.bot.reload_extension('cogs.'+module)
@@ -124,7 +133,7 @@ class Owner(commands.Cog):
             try:
                 await self.bot.load_extension('cogs.'+module)
                 self.reload_submodules(module)
-                await ctx.send('\N{THUMBS UP SIGN}')
+                await ctx.send(f'loaded {module} \N{THUMBS UP SIGN}')
             except Exception as inner_e:
                 await ctx.send('\N{THUMBS DOWN SIGN}')
 
@@ -136,7 +145,7 @@ class Owner(commands.Cog):
                 for page in paginator.pages:
                     await ctx.send(page)
         else:
-            await ctx.send('\N{THUMBS UP SIGN}')
+            await ctx.send(f'reloaded `{module}` \N{THUMBS UP SIGN}')
 
     @commands.command(name='shutdown', hidden=True)
     @checks.is_owner_or_admin()
