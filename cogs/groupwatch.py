@@ -150,6 +150,9 @@ class ArchiveSelectView(discord.ui.View):
 
 class GroupwatchThreadNotFound(app_commands.AppCommandError):
     pass
+
+class GroupwatchThreadInvalidOption(app_commands.AppCommandError):
+    pass 
 class GroupWatchAuthorThreadTransformer(app_commands.Transformer):
 
     async def transform(self, interaction: discord.Interaction, value: str) -> discord.Thread:
@@ -160,6 +163,9 @@ class GroupWatchAuthorThreadTransformer(app_commands.Transformer):
                     return thread
             except discord.NotFound:
                 raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
+            except ValueError:
+                raise GroupwatchThreadInvalidOption(f"Thread with name or id `{value}` does not exist. Use `/groupwatch create` to create it")
+                
 
         raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
 
