@@ -84,8 +84,6 @@ class BotHelpView(views.PaginatedView):
         self.add_item(self.select)
         for child in self.children:
             child.row = 2
-            print(child)
-            print(isinstance(child, discord.ui.Button))
         await super().start(ctx)
 
     async def show_page(self, page_number: int):
@@ -215,17 +213,24 @@ class Default(commands.Cog):
 
     async def cog_load(self):
         await self.bot.wait_until_ready()
+        await self.create_loaded_cogs_table()
         await self.load_cogs()
 
+    async def create_loaded_cogs_table(self):
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS cogs (
+            module TEXT NOT NULL PRIMARY KEY
+        )
+        """)
     async def load_cogs(self):
         if hasattr(self.bot, 'extensions_loaded'):
             return
-        init_extensions = self.data_io.load_json("initial_cogs")
+        init_extensions = [ext["module"] for ext in await self.bot.db.fetch("""SELECT module FROM cogs""")]
         for extension in init_extensions:
             try:
                 await self.bot.load_extension(extension)
             except Exception as e:
-                print('Failed to load extension {}\n{}: {}'.format(extension, type(e).__name__, e))
+                self.logger.exception('Failed to load extension: %s', e)
                 continue
         self.bot.extensions_loaded = True
 

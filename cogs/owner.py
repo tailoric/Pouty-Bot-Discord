@@ -79,9 +79,8 @@ class Owner(commands.Cog):
         try:
             if with_prefix:
                 self.reload_submodules(module)
-                await self.bot.load_extension('cogs.'+module)
-            else:
-                await self.bot.load_extension(module)
+                module = 'cogs.'+ module
+            await self.bot.load_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
             paginator = commands.Paginator()
@@ -93,6 +92,10 @@ class Owner(commands.Cog):
                 await ctx.send(page)
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
+            if module != "cogs.default":
+                await self.bot.db.execute("""
+                INSERT INTO cogs VALUES ($1) ON CONFLICT DO NOTHING;
+                """, module)
 
     @commands.command(hidden=True)
     @checks.is_owner_or_moderator()
@@ -103,15 +106,16 @@ class Owner(commands.Cog):
             return
         try:
             if with_prefix:
-                await self.bot.unload_extension('cogs.'+module)
-            else:
-                await self.bot.unload_extension(module)
+                module = 'cogs.'+module
+            await self.bot.unload_extension(module)
         except Exception as e:
             await ctx.send('\N{THUMBS DOWN SIGN}')
             await ctx.send('`{}: {}`'.format(type(e).__name__, e))
         else:
             await ctx.send('\N{THUMBS UP SIGN}')
-
+            await self.bot.db.execute("""
+            DELETE FROM cogs WHERE module = $1
+            """, module)
     @commands.command(name='reload', hidden=True, aliases=["rl"])
     @checks.is_owner_or_moderator()
     async def _reload(self, ctx, module : Optional[str], with_prefix=True):
@@ -123,17 +127,22 @@ class Owner(commands.Cog):
         else:
             module = self.last_module
         try:
-
             if with_prefix:
                 self.reload_submodules(module)
-                await self.bot.reload_extension('cogs.'+module)
+                if module:
+                    module = 'cogs.' + module
+                await self.bot.reload_extension(module)
             else:
                 await self.bot.reload_extension(module)
         except Exception as e:
             try:
-                await self.bot.load_extension('cogs.'+module)
+                await self.bot.load_extension(module)
                 self.reload_submodules(module)
-                await ctx.send(f'loaded {module} \N{THUMBS UP SIGN}')
+                await ctx.send(f'loaded `{module}` \N{THUMBS UP SIGN}')
+                if module != "cogs.default":
+                    await self.bot.db.execute("""
+                    INSERT INTO cogs VALUES ($1) ON CONFLICT DO NOTHING;
+                    """, module)
             except Exception as inner_e:
                 await ctx.send('\N{THUMBS DOWN SIGN}')
 
@@ -151,6 +160,9 @@ class Owner(commands.Cog):
     @checks.is_owner_or_admin()
     async def _shutdown(self, ctx):
         """Shutdown bot"""
+        await self.bot.db.executemany("""
+        INSERT INTO cogs VALUES ($1) ON CONFLICT DO NOTHING;
+        """, [(k,) for k in self.bot.extensions.keys() if k != "cogs.default"])
         await ctx.send('Shutting down...')
         await self.bot.close()
 
