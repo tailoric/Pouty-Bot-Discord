@@ -1,180 +1,217 @@
-import discord
-from discord.ext import commands, tasks
-from typing import Optional
+from dataclasses import dataclass
+from typing import List, Optional, TypedDict, Union
+from discord import Interaction, Member, User, Embed
+from discord.app_commands import Choice, Transform, default_permissions
+from discord.ext import commands
+from discord import ui
+from discord import app_commands
+from thefuzz import fuzz, process
 import re
 import json
-from functools import partial
 
-class CodeRegexCheck(commands.Converter):
-    async def convert(self, ctx, argument):
-        regex_dict = {}
-        with open('config/fc_codes.json', 'r') as f:
-            for entry in json.load(f):
-                regex_dict[entry.get('name')] = entry.get('regex')
-        regex = re.compile(regex_dict.get(ctx.command.name))
-        match = regex.match(argument)
-        if match:
-            return match.group(0)
+class PlatformTransformError(app_commands.AppCommandError):
+    pass
+@dataclass()
+class Platform:
+    platform_id: int
+    name: str
+    example: str
+
+class PlatformTransformer(app_commands.Transformer):
+    async def transform(self, interaction: Interaction, value: int) -> Platform:
+        platform_id = 0
+        try:
+            platform_id = int(value)
+        except ValueError:
+            raise PlatformTransformError("Only select from the autocompletion, if the platform is not in the list ask a moderator to create it")
+        if platform_id not in interaction.client.friend_codes:
+            row = await interaction.client.db.fetchrow("""
+                SELECT * FROM friend_code.platform WHERE platform_id = $1
+            """, platform_id)
+            if row:
+                platform = Platform(**row)
+                interaction.client.friend_codes[platform_id] = platform
+                return platform
+            raise PlatformTransformError("Could not find the provided platform.")
         else:
-            raise commands.BadArgument(f"Please provide a valid {ctx.command.name.title()} code\nIt must match the following regex: {regex_dict.get(ctx.command.name)}")
+            return interaction.client.friend_codes[platform_id]
+    
+    async def autocomplete(self, interaction: Interaction, current: str) -> List[Choice[str]]:
+        
+        platforms = list(interaction.client.friend_codes.values())
+        choices = [Choice(name=p.name, value=str(p.platform_id)) for p in platforms[:25]]
+        if current:
+            choices = [app_commands.Choice(name=p.name, value=str(p.platform_id))
+                        for p in platforms 
+                        if fuzz.partial_ratio(current.lower(), p.name.lower()) > 70 or
+                        current.lower() in p.name.lower()
+                    ]
+        return choices[:25]
 
 
-class FriendCodes(commands.Cog):
+class FriendCodes(commands.GroupCog, group_name="friend-codes"):
     """
     Get Friend codes for various games of other users or set your own
     """
-    def __init__(self, bot):
-        with open("config/fc_codes.json", 'r') as f:
-            self.groups = json.load(f)
-        self.examples = {}
-        for group in self.groups:
-            self.examples[group['name']] = group['example']
+    def __init__(self, bot) -> None:
         self.bot = bot
-        for group in self.groups:
+        super().__init__()
 
-            @self.friend_codes.group(name=group["name"], aliases=group["aliases"])
-            async def new_group(ctx, user: Optional[discord.Member], *, code: Optional[CodeRegexCheck]):
-                """
-                for adding/overwriting 
-                """
-                print(user, code)
-                if ctx.invoked_subcommand is not None:
-                    return
-                if not user:
-                    user = ctx.author
-                if code:
-                    await self.update_code(ctx.author.id, code, ctx.command.name)
-                    column = ctx.command.name.replace("_"," ").title()
-                    return await ctx.send(f"Set your {column} code to {code}")
-                if user:
-                    embed = discord.Embed(title=user.display_name, colour=user.colour)
-                    embed.set_thumbnail(url=user.avatar.url)
-                    game = await self.fetch_game_code(user.id, ctx.command.name)
-                    if game:
-                        embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
-                        return await ctx.send(embed=embed)
-                    else:
-                        return await ctx.send((f"Could not find {ctx.command.name} account or id for user {user.mention}.\n"
-                            f"If you were trying to set your own id then provide one in this fomat: `{self.examples.get(ctx.command.name)}`"), 
-                            allowed_mentions=discord.AllowedMentions.none())
-            new_group.help = group["help"]
-            
-            @new_group.command(name="remove", aliases=["rm"])
-            async def code_remove(self, ctx):
-                """
-                remove your code
-                """
-                await self.update_code(ctx.author.id, None, ctx.command.parent.name)
-                await ctx.send("code removed")
+    async def cog_load(self) -> None:
+        if not hasattr(self.bot, 'friend_codes'):
+            self.bot.friend_codes = {
+                    f.get('platform_id'): Platform(**f) for f in 
+                    await self.bot.db.fetch("""
+                        SELECT * FROM friend_code.platform;
+                    """)
+            }
+        self.connection = await self.bot.db.acquire()
+        async def refresh_cache(connection, pid, channel, payload):
+            self.bot.friend_codes = {
+                    f.get('platform_id'): Platform(**f) for f in 
+                    await self.bot.db.fetch("""
+                        SELECT * FROM friend_code.platform;
+                    """)
+            }
+        await self.connection.add_listener('friend_code.platforms', refresh_cache)
+        await self.bot.db.execute("""
+        CREATE SCHEMA IF NOT EXISTS friend_code;
+        CREATE TABLE IF NOT EXISTS friend_code.platform (
+                platform_id bigint GENERATED ALWAYS AS IDENTITY
+                    PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                example TEXT DEFAULT NULL
+            );
+        CREATE TABLE IF NOT EXISTS friend_code.user (
+                entry_id bigint GENERATED ALWAYS AS IDENTITY
+                    PRIMARY KEY,
+                user_id bigint NOT NULL,
+                account TEXT NOT NULL,
+                platform bigint 
+                    REFERENCES friend_code.platform (platform_id) ON DELETE CASCADE,
+                UNIQUE (user_id, platform)
+            );
+        """)
+        
 
-
-    async def cog_load(self):
-        await self.create_table()
-    async def create_table(self):
-        await self.build_friend_code_table()
-        await self.migrations()
-
-    async def migrations(self):
-        query = " ALTER TABLE friend_codes "
-        for group in self.groups:
-            query += f"ADD COLUMN IF NOT EXISTS {group['name']} varchar({group['charLength']}),"
-        query = query[:-1]
-        async with self.bot.db.acquire() as con:
-            async with con.transaction():
-                await self.bot.db.execute(query)
-    async def build_friend_code_table(self):
-        query = '''
-            CREATE TABLE IF NOT EXISTS friend_codes(
-                user_id BIGINT PRIMARY KEY NOT NULL
+    @app_commands.command(name="set", description="set your friend code for a game")
+    @app_commands.describe(
+                platform="The game or platform you are setting the code for",
+                account="The friend code, url, username or other identifier for that platform"
             )
-        '''
-        async with self.bot.db.acquire() as con:
-            async with con.transaction():
-                await self.bot.db.execute(query)
+    async def friend_code_set(self, interaction: Interaction, 
+            platform: Transform[Platform, PlatformTransformer], 
+            account: str
+            ):
+        await interaction.response.defer(ephemeral=True)
+        await self.bot.db.execute("""
+            INSERT INTO friend_code."user" (user_id, account, platform)
+                VALUES ($1,$2,$3) ON CONFLICT (user_id, platform) DO UPDATE SET account = EXCLUDED.account;
+        """, interaction.user.id, account, platform.platform_id)
+        await interaction.followup.send(f"Account {account} for platform {platform.name} stored.")
 
-    async def fetch_codes(self, user_id):
-        query = '''
-        SELECT *
-        FROM friend_codes
-        WHERE user_id = $1
-        '''
-        return await self.bot.db.fetchrow(query, user_id)
+    @app_commands.command(name="remove", description="set your friend code for a game")
+    @app_commands.describe(
+                platform="The game or platform you are setting the code for"
+            )
+    async def friend_code_remove(self, interaction: Interaction, 
+            platform: Transform[Platform, PlatformTransformer]
+            ):
+        await interaction.response.defer(ephemeral=True)
+        account = await self.bot.db.fetchval("""
+            DELETE FROM friend_code."user" WHERE user_id = $1 AND platform = $2
+            RETURNING account;
+        """, interaction.user.id, platform.platform_id)
+        if account:
+            await interaction.followup.send(f"Account {account} for platform {platform.name} deleted.")
+        else:
+            await interaction.followup.send(f"You didn't have an account for platform {platform.name} stored.")
 
-    async def fetch_game_code(self, user_id, game):
-        query = f'''
-        SELECT {game}
-        FROM friend_codes
-        WHERE user_id = $1
-        '''
-        return await self.bot.db.fetchval(query, user_id)
-    async def update_code(self, user_id, code, column_name):
-        fetch_query = '''
-            SELECT user_id 
-            FROM friend_codes 
-            WHERE user_id = $1
-        '''
-        update_query = f"UPDATE friend_codes SET {column_name} = $2 WHERE user_id = $1"
-        insert_query = f"INSERT INTO friend_codes (user_id, {column_name}) VALUES ($1, $2)"
-        result = await self.bot.db.fetchval(fetch_query, user_id)
-        async with self.bot.db.acquire() as connection:
-            if result:
-                statement = await connection.prepare(update_query)
-                async with connection.transaction():
-                    return await statement.fetch(user_id, code)
-            else:
-                statement = await connection.prepare(insert_query)
-                async with connection.transaction():
-                    return await statement.fetch(user_id, code)
-        
-    @commands.group(name="friend-codes", aliases=["fc", "friendc"])
-    async def friend_codes(self, ctx, user: Optional[discord.Member]):
-        """
-        Get the friend code of a user or set your own via the sub commands (see below)
-        To search the friend code of a specific game use `.fc gameName username`
-        """
-        message_parts = ctx.message.content.split()
-        no_code_message = "This user has no codes set"
-        if len(message_parts) == 1 and ctx.invoked_subcommand is None:
-            user = ctx.author
-        if user:
-            row = await self.fetch_codes(user.id)
-            if not row:
-                return await ctx.send(no_code_message)
-            embed = discord.Embed(title=user.display_name, colour=user.colour)
-            for k,v in row.items():
-                if k != "user_id" and row.get(k, None):
-                    embed.add_field(name=k.replace("_"," ").title(),value=row[k], inline=False)
-
-            embed.set_thumbnail(url=user.avatar.url)
-            return await ctx.send(embed=embed)
-        if len(message_parts) > 1 and ctx.invoked_subcommand is None:
-            return await ctx.send(f"No user `{message_parts[1]}` found, use `{ctx.prefix}help fc ` for more help.")
-
-    async def set_code(self, ctx, user: Optional[discord.Member],*, code: Optional[CodeRegexCheck]):
-        """
-        for adding/overwriting 
-        """
-        if ctx.invoked_subcommand is not None:
-            return
+    @app_commands.command(name="get", description="get your own or others friend codes or accounts")
+    @app_commands.describe(
+            user="The optional user to search for, if not used will display your codes",
+            platform="The platform to show your account on, if not used will show all"
+            )
+    async def friend_code_get(self, interaction: Interaction,
+            user: Optional[Union[Member, User]], 
+            platform: Optional[Transform[Platform, PlatformTransformer]]
+            ):
+        friend_codes = self.bot.friend_codes
         if not user:
-            user = ctx.author
-        if code:
-            await self.update_code(ctx.author.id, code, ctx.command.name)
-            column = ctx.command.name.replace("_"," ").title()
-            return await ctx.send(f"Set your {column} code to {code}")
-        if user:
-            embed = discord.Embed(title=user.display_name, colour=user.colour)
-            embed.set_thumbnail(url=user.avatar.url)
-            game = await self.fetch_game_code(user.id, ctx.command.name)
-            if game:
-                embed.add_field(name=ctx.command.name.replace("_", " ").title(), value=game)
-                return await ctx.send(embed=embed)
-            else:
-                return await ctx.send((f"Could not find {ctx.command.name} account or id for user {user.mention}.\n"
-                    f"If you were trying to set your own id then provide one in this fomat: `{self.examples.get(ctx.command.name)}`"), 
-                    allowed_mentions=discord.AllowedMentions.none())
-        
+            user = interaction.user
+        if platform:
+            rows = await self.bot.db.fetch("""
+            SELECT account, platform FROM friend_code."user" WHERE platform = $1 AND user_id = $2
+            """, platform.platform_id, user.id)
+        else:
+            rows = await self.bot.db.fetch("""
+            SELECT account, platform FROM friend_code."user" WHERE user_id = $1
+            """, user.id)
+        if not rows:
+            return await interaction.response.send_message("This user has no accounts linked", ephemeral=True)
+        embed = Embed(title="User Accounts")
+        embed.set_author(name=str(user), icon_url=user.display_avatar.url)
+        for row in rows:
+            embed.add_field(name=friend_codes[row["platform"]].name, value=row["account"], inline=False)
+        await interaction.response.send_message(embed=embed)
 
+class PlatformCreationForm(ui.Modal):
+    name = ui.TextInput(label="Platform/Game/Website Name", placeholder="Cool Game")
+    example = ui.TextInput(label="Example Account Name", placeholder="USER#1234")
+    def __init__(self, bot) -> None:
+        self.bot = bot
+        super().__init__(title="Create New Platform", timeout=None)
+
+    async def on_submit(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
+        async with self.bot.db.acquire() as con, con.transaction():
+            await con.execute("""
+            INSERT INTO friend_code.platform (name, example)
+                VALUES ($1, $2)
+            """, self.name.value, self.example.value)
+            await con.execute("""
+            SELECT pg_notify('friend_code.platforms', 'add');
+            """)
+        await interaction.followup.send(f"New platform \"{self.name.value}\" created")
+        self.stop()
+
+@default_permissions(manage_roles=True)
+class FriendCodesManager(commands.GroupCog, group_name="manage-friend-codes"):
+    """
+    For managing friend-codes / user account platforms
+    """
+    def __init__(self, bot) -> None:
+        self.bot = bot
+        super().__init__()
+
+    
+    @app_commands.command(name="create")
+    async def manager_create(self, interaction: Interaction):
+        """
+        Open a form for creating a new platform for the friend-code command 
+        """
+        await interaction.response.send_modal(PlatformCreationForm(self.bot))
+
+    @app_commands.command(name="delete")
+    @app_commands.describe(
+            platform="The platform to delete."
+            )
+    async def manager_delete(self,
+            interaction: Interaction,
+            platform: Transform[Platform, PlatformTransformer]):
+        """
+        Delete an existing platform from the command
+        """
+        await interaction.response.defer()
+        async with self.bot.db.acquire() as con, con.transaction():
+            await con.execute("""
+                DELETE FROM friend_code.platform WHERE platform_id = $1
+            """, platform.platform_id)
+            await con.execute("""
+                SELECT pg_notify('friend_code.platforms', 'delete');
+            """)
+        await interaction.followup.send(f"Friend code platform {platform.name} deleted")
 
 async def setup(bot):
     await bot.add_cog(FriendCodes(bot))
+    await bot.add_cog(FriendCodesManager(bot))
