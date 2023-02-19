@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import textwrap
 from typing import List, Optional, TypedDict, Union
 from discord import Interaction, Member, User, Embed
 from discord.app_commands import Choice, Transform, default_permissions
@@ -155,6 +156,30 @@ class FriendCodes(commands.GroupCog, group_name="friend-codes"):
             embed.add_field(name=friend_codes[row["platform"]].name, value=row["account"], inline=False)
         await interaction.response.send_message(embed=embed)
 
+class PlatformEditForm(ui.Modal):
+    name = ui.TextInput(label="Platform/Game/Website Name", placeholder="Cool Game")
+    example = ui.TextInput(label="Example Account Name", placeholder="USER#1234")
+    def __init__(self, bot, old_platform: Platform) -> None:
+        self.bot = bot
+        self.platform = old_platform
+        self.example.default = self.platform.example
+        self.name.default = self.platform.name
+        super().__init__(title=textwrap.shorten(f"Edit Platform {self.platform.name}", 45), timeout=None)
+
+    async def on_submit(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
+        async with self.bot.db.acquire() as con, con.transaction():
+            await con.execute("""
+            UPDATE friend_code.platform  
+            SET name = $1,
+                example = $2
+            WHERE platform_id = $3
+            """, self.name.value, self.example.value, self.platform.platform_id)
+            await con.execute("""
+            SELECT pg_notify('friend_code.platforms', 'edit');
+            """)
+        await interaction.followup.send(f"Edited platform \"{self.platform.name}\" \N{RIGHTWARDS ARROW} \"{self.name.value}\" with new example `{self.example.value}`")
+        self.stop()
 class PlatformCreationForm(ui.Modal):
     name = ui.TextInput(label="Platform/Game/Website Name", placeholder="Cool Game")
     example = ui.TextInput(label="Example Account Name", placeholder="USER#1234")
@@ -192,6 +217,15 @@ class FriendCodesManager(commands.GroupCog, group_name="manage-friend-codes"):
         """
         await interaction.response.send_modal(PlatformCreationForm(self.bot))
 
+    @app_commands.command(name="edit")
+    @app_commands.describe(
+            platform="The platform to edit, can change name and example"
+            )
+    async def manager_edit(self, interaction: Interaction, platform: Transform[Platform, PlatformTransformer]):
+        """
+        Open a form for editing an existing platform for the friend-code command 
+        """
+        await interaction.response.send_modal(PlatformEditForm(self.bot, platform))
     @app_commands.command(name="delete")
     @app_commands.describe(
             platform="The platform to delete."
