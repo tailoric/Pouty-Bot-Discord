@@ -152,12 +152,22 @@ class FriendCodes(commands.GroupCog, group_name="friend-codes"):
             SELECT account, platform FROM friend_code."user" WHERE user_id = $1
             """, user.id)
         if not rows:
-            return await interaction.response.send_message("This user has no accounts linked", ephemeral=True)
+            for_platform = f" for {platform.name}" if platform else ""
+            return await interaction.response.send_message(f"This user has no accounts{for_platform} linked", ephemeral=True)
         embed = Embed(title="User Accounts")
         embed.set_author(name=str(user), icon_url=user.display_avatar.url)
-        for row in rows:
+        count_rows = 0
+        embed_too_big = False
+        for row in rows[:25]:
+            if len(embed) + len(friend_codes[row["platform"]].name) + len(row["account"]) > 5945:
+                embed_too_big = True
+                break
+            count_rows += 1
             embed.add_field(name=friend_codes[row["platform"]].name, value=row["account"], inline=False)
+        if len(rows) > 25 or embed_too_big:
+            embed.set_footer(text=f"Only the first {count_rows}, too many accounts too show")
         await interaction.response.send_message(embed=embed)
+
 
 class PlatformEditForm(ui.Modal):
     name = ui.TextInput(label="Platform/Game/Website Name", placeholder="Cool Game")
