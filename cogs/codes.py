@@ -58,6 +58,9 @@ class FriendCodes(commands.GroupCog, group_name="friend-codes"):
         self.bot = bot
         super().__init__()
 
+    async def cog_unload(self) -> None:
+        await self.connection.close()
+        return await super().cog_unload()
     async def cog_load(self) -> None:
         await self.bot.db.execute("""
         CREATE SCHEMA IF NOT EXISTS friend_code;
