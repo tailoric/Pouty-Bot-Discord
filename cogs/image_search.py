@@ -18,7 +18,7 @@ import mimetypes
 import sys
 import typing
 import urllib.parse
-import youtube_dl
+import yt_dlp
 
 
 class SauceNaoResult:
@@ -330,11 +330,12 @@ class Search(commands.Cog):
     @commands.command(aliases=["y",'yt'])
     async def youtube(self,  ctx,*, query: str):
         try:
-            ytdl = youtube_dl.YoutubeDL({"quiet": True})
-            info = ytdl.extract_info("ytsearch: " + query, download=False)
-            url = info["entries"][0]["webpage_url"]
+            ytdl = yt_dlp.YoutubeDL({"quiet": True})
+            async with ctx.typing():
+                info = ytdl.extract_info("ytsearch: " + query, download=False)
+                url = info["entries"][0]["webpage_url"]
             await ctx.send(url)
-        except (youtube_dl.utils.DownloadError, youtube_dl.utils.ExtractorError) as yt_error:
+        except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError) as yt_error:
             self.logger.error(yt_error, exc_info=1)
             await ctx.send("Youtube dl seems to be outdated please call `update_ytdl`, "
                            "if that doesn't fix the problem change your search or contact the bot owner")
@@ -348,13 +349,13 @@ class Search(commands.Cog):
         async with ctx.typing():
             try: 
                 proc = await asyncio.create_subprocess_exec(
-                        sys.executable, '-m', 'pip', 'install', '-U', 'youtube_dl'
+                        sys.executable, '-m', 'pip', 'install', '-U', 'yt_dlp'
                         )
                 await proc.communicate()
                 await ctx.send("update completed")
                 keys = sys.modules.copy().keys()
                 for key in keys:
-                    if type(key) is str and key.startswith('youtube_dl'):
+                    if type(key) is str and key.startswith('yt_dlp'):
                         del sys.modules[key]
 
                 self.bot.reload_extension('cogs.image_search')
