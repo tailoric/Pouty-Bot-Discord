@@ -223,7 +223,7 @@ class MuteMenu(discord.ui.View):
         embed = discord.Embed(title="self mute menu", description=("Are you sure you want to mute for the following duration:"
         f"{discord.utils.format_dt(unmute_ts, 'R')}\n"
         "**BEWARE**: Moderators won't unmute if you change your mind later the selfmute will stay for its entire duration"))
-        embed.add_field(name="Hide Channels", value="Click the button to toggel the option to also hide all channels while being muted.")
+        embed.add_field(name="Hide Channels", value="Click the button to toggle the option to also hide all channels while being muted.")
         return embed
 
     async def interaction_check(self, interaction: Interaction) -> bool:
