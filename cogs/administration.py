@@ -1,7 +1,10 @@
 import discord
 from discord import app_commands
+from discord.enums import ButtonStyle
 from discord.ext import commands, tasks
-from discord.utils import get
+from discord.ext.commands.errors import CommandError
+from discord.interactions import Interaction
+from discord.utils import TimestampStyle, get
 import os.path
 import json
 from .utils import checks, paginator
@@ -17,8 +20,10 @@ from fuzzywuzzy import fuzz
 from datetime import datetime, timedelta
 from collections import Counter
 
-timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
+timing_regex = re.compile(r"^(?P<weeks>\d+\s?w(?:eek)?s?)?(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 mention_regex = re.compile('(<@!?)?(\d{17,})>?')
+
+MONTHS_IN_SECONDS = 2629800
 
 class SnowflakeUserConverter(commands.MemberConverter):
     """
@@ -58,6 +63,36 @@ class DeleteDaysFlag(commands.FlagConverter):
             argument = "reason: " + argument
         return await super().convert(ctx, argument=argument)
 
+class TimeConvertError(CommandError):
+    pass
+
+class MuteTimer(commands.Converter):
+    
+    def parse_timer(self, timer):
+        match = timing_regex.match(timer)
+        if not match:
+            return None
+        if not any(match.groupdict().values()):
+            return None
+        timer_inputs = match.groupdict()
+        for key, value in timer_inputs.items():
+            if value is None:
+                value = 0
+            else:
+                value = int(''.join(filter(str.isdigit, value)))
+            timer_inputs[key] = value
+        delta = timedelta(**timer_inputs)
+        return discord.utils.utcnow() + delta
+
+    async def convert(self, _, argument: str) -> timedelta:
+        unmute_ts = self.parse_timer(argument)
+        if not unmute_ts: 
+            raise TimeConvertError("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
+                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
+        diff = unmute_ts - discord.utils.utcnow()
+        if diff.total_seconds() > 2 * MONTHS_IN_SECONDS:
+            raise TimeConvertError("Please don't mute yourself longer than 2 months, reapply a mute again after time ran out.")
+        return diff
 
 class ReportModal(discord.ui.Modal):
     def __init__(self, 
@@ -93,6 +128,111 @@ class ReportModal(discord.ui.Modal):
         await interaction.response.send_message(content="Sent the following report",embed=embed, ephemeral=True)
         await self.report_channel.send(embed=embed, content=user_copy_string)
 
+class ConfirmModal(discord.ui.Modal):
+    
+    confirm_text = discord.ui.TextInput(label="I confirm", placeholder="write 'mute me' to confirm")
+    
+    def __init__(self, cog: 'Admin', member: discord.Member, unmute_ts: datetime, *, hide_channels=True, timeout: typing.Optional[float] = None) -> None:
+        self.title = "Are you sure?"
+        self.member = member
+        self.cog = cog
+        self.unmute_ts = unmute_ts
+        self.hide_channels = hide_channels
+        super().__init__(timeout=timeout)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        mute_role = interaction.guild.get_role(await interaction.client.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
+        """, interaction.guild.id, self.hide_channels))
+        if self.confirm_text.value.lower() == "mute me":
+            await self.cog.add_mute_to_mute_list(member=self.member, timestamp=self.unmute_ts, is_selfmute=True)
+            if self.hide_channels:
+                await self.cog._store_current_roles(member=self.member)
+                try:
+                    await self.member.remove_roles(*self.member.roles[1:])
+                except discord.Forbidden:
+                    pass
+            await self.member.add_roles(mute_role)
+            await interaction.followup.send("You have been muted, don't bother asking any moderator to unmute you", ephemeral=True)
+        else:
+            await interaction.followup.send("Confirmation text wrong you have not been muted")
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if interaction.user != self.member:
+            await interaction.response.send_message("You can't interact with this modal", ephemeral=True)
+            return False
+        return True
+
+class MuteMenu(discord.ui.View):
+
+    def __init__(self, duration: timedelta, *, member: discord.Member, cog: 'Admin', hide_channels=True, timeout: typing.Optional[float] = 180):
+        super().__init__(timeout=timeout)
+        self.message = None
+        self.hide_channels = hide_channels
+        self.member = member
+        self.duration = duration
+        self._admin = cog
+        self.toggle_hide.emoji = "\N{WHITE HEAVY CHECK MARK}" if hide_channels else "\N{CROSS MARK}"
+
+    
+    async def on_timeout(self) -> None:
+        if self.message:
+            await self.message.delete()
+            self.message = None
+
+    @discord.ui.button(label="Yes", style=ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        unmute_ts = discord.utils.utcnow() + self.duration
+        mute_role = interaction.guild.get_role(await interaction.client.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
+        """, interaction.guild.id, self.hide_channels))
+        if self.duration.days > 6:
+            await interaction.response.send_modal(ConfirmModal(self._admin, self.member, unmute_ts))
+        else:
+            await interaction.response.defer(ephemeral=True)
+            await self._admin.add_mute_to_mute_list(self.member, unmute_ts, is_selfmute=True)
+            if self.hide_channels:
+                await self._admin._store_current_roles(member=self.member)
+                try:
+                    await self.member.remove_roles(*self.member.roles[1:])
+                except discord.Forbidden:
+                    pass
+            await self.member.add_roles(mute_role)
+            await interaction.followup.send("You have been muted")
+        if self.message:
+            await self.message.delete()
+        self.stop()
+
+    @discord.ui.button(label="No", style=ButtonStyle.red)
+    async def deny(self, _: Interaction, __: discord.ui.Button):
+        if self.message:
+            await self.message.delete()
+            self.message = None
+        self.stop()
+
+    @discord.ui.button(label="Hide Channels", style=ButtonStyle.blurple)
+    async def toggle_hide(self, interaction : discord.Interaction, button: discord.ui.Button):
+        self.hide_channels = not self.hide_channels
+        button.emoji = "\N{WHITE HEAVY CHECK MARK}" if self.hide_channels else "\N{CROSS MARK}"
+        await interaction.response.edit_message(view=self)
+
+    @property
+    def embed(self) -> discord.Embed:
+        unmute_ts = discord.utils.utcnow() + self.duration
+        embed = discord.Embed(title="self mute menu", description=("Are you sure you want to mute for the following duration:"
+        f"{discord.utils.format_dt(unmute_ts, 'R')}\n"
+        "**BEWARE**: Moderators won't unmute if you change your mind later the selfmute will stay for its entire duration"))
+        embed.add_field(name="Hide Channels", value="Click the button to toggel the option to also hide all channels while being muted.")
+        return embed
+
+    async def interaction_check(self, interaction: Interaction) -> bool:
+        if interaction.user != self.member:
+            await interaction.response.send_message("You can't interact with this menu", ephemeral=True)
+            return False
+        return True
+
+
 class Admin(commands.Cog):
     """Administration commands and anonymous reporting to the moderators"""
 
@@ -104,14 +244,7 @@ class Admin(commands.Cog):
                 self.report_channel = self.bot.get_channel(json_data['channel'])
         else:
             self.report_channel = None
-        if os.path.exists('data/mute_list.json'):
-            with open('data/mute_list.json') as f:
-                json_data = json.load(f)
-                for server in self.bot.guilds:
-                    self.mute_role = get(server.roles, id=int(json_data['mute_role']))
-                    if self.mute_role is not None:
-                        break
-            self.unmute_loop.start()
+        self.unmute_loop.start()
         if os.path.exists("data/reddit_settings.json"):
             with open("data/reddit_settings.json") as f:
                 json_data = json.load(f)
@@ -141,21 +274,6 @@ class Admin(commands.Cog):
         await self.create_mute_database()
         await self.create_voice_unmute_table()
         await self.create_personal_ban_image_db()
-    def parse_timer(self, timer):
-        match = timing_regex.match(timer)
-        if not match:
-            return None
-        if not any(match.groupdict().values()):
-            return None
-        timer_inputs = match.groupdict()
-        for key, value in timer_inputs.items():
-            if value is None:
-                value = 0
-            else:
-                value = int(''.join(filter(str.isdigit, value)))
-            timer_inputs[key] = value
-        delta = timedelta(**timer_inputs)
-        return datetime.utcnow() + delta
 
     async def get_voice_unmutes(self):
         query =("SELECT * FROM vmutes")
@@ -231,12 +349,28 @@ class Admin(commands.Cog):
     async def create_mute_database(self):
         query = ("CREATE TABLE IF NOT EXISTS mutes ("
                  "user_id BIGINT PRIMARY KEY,"
-                 "unmute_ts TIMESTAMP )")
+                 "unmute_ts TIMESTAMP WITH TIME ZONE, "
+                 "guild_id BIGINT NOT NULL)")
         query_alter = ("ALTER TABLE mutes ADD COLUMN IF NOT EXISTS selfmute BOOLEAN DEFAULT FALSE")
+        mute_role_table = ("CREATE TABLE IF NOT EXISTS mute_roles ("
+                "role_id BIGINT PRIMARY KEY, "
+                "guild_id BIGINT NOT NULL, "
+                "hide_channels BOOLEAN DEFAULT FALSE"
+                ")")
+        query_role_store = (
+                """
+                CREATE TABLE IF NOT EXISTS role_store(
+                    user_id BIGINT NOT NULL,
+                    role_id BIGINT NOT NULL
+                )
+                """
+                )
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 await self.bot.db.execute(query)
                 await self.bot.db.execute(query_alter)
+                await self.bot.db.execute(mute_role_table)
+                await self.bot.db.execute(query_role_store)
 
     async def create_voice_unmute_table(self):
         query = ("CREATE TABLE IF NOT EXISTS vmutes ("
@@ -634,13 +768,22 @@ class Admin(commands.Cog):
     @tasks.loop(seconds=5.0)
     async def unmute_loop(self):
         to_remove = []
+        
         try:
             for mute in await self.mutes:
-                if mute["unmute_ts"] <= datetime.utcnow():
+                if mute["unmute_ts"] <= discord.utils.utcnow():
                     try:
-                        user = get(self.mute_role.guild.members, id=mute["user_id"])
-                        if user:
-                            await user.remove_roles(self.mute_role)
+                        guild = self.bot.get_guild(mute["guild_id"])
+                        member = guild.get_member(mute["user_id"])
+                        mute_roles = (discord.Object(r['role_id']) for r in await self.bot.db.fetch("""
+                        SELECT role_id FROM mute_roles WHERE guild_id = $1
+                        """, guild.id))
+                        if member and mute_roles:
+                            await member.remove_roles(*mute_roles)
+                            stored_roles = await self._get_stored_roles(member)                            
+                            stored_roles = [discord.Object(id=s["role_id"]) for s in stored_roles]
+                            if stored_roles:
+                                await member.add_roles(*stored_roles)
                     except (discord.errors.Forbidden, discord.errors.NotFound) as e:
                         to_remove.append(mute)
                     else:
@@ -660,13 +803,31 @@ class Admin(commands.Cog):
                 unmuted_user_id = await stmt.fetchval(member_id)
         return unmuted_user_id
 
-    async def add_mute_to_mute_list(self, member_id, timestamp, is_selfmute: bool=False):
+    async def _get_stored_roles(self, member: discord.Member):
+        async with self.bot.db.acquire() as con, con.transaction():
+
+            roles = await con.fetch("""
+                SELECT role_id FROM role_store 
+                WHERE user_id = $1
+            """, member.id)
+            await con.execute("""
+            DELETE FROM role_store WHERE user_id = $1
+            """, member.id)
+            return roles
+
+    async def _store_current_roles(self, member: discord.Member):
+        async with self.bot.db.acquire() as con, con.transaction():
+            await con.executemany("""
+            INSERT INTO role_store (user_id, role_id) VALUES ($1, $2)
+            """, [(member.id, r.id) for r in member.roles[1:]])
+        
+    async def add_mute_to_mute_list(self, member: discord.Member, timestamp, is_selfmute: bool=False):
         query = ("INSERT INTO mutes "
-                 "VALUES ($1,$2, $3) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2, selfmute = $3")
+                 "VALUES ($1,$2, $3, $4) ON CONFLICT(user_id) DO UPDATE SET unmute_ts = $2, selfmute = $3")
         async with self.bot.db.acquire() as con:
             stmt = await con.prepare(query)
             async with con.transaction():
-                await stmt.fetch(member_id, timestamp, is_selfmute)
+                await stmt.fetch(member.id, timestamp, is_selfmute, member.guild.id)
 
     async def get_mute_from_list(self, member_id):
         query = ("SELECT * FROM mutes where user_id = $1")
@@ -686,58 +847,27 @@ class Admin(commands.Cog):
         return self.units[time_unit] * amount, None
 
     @commands.group(invoke_without_command=True)
-    async def selfmute(self, ctx, *, timer):
+    async def selfmute(self, ctx, *, timer: MuteTimer):
         """
         selfmute yourself for certain amount of time
+
+        You can't mute yourself more than 2 months, if you need more mute yourself again after the time is up
         """
 
         mute = await self.get_mute_from_list(ctx.author.id)
-        unmute_ts = self.parse_timer(timer)
-        if not unmute_ts: 
-            return await ctx.send("format was wrong either add quotes around the timer or write it it in this form:\n```\n"
-                                  ".remindme 1h20m reminder in 1 hour and 20 minutes\n```")
-        difference = unmute_ts - datetime.utcnow()
+        mute_role = ctx.guild.get_role(await self.bot.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1
+        """, ctx.guild.id))
+        member = mute_role.guild.get_member(ctx.author.id)
         if mute:
-            return await ctx.send("You are already muted use `.selfmute cancel` to cancel a selfmute")
+            return await ctx.send("You are already muted")
         if not isinstance(ctx.author, discord.Member):
-            ctx.author = self.mute_role.guild.get_member(ctx.author.id)
+            ctx.author = mute_role.guild.get_member(ctx.author.id)
         if not ctx.author:
             return await ctx.send("you are not in a guild that has the mute role set up")
-        if difference.days > 6:
-            question = await ctx.send(f"Are you sure you want to be muted for {difference}?\n"
-                                      f"answer with  Y[es] or N[o]")
-
-            def msg_check(message):
-                return message.author.id == ctx.author.id and message.channel.id == ctx.message.channel.id
-            try:
-                message = await self.bot.wait_for("message", check=msg_check, timeout=20.0)
-                if re.match(r"y(es)?", message.content.lower()):
-                    pass
-                else:
-                    await question.edit(content="self mute aborted")
-                    return
-            except asyncio.TimeoutError:
-                await question.edit(content="Timeout: mute aborted")
-                return
-
-        await ctx.author.add_roles(self.mute_role)
-        await ctx.send("You have been muted")
-        await self.add_mute_to_mute_list(ctx.author.id, unmute_ts, True)
-
-    @selfmute.command()
-    @commands.dm_only()
-    async def cancel(self, ctx):
-        """
-        cancel a selfmute
-        """
-        member = ctx.author
-        mute = await self.get_mute_from_list(member.id)
-        if mute and mute["selfmute"]:
-            await self.remove_user_from_mute_list(member.id)
-            guild_member = self.mute_role.guild.get_member(member.id)
-            await guild_member.remove_roles(self.mute_role)
-            return await ctx.send("selfmute removed")
-        await ctx.send("You are either not muted or your mute is not a selfmute")
+        menu = MuteMenu(timer, member=member, cog=self, hide_channels=True)
+        msg = await ctx.send(embed=menu.embed, view=menu)
+        menu.message = msg
 
     @selfmute.command()
     @commands.dm_only()
@@ -748,14 +878,8 @@ class Admin(commands.Cog):
         """
         mute = await self.get_mute_from_list(ctx.author.id)
         if mute:
-            time_diff = mute["unmute_ts"] - datetime.utcnow()
-            days = f"{time_diff.days} days " if time_diff.days else ""
-            hours, remainder = divmod(time_diff.seconds, 3600)
-            minutes, remainder = divmod(remainder, 60)
-            seconds = int(remainder)
-            return await ctx.send(f"Your mute will last for {days}"
-                                  f"{hours}h {minutes}min {seconds}s.")
-        
+            unmute_ts = mute["unmute_ts"]
+            return await ctx.send(f"You will unmute {discord.utils.format_dt(unmute_ts, 'R')}")
         await ctx.send("You are not muted.")
 
     @commands.group(invoke_without_command=True, aliases=["timeout"])
@@ -768,6 +892,9 @@ class Admin(commands.Cog):
             .mute @Test-Dummy 5 hours
         """
         length, error_msg = self.convert_mute_length(amount, time_unit)
+        mute_role = ctx.guild.get_role(await self.bot.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
+        """, ctx.guild.id, False))
 
         if not length:
             await ctx.send(error_msg)
@@ -775,8 +902,8 @@ class Admin(commands.Cog):
         td = timedelta(seconds=length)
         unmute_ts = discord.utils.utcnow() + td
         if td.days > 28:
-            await user.add_roles(self.mute_role)
-            await self.add_mute_to_mute_list(user.id, unmute_ts)
+            await user.add_roles(mute_role)
+            await self.add_mute_to_mute_list(user, unmute_ts)
         else:
             await user.edit(timed_out_until=unmute_ts)
         mute_message = f"user {user.mention} was muted ({amount} {time_unit})"
@@ -793,10 +920,13 @@ class Admin(commands.Cog):
         """
         member = ctx.author
         mute = await self.get_mute_from_list(member.id)
-        if mute:
+        mute_role = ctx.guild.get_role(await self.bot.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
+        """, ctx.guild.id, False))
+        if mute and mute_role:
             await self.remove_user_from_mute_list(member.id)
-            guild_member = self.mute_role.guild.get_member(member.id)
-            await guild_member.remove_roles(self.mute_role)
+            guild_member = mute_role.guild.get_member(member.id)
+            await guild_member.remove_roles(mute_role)
             return await ctx.send("mute removed")
         else: 
             await user.edit(timed_out_until=None)
@@ -842,10 +972,23 @@ class Admin(commands.Cog):
 
 
     @checks.is_owner_or_moderator()
-    @commands.command(name="setup_mute", pass_context=True)
-    async def mute_setup(self, ctx, role):
-        mute_role = get(ctx.message.guild.roles, name=role)
-        self.mute_role = mute_role
+    @commands.command(name="setup_mute")
+    @commands.guild_only()
+    async def mute_setup(self, ctx: commands.Context):
+        await ctx.typing()
+        mute_roles = await self.bot.db.fetch("SELECT * FROM mute_roles WHERE guild_id = $1", ctx.guild.id)
+        if not mute_roles:
+            mute_role = await ctx.guild.create_role(name="time-out-zone")
+            hide_role = await ctx.guild.create_role(name="channel-hide")
+            for category in ctx.guild.categories:
+                await category.set_permissions(mute_role, send_messages=False)
+                await category.set_permissions(hide_role, view_channel=False)
+            await self.bot.db.execute("""
+            INSERT INTO mute_roles (role_id, guild_id, hide_channels) VALUES ($1, $3, $4),
+            ($2, $3, $5)
+            """, mute_role.id, hide_role.id, ctx.guild.id, False, True)
+            await ctx.send(f"The roles {mute_role.mention} and {hide_role.mention} have been created")
+
 
     @checks.is_owner_or_moderator()
     @commands.hybrid_group(name="channel", with_app_command=True)
@@ -890,8 +1033,11 @@ class Admin(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member):
         muted_user_ids = [m['user_id'] for m in await self.mutes]
+        mute_role = member.guild.get_role(await self.bot.db.fetchval("""
+            SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
+        """, member.guild.id, False))
         if member.id in muted_user_ids:
-            await member.add_roles(self.mute_role)
+            await member.add_roles(mute_role)
             await self.check_channel.send(f"{member.mention} tried to circumvent a mute by leaving")
     @commands.Cog.listener()
     async def on_member_remove(self, member):
