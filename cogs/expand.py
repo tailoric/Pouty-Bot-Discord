@@ -1,3 +1,4 @@
+from discord.ext.commands.help import Paginator
 import httpx
 import aiohttp
 import asyncio
@@ -141,11 +142,14 @@ class LinkExpander(commands.Cog):
                 }
         api_url = "https://api.twitter.com/2/tweets/{}"
         file_list = []
+        errors = Paginator()
         async with self.session.get(url=api_url.format(match.group('post_id')), headers=self.twitter_header, params=params) as response:
             if response.status < 400:
                 tweet = await response.json()            
-                referenced = tweet['data'].get("referenced_tweets")
-                text = tweet['data'].get('text', "No Text")
+                for error in tweet.get('errors', []):
+                    errors.add_line(error.get('detail'))
+                referenced = tweet.get('data', {}).get("referenced_tweets")
+                text = tweet.get('data', {}).get('text', "No Text")
                 includes = tweet.get('includes', [])
                 if includes:
                     users = includes.get("users", [])
@@ -210,6 +214,10 @@ class LinkExpander(commands.Cog):
                                 buffer = io.BytesIO(await img.read())
                                 buffer.seek(0)
                                 file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
+                if len(errors) > 0:
+                    for page in errors.pages:
+                        await ctx.send(page)
+                    return
                 if len(file_list) == 0:
                     return await ctx.send("Sorry no images found in that Tweet")
                 embed.title =f"Extracted {len(file_list)} images/videos"
