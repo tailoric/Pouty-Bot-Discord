@@ -145,7 +145,9 @@ class LinkExpander(commands.Cog):
         errors = Paginator()
         async with self.session.get(url=api_url.format(match.group('post_id')), headers=self.twitter_header, params=params) as response:
             if response.status < 400:
+                self.logger.warn("Response Status tweet: %s", response.status)
                 tweet = await response.json()            
+                self.logger.warn(json.dumps(tweet, indent=2))
                 for error in tweet.get('errors', []):
                     errors.add_line(error.get('detail'))
                 referenced = tweet.get('data', {}).get("referenced_tweets")
@@ -214,7 +216,7 @@ class LinkExpander(commands.Cog):
                                 buffer = io.BytesIO(await img.read())
                                 buffer.seek(0)
                                 file_list.append(discord.File(fp=buffer, filename=filename, spoiler=is_spoiler))
-                if len(errors) > 0:
+                if len(errors.pages) > 0:
                     for page in errors.pages:
                         await ctx.send(page)
                     return
