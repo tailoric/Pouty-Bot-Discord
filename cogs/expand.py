@@ -145,9 +145,7 @@ class LinkExpander(commands.Cog):
         errors = Paginator()
         async with self.session.get(url=api_url.format(match.group('post_id')), headers=self.twitter_header, params=params) as response:
             if response.status < 400:
-                self.logger.warn("Response Status tweet: %s", response.status)
                 tweet = await response.json()            
-                self.logger.warn(json.dumps(tweet, indent=2))
                 for error in tweet.get('errors', []):
                     errors.add_line(error.get('detail'))
                 referenced = tweet.get('data', {}).get("referenced_tweets")
