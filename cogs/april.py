@@ -2,54 +2,70 @@ from datetime import timedelta, timezone, datetime
 import random
 from discord.ext import commands, tasks
 import discord
+import re
+import random
 
+from discord.mentions import AllowedMentions
+
+ZOOMER_REGEX = re.compile(r"\b(ong|(fr)+|cap(ping)?|rizz)\b", flags=re.IGNORECASE)
+
+ZOOMER_EMOJI = [
+        '\N{SKULL}',
+        '\N{FIRE}',
+        '\N{ROLLING ON THE FLOOR LAUGHING}',
+        '\N{AUBERGINE}',
+        '\N{PEACH}',
+        '\N{SPLASHING SWEAT SYMBOL}',
+        '\N{HUNDRED POINTS SYMBOL}',
+        '\N{OK HAND SIGN}',
+        '\N{BILLED CAP}',
+        '\N{FACE WITH PLEADING EYES}',
+        '\N{FREEZING FACE}',
+        '\N{OVERHEATED FACE}',
+        '\N{PILE OF POO}',
+        '\N{FACE MASSAGE}\N{ZERO WIDTH JOINER}\N{FEMALE SIGN}\N{VARIATION SELECTOR-16}',
+        '\U0001fae6', # biting lip
+        '\N{FACE WITH TEARS OF JOY}'
+        ]
 class April(commands.Cog):
 
+    
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.colours = [
-                    discord.Colour(0xd2aee6),
-                    discord.Colour(0xc2d595),
-                    discord.Colour(0xd3d4a4),
-                    discord.Colour(0xDEC092),
-                    discord.Colour(0x9e9cb0),
-                    discord.Colour(0xa9d0d9),
-                    discord.Colour(0xF3AAAC),
-                    discord.Colour(0xAAEAAC),
-                    discord.Colour(0xAD5CDD),
-                    discord.Colour(0xAFCE66),
-                    discord.Colour(0xE5E443),
-                    discord.Colour(0x964797),
-                    discord.Colour(0x6CB2C3),
-                    discord.Colour(0xCF2026),
-                    discord.Colour(0x59EE5E),
+        self.excluded_channels = [
+                366659034410909717,
+                463597797342445578,
+                191536772352573440,
+                695675889991811142,
+                426174461637689344,
+                363758396698263563,
+                595585060909088774
                 ]
-        guild = bot.get_guild(187423852224053248)
-        if guild:
-            self.role = guild.get_role(189594836687519744)
-        else: 
-            test_guild = bot.get_guild(287695136840876032)
-            self.role = test_guild.get_role(514884001417134110)
-        self.shuffled = self.colours.copy()
-        random.shuffle(self.shuffled)
-        super().__init__()
 
+    @commands.Cog.listener("on_message")
+    async def zoomer_reply(self, message: discord.Message):
+        if message.author == self.bot.user \
+                or message.channel.id in self.excluded_channels:
+            return
 
-    async def cog_load(self):
-        self.change_memester.start()
+        content = message.content
+        chance = random.random()
+        me = message.guild.me
+        channel = message.channel
+        match =ZOOMER_REGEX.search(content)
+        all_terms = ZOOMER_REGEX.findall(content)
+        if any('cap' in term[0] for term in all_terms):
+            return await message.channel.send(content="\N{BILLED CAP}",
+                    reference=message,
+                    allowed_mentions=AllowedMentions.none())
 
+        if channel.permissions_for(me).send_messages \
+                and (match or chance <= 0.01):
+            return await message.channel.send(content=random.choice(ZOOMER_EMOJI),
+                    reference=message,
+                    allowed_mentions=AllowedMentions.none()
+                    )
 
-    async def cog_unload(self):
-        self.change_memester.cancel()
-
-    @tasks.loop(hours=1)
-    async def change_memester(self):
-        if not self.shuffled:
-            self.shuffled = self.colours.copy()
-            random.shuffle(self.shuffled)
-        await self.role.edit(colour=self.shuffled.pop())
-        minutes = 60 + (random.randint(0, 30) * random.choice([1,-1]))
-        self.change_memester.change_interval(minutes=minutes)
 
 
 async def setup(bot: commands.Bot):
