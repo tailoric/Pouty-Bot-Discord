@@ -45,7 +45,8 @@ class April(commands.Cog):
     @commands.Cog.listener("on_message")
     async def zoomer_reply(self, message: discord.Message):
         if message.author == self.bot.user \
-                or message.channel.id in self.excluded_channels:
+                or message.channel.id in self.excluded_channels \
+                or not message.guild:
             return
 
         content = message.content
