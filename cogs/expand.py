@@ -18,7 +18,7 @@ from yt_dlp import YoutubeDL, DownloadError
 from typing import Optional
 
 spoiler_regex = re.compile(r"\|\|\s?(?P<link>.+?)\s?\|\|")
-DEFAULT_FILE_LIMIT = 26214400
+DEFAULT_FILE_LIMIT = 8388608
 class SpoilerLinkConverter(commands.Converter):
     async def convert(self, ctx, argument):
         if (match := spoiler_regex.search(argument)):
@@ -137,7 +137,7 @@ class LinkExpander(commands.Cog):
             self.logger.exception("error during typing")
         params = {
                 "expansions": "attachments.media_keys,author_id,referenced_tweets.id",
-                "media.fields" : "type,url",
+                "media.fields" : "type,url,variants",
                 "user.fields" : "profile_image_url,username",
                 "tweet.fields": "attachments"
                 }
