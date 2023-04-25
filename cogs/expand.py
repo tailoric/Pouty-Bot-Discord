@@ -179,7 +179,7 @@ class LinkExpander(commands.Cog):
                     if m.get('type') == 'video' or m.get('type') == "animated_gif":
                         if videos_extracted:
                             continue
-                        with YoutubeDL({'format': 'best'}) as ydl:
+                        with YoutubeDL({'format': 'best', 'cookiefile': self.twitter_settings.get('cookiefile')}) as ydl:
                             extract = partial(ydl.extract_info, link, download=False)
                             result = await self.bot.loop.run_in_executor(None, extract)
                             if result.get("playlist_count"):
