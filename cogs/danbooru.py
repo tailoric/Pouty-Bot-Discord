@@ -119,7 +119,7 @@ class Dansub:
             self.guild = server
             self.channel = channel
         self.old_timestamp = None
-        self.new_timestamp = datetime.datetime
+        self.new_timestamp = datetime.datetime.now()
         self.already_posted = list()
         self.is_private = is_private
         self.feed_file = 'data/danbooru/subs/{}.json'.format(self.tags_to_filename())
@@ -339,7 +339,13 @@ class Scheduler:
         message_list = self._split_message_in_groups_of_four(sub, new_posts)
         for partial_message in message_list:
             if sub.is_private:
-                await sub.users[0].send(partial_message)
+                try:
+                    await sub.users[0].send(partial_message)
+                except discord.Forbidden:
+                    self.subscriptions.remove(sub)
+                    self.write_to_file()
+                    os.remove(sub.feed_file)
+                    self.logger.warning("Could not DM user, deleting private sub: %s", sub.tags_to_string(),exc_info=True)
             else:
                 await sub.channel.send(partial_message)
             await asyncio.sleep(10)
