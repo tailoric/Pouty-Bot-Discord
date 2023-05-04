@@ -47,7 +47,7 @@ class Suggestions(commands.Cog):
             return
         data['body'] = (f"{message.clean_content}\n"
                         f"This suggestion was created by a user and sent by the bot:\n"
-                        f"{self.bot.user.name}#{self.bot.user.discriminator}")
+                        f"{self.bot.user}")
         embed = discord.Embed(title=title, description=message.clean_content)
         react_mes = await ctx.send(content="This will be the created issue on github, do you want to send?",
                                    embed=embed)

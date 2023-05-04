@@ -67,7 +67,7 @@ class Userinfo(commands.Cog):
 
         avatar_url = member.display_avatar.url
         if isinstance(member, discord.User):
-            embed = Embed(description="[{0.name}#{0.discriminator}]({1})".format(member, avatar_url))
+            embed = Embed(description="[{0}]({1})".format(member, avatar_url))
             embed.add_field(name="Joined Discord on",
                             value=f"{format_dt(member.created_at)}({format_dt(member.created_at, 'R')})")
             embed.add_field(name="Mention", value=member.mention)
@@ -85,7 +85,7 @@ class Userinfo(commands.Cog):
         if ctx.guild:
             server = ctx.message.guild
             member_number = sorted(server.members, key=lambda m: m.joined_at).index(member) + 1
-        embed = Embed(description="[{0.name}#{0.discriminator} - {1}]({2})".format(member, nick, avatar_url), color=user_color)
+        embed = Embed(description="[{0} - {1}]({2})".format(member, nick, avatar_url), color=user_color)
         embed.set_thumbnail(url=avatar_url)
         try:
             user = await self.bot.fetch_user(member.id)

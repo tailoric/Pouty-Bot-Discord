@@ -380,7 +380,7 @@ class Admin(commands.Cog):
                 await self.bot.db.execute(query)
 
     async def send_ban_embed(self, ctx, ban):
-        embed = discord.Embed(title=f"{ban.user.name}#{ban.user.discriminator}", description=ban.reason)
+        embed = discord.Embed(title=f"{ban.user}", description=ban.reason)
         embed.add_field(name="Mention", value=ban.user.mention)
         embed.add_field(name="id", value=ban.user.id)
         embed.set_thumbnail(url=ban.user.display_avatar)
@@ -397,7 +397,7 @@ class Admin(commands.Cog):
             list_of_matched_entries = list(filter(lambda ban: int(match.group(2)) == ban.user.id, bans))
         else:
             list_of_matched_entries = list(filter(lambda ban: username is None or fuzz.partial_ratio(username.lower(), ban.user.name.lower()) > 80, bans))
-        entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
+        entries = list(map(lambda ban: (f"{ban.user}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
         if len(entries) == 0:
             await ctx.send("banlist search was empty")
@@ -416,7 +416,7 @@ class Admin(commands.Cog):
         """
         bans = [b async for b in ctx.guild.bans()]
         list_of_matched_entries = list(filter(lambda ban: reason is None or (ban.reason and reason.lower() in ban.reason.lower()), bans))
-        entries = list(map(lambda ban: (f"{ban.user.name}#{ban.user.discriminator}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
+        entries = list(map(lambda ban: (f"{ban.user}", f"<@!{ban.user.id}>: {ban.reason}"), list_of_matched_entries))
         field_pages = paginator.FieldPages(ctx, entries=entries)
         if len(entries) == 0:
             await ctx.send("banlist reason search was empty")

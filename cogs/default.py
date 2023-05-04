@@ -253,7 +253,7 @@ class Default(commands.Cog):
     async def on_message(self, message: discord.Message):
         if not message.guild and not message.flags.ephemeral:
             user = message.author
-            self.dm_logger.info(f"{user.name}#{user.discriminator}({user.id}) message: {message.content}")
+            self.dm_logger.info(f"{user}({user.id}) message: {message.content}")
 
     async def on_command_error(self, ctx, error):
         if ctx.command and ctx.command.has_error_handler():
@@ -321,7 +321,7 @@ class Default(commands.Cog):
                                      if dc["server"] == current_guild.id]
                 if ctx.command.name in disabled_commands:
                     raise DisabledCommandException(
-                        f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+                        f"{ctx.author} used disabled command")
             else:
                 for guild_id in guilds_with_disabled_command:
                     guild = self.bot.get_guild(guild_id)
@@ -334,7 +334,7 @@ class Default(commands.Cog):
                                          if dc["server"] == guild.id]
                     if ctx.command.name in disabled_commands:
                         raise DisabledCommandException(
-                            f"{ctx.author.name}#{ctx.author.discriminator} used disabled command")
+                            f"{ctx.author} used disabled command")
         return True
 
     async def check_for_black_list_user(self, ctx):
@@ -342,7 +342,7 @@ class Default(commands.Cog):
         if owner_cog:
             if ctx.author.id in owner_cog.global_ignores:
                 bl_user = ctx.author
-                raise BlackListedException(f"blacklisted user: {bl_user.name}#{bl_user.discriminator} ({bl_user.id}) "
+                raise BlackListedException(f"blacklisted user: {bl_user} ({bl_user.id}) "
                                            f"tried to use command")
         return True
 
