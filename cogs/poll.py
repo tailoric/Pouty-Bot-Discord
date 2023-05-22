@@ -185,7 +185,10 @@ class PollData:
             if interaction:
                 await interaction.response.send_message(embed=embed, file=f)
             else:
-                await self.message.reply(embed=embed, file=f)
+                try:
+                    await self.message.reply(embed=embed, file=f)
+                except discord.HTTPException:
+                    await self.channel.send(embed=embed, file=f)
             plt.close(fig)
         else:
             if interaction:
@@ -193,7 +196,10 @@ class PollData:
             elif self.message:
                 await self.message.reply(content="Poll finished without any votes")
 
-        await self.message.edit(embed=self.embed, view=None)
+        try:
+            await self.message.edit(embed=self.embed, view=None)
+        except discord.HTTPException:
+            pass
         await db.execute("""
         DELETE FROM poll.data WHERE poll_id = $1
         """, self.id)
@@ -447,7 +453,10 @@ class Poll(commands.Cog):
                 continue
             votes = await self.bot.db.fetch("SELECT * FROM poll.vote WHERE poll = $1", poll_id)
             for vote in votes:
-                option = next(filter(lambda opt: opt.id == vote.get("option"), poll.options))
+                try:
+                    option = next(filter(lambda opt: opt.id == vote.get("option"), poll.options))
+                except StopIteration:
+                    continue
                 vote = PollVote(vote.get("vote_id"), user=discord.Object(vote.get("user_id")), option=option)
                 poll.add_vote(vote=vote)
             self.bot.add_view(PollView(bot=self.bot,poll=poll))
