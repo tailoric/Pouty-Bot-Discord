@@ -198,7 +198,9 @@ class PollData:
 
         try:
             await self.message.edit(embed=self.embed, view=None)
-        except discord.HTTPException:
+            thread = await self.channel.guild.fetch_channel(self.message.id)
+            await thread.edit(archived=True)
+        except discord.HTTPException as e:
             pass
         await db.execute("""
         DELETE FROM poll.data WHERE poll_id = $1
@@ -266,6 +268,7 @@ class PollCreateMenu(discord.ui.View):
                 child.disabled = True
         if self.message:
             await self.message.delete()
+        await self.poll.message.create_thread(name=self.poll.title)
         self.stop()
         
     @discord.ui.button(label="Toggle Anonymous", emoji="\N{SLEUTH OR SPY}\N{VARIATION SELECTOR-16}", row=1)
