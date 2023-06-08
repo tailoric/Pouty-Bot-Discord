@@ -881,23 +881,31 @@ class Admin(commands.Cog):
             unmute_ts = mute["unmute_ts"]
             return await ctx.send(f"You will unmute {discord.utils.format_dt(unmute_ts, 'R')}")
         await ctx.send("You are not muted.")
-
-    @commands.group(invoke_without_command=True, aliases=["timeout"])
-    @commands.has_permissions(manage_roles=True, moderate_members=True)
-    async def mute(self, ctx, user: discord.Member, amount: int, time_unit: str, *, reason: typing.Optional[str]):
+    moderation = app_commands.Group(name="moderation",
+            description="different moderation commands for admins",
+            default_permissions=discord.Permissions(moderate_members=True, manage_roles=True)
+            )
+    
+    @moderation.command(name="mute")
+    @app_commands.checks.has_permissions(manage_roles=True, moderate_members=True)
+    @app_commands.default_permissions(manage_roles=True,moderate_members=True)
+    @app_commands.describe(
+            user="the target to mute",
+            amount="the amount for the time unit in the next parameter",
+            time_unit="the unit of time to use",
+            reason="a reason for the mute"
+            )
+    async def mute(self, interaction: discord.Interaction, user: discord.Member, amount: int, time_unit: typing.Literal["seconds", "minutes", "hours", "days"], *, reason: typing.Optional[str]):
         """
         mutes the user for a certain amount of time
-        usable time codes are days, hours, minutes and seconds
-        example:
-            .mute @Test-Dummy 5 hours
         """
         length, error_msg = self.convert_mute_length(amount, time_unit)
-        mute_role = ctx.guild.get_role(await self.bot.db.fetchval("""
+        mute_role = interaction.guild.get_role(await self.bot.db.fetchval("""
             SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
-        """, ctx.guild.id, False))
+        """, interaction.guild.id, False))
 
         if not length:
-            await ctx.send(error_msg)
+            await interaction.response.send_message(error_msg)
             return
         td = timedelta(seconds=length)
         unmute_ts = discord.utils.utcnow() + td
@@ -909,28 +917,32 @@ class Admin(commands.Cog):
         mute_message = f"user {user.mention} was muted ({amount} {time_unit})"
         if reason:
             mute_message = f"{mute_message} for the following reason:\n{reason}"
-        await ctx.send(f"{user.mention}\nhttps://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
+        await interaction.response.send_message(f"{user.mention}\nhttps://tenor.com/view/chazz-yu-gi-oh-shut-up-quiet-anime-gif-16356099")
         await self.check_channel.send(mute_message)
 
-    @commands.has_permissions(manage_roles=True, moderate_members=True)
-    @mute.command(name="cancel")
-    async def mute_cancel(self, ctx, user:discord.Member):
+    @app_commands.checks.has_permissions(manage_roles=True, moderate_members=True)
+    @app_commands.default_permissions(manage_roles=True,moderate_members=True)
+    @app_commands.describe(
+                user="The user to unmute"
+            )
+    @moderation.command(name="unmute")
+    async def mute_cancel(self, interaction: discord.Interaction, user:discord.Member):
         """
-        cancel a mute
+        unmute a user
         """
-        member = ctx.author
+        member = interaction.user
         mute = await self.get_mute_from_list(member.id)
-        mute_role = ctx.guild.get_role(await self.bot.db.fetchval("""
+        mute_role = interaction.guild.get_role(await self.bot.db.fetchval("""
             SELECT role_id FROM mute_roles WHERE guild_id = $1 AND hide_channels = $2
-        """, ctx.guild.id, False))
+        """, interaction.guild.id, False))
         if mute and mute_role:
             await self.remove_user_from_mute_list(member.id)
             guild_member = mute_role.guild.get_member(member.id)
             await guild_member.remove_roles(mute_role)
-            return await ctx.send("mute removed")
+            return await interaction.response.send_message("mute removed")
         else: 
             await user.edit(timed_out_until=None)
-            return await ctx.send("user timeout cancelled")
+            return await interaction.response.send_message("user timeout cancelled")
 
 
     @checks.is_owner_or_moderator()
