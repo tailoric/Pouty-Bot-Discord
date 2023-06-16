@@ -4,6 +4,7 @@ from discord.enums import ButtonStyle
 from discord.ext import commands, tasks
 from discord.ext.commands.errors import CommandError
 from discord.interactions import Interaction
+from discord.message import Attachment
 from discord.utils import TimestampStyle, get
 import os.path
 import json
@@ -98,11 +99,13 @@ class ReportModal(discord.ui.Modal):
     def __init__(self, 
             user: typing.Optional[discord.Member],
             channel: typing.Optional[discord.abc.GuildChannel],
+            attachment: typing.Optional[discord.Attachment],
             bot: commands.Bot,
             report_channel: discord.TextChannel
             ):
         self.bot = bot
         self.channel = channel
+        self.attachment = attachment
         self.user = user 
         self.logger = logging.getLogger('report')
         self.report_channel = report_channel
@@ -125,8 +128,13 @@ class ReportModal(discord.ui.Modal):
                 embed.add_field(name="Last Message", value=last_msg.jump_url, inline=False)
         reporter = interaction.user
         self.logger.info('User %s#%s(id:%s) reported: "%s"', reporter.name, reporter.discriminator, reporter.id, self.report)
-        await interaction.response.send_message(content="Sent the following report",embed=embed, ephemeral=True)
-        await self.report_channel.send(embed=embed, content=user_copy_string)
+        file = await self.attachment.to_file() if self.attachment else None 
+        if file and file.filename.endswith(('png','jpg','gif','jpeg')):
+            embed.set_image(url=f"attachment://{file.filename}")
+        await interaction.response.send_message(content="Sent the following report",embed=embed, ephemeral=True, file=file if file else discord.utils.MISSING)
+        if file:
+            file.fp.seek(0)
+        await self.report_channel.send(embed=embed, content=user_copy_string, file=file if file else discord.utils.MISSING)
 
 class ConfirmModal(discord.ui.Modal):
     
@@ -588,7 +596,9 @@ class Admin(commands.Cog):
     @app_commands.guild_only()
     async def report_user(self, interaction: discord.Interaction,
             channel: typing.Union[discord.TextChannel,discord.VoiceChannel,discord.Thread,None],
-            user: typing.Optional[discord.Member]):
+            user: typing.Optional[discord.Member],
+            screenshot: typing.Optional[discord.Attachment]
+            ):
         """
         anonymously send a report to the moderators
 
@@ -600,8 +610,10 @@ class Admin(commands.Cog):
             the channel the report happened in
         user: 
             the user that you are reporting
+        screenshot: 
+            An optional screenshot to attach to the report
         """
-        await interaction.response.send_modal(ReportModal(user,channel,self.bot, self.report_channel))
+        await interaction.response.send_modal(ReportModal(user,channel, screenshot, self.bot, self.report_channel))
 
 
     @app_commands.checks.has_any_role("Discord-Senpai", "Admin")
