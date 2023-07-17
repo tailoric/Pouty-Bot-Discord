@@ -199,6 +199,16 @@ class PollData:
         try:
             await self.message.edit(embed=self.embed, view=None)
             thread = await self.channel.guild.fetch_channel(self.message.id)
+            if not self.anonymous:
+                embeds = await AllVotesEmbed(self).all_votes()
+                to_send = []
+                for embed in embeds:
+                    if len(to_send) > 9 or sum(map(lambda e: len(e), to_send)) + len(embed) > 6000:
+                        await thread.send(embeds=to_send)
+                        to_send = []
+                    to_send.append(embed)
+                if to_send:
+                    await thread.send(embeds=to_send)
             await thread.edit(archived=True)
         except discord.HTTPException as e:
             pass
@@ -295,10 +305,30 @@ class PollCreateMenu(discord.ui.View):
         await interaction.response.send_message(embed=self.embed, view=self, ephemeral=True)
         self.message = await interaction.original_response()
 
+class AllVotesEmbed:
+    def __init__(self, poll: PollData) -> None:
+        self. poll = poll
+
+    async def all_votes(self) -> list[discord.Embed]:
+        embeds = []
+        for option in self.poll.options:
+            _embed = discord.Embed(
+                    title=f"Votes for {option.text}",
+                    description="")
+            for user, votes in self.poll.votes.items():
+                if option.id in [vote.option.id for vote in votes]:
+                    _embed.description += f"<@{user}>,"
+            _embed.description = _embed.description[:-1]
+            _embed.description = textwrap.shorten(_embed.description, 4000)
+            if _embed.description:
+                embeds.append(_embed)
+        return embeds
+
 
 class VotesView(discord.ui.View):
-    def __init__(self, *, timeout: Optional[float] = 180, poll: PollData):
+    def __init__(self, *, timeout: Optional[float] = 180, poll: PollData, user: Union[discord.User , discord.Member]):
         self.poll = poll
+        self.user = user
         self._page = 0
         super().__init__(timeout=timeout)
 
@@ -307,12 +337,19 @@ class VotesView(discord.ui.View):
         _embed = discord.Embed(description="")
         option = self.poll.options[self._page]
         _embed.title = f"Votes for {option.text}"
+        _embed.set_footer(text=f"Menu for user {self.user}")
         for user, votes in self.poll.votes.items():
             if option.id in [vote.option.id for vote in votes]:
                 _embed.description += f"<@{user}>,"
         _embed.description = _embed.description[:-1]
         _embed.description = textwrap.shorten(_embed.description, 4000)
         return _embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user != self.user:
+            await interaction.response.send_message("You can't change this view please press the `Show Votes` Button yourself", ephemeral=True)
+            return False
+        return True
 
     @discord.ui.button(emoji="\N{LEFTWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}")
     async def _prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -333,9 +370,11 @@ class VoterButton(discord.ui.Button):
         super().__init__(label="Show Votes", emoji="\N{EYES}", custom_id=f"{poll.id}-voters")
 
     async def callback(self, interaction: discord.Interaction) -> Any:
-        view = VotesView(poll=self.poll) 
-        await interaction.response.send_message(ephemeral=True, view=view, embed=view.embed)
-                
+        view = VotesView(poll=self.poll, user=interaction.user) 
+        await interaction.response.defer(ephemeral=True)
+        thread = interaction.guild.get_thread(self.poll.message.id) or await interaction.guild.fetch_channel(self.poll.message.id)
+        await thread.send(view=view, embed=view.embed, content=interaction.user.mention)
+
 
 class TimerButton(discord.ui.Button):
     def __init__(self, *, poll: PollData):
