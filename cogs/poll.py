@@ -20,8 +20,30 @@ import logging
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
+channel_mention = re.compile(r"<(?P<type>#|@|@!|@&|a?:(?P<emote>\w+):)(?P<id>\d+)>")
+
 class TimeCodeConversionError(app_commands.AppCommandError):
     pass
+def convert_mentions(text: str, guild: discord.Guild) -> str:
+    print(text)
+    def repl_name(match):
+        _type = match.group("type")
+        _id = int(match.group("id"))
+        emote = match.group("emote")
+        print(_type, emote)
+        if not _type or not _id:
+            return match.group(0)
+        if _type == "#":
+            return f"#{guild.get_channel(_id).name}"
+        if _type == "@" or _type == "@!":
+            return f"@{guild.get_member(_id)}"
+        if _type == "@&":
+            return f"@{guild.get_role(_id).name}"
+        if emote:
+            return f":{emote}:"
+            
+    text = channel_mention.sub(repl_name,text)
+    return text
 
 def transform_time(argument: str) -> datetime:
         match = timing_regex.match(argument)
@@ -555,7 +577,7 @@ class Poll(commands.Cog):
         """
         if not duration:
             duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
-        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration, description=description, anonymous=anonymous)
+        poll_data = PollData(uuid4(), title=convert_mentions(title, interaction.guild), channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration, description=description, anonymous=anonymous)
         menu = PollCreateMenu(bot=self.bot, poll=poll_data)
         await menu.start(interaction=interaction)
         await menu.wait()
