@@ -25,12 +25,10 @@ channel_mention = re.compile(r"<(?P<type>#|@|@!|@&|a?:(?P<emote>\w+):)(?P<id>\d+
 class TimeCodeConversionError(app_commands.AppCommandError):
     pass
 def convert_mentions(text: str, guild: discord.Guild) -> str:
-    print(text)
     def repl_name(match):
         _type = match.group("type")
         _id = int(match.group("id"))
         emote = match.group("emote")
-        print(_type, emote)
         if not _type or not _id:
             return match.group(0)
         if _type == "#":
