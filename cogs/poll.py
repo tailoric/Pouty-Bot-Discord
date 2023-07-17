@@ -373,7 +373,10 @@ class VoterButton(discord.ui.Button):
         view = VotesView(poll=self.poll, user=interaction.user) 
         await interaction.response.defer(ephemeral=True)
         thread = interaction.guild.get_thread(self.poll.message.id) or await interaction.guild.fetch_channel(self.poll.message.id)
-        await thread.send(view=view, embed=view.embed, content=interaction.user.mention)
+        message = await thread.send(view=view, embed=view.embed, content=interaction.user.mention)
+        await view.wait()
+        await message.delete()
+
 
 
 class TimerButton(discord.ui.Button):
