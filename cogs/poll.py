@@ -548,7 +548,7 @@ class Poll(commands.Cog):
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
             duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None,
-            anonymous: bool = True
+            anonymous: bool = False
             ):
         """
         Creates an interactive menu for generating a single choice poll
@@ -571,7 +571,7 @@ class Poll(commands.Cog):
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
             duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None,
-            anonymous: bool = True
+            anonymous: bool = False
             ):
         """
         Creates an interactive menu for generating a multi choice poll
