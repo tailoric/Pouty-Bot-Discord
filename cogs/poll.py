@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import reduce
 import textwrap
+from discord.errors import HTTPException
 from discord.ext import commands, tasks
 from discord import app_commands
 import discord
@@ -81,7 +82,7 @@ class PollData:
     id: UUID
     title: str
     type: Literal["single","multi"]
-    channel: Union[int, discord.TextChannel, discord.VoiceChannel]
+    channel: Union[int, discord.TextChannel, discord.VoiceChannel, discord.Thread]
     guild: Union[int, discord.Guild]
     creator: Union[discord.User, discord.Member]
     end_date: datetime
@@ -218,7 +219,10 @@ class PollData:
 
         try:
             await self.message.edit(embed=self.embed, view=None)
-            thread = await self.channel.guild.fetch_channel(self.message.id)
+            try:
+                thread = await self.message.channel.guild.fetch_channel(self.message.id)
+            except HTTPException:
+                thread = None
             if not self.anonymous:
                 embeds = await AllVotesEmbed(self).all_votes()
                 to_send = []
@@ -228,8 +232,12 @@ class PollData:
                         to_send = []
                     to_send.append(embed)
                 if to_send:
-                    await thread.send(embeds=to_send)
-            await thread.edit(archived=True)
+                    if thread:
+                        await thread.send(embeds=to_send)
+                    else:
+                        await self.message.channel.send(embeds=to_send)
+            if thread:
+                await thread.edit(archived=True)
         except discord.HTTPException as e:
             pass
         await db.execute("""
@@ -392,8 +400,14 @@ class VoterButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction) -> Any:
         view = VotesView(poll=self.poll, user=interaction.user) 
         await interaction.response.defer(ephemeral=True)
-        thread = interaction.guild.get_thread(self.poll.message.id) or await interaction.guild.fetch_channel(self.poll.message.id)
-        message = await thread.send(view=view, embed=view.embed, content=interaction.user.mention)
+        try:
+            thread = interaction.guild.get_thread(self.poll.message.id) or await interaction.guild.fetch_channel(self.poll.message.id)
+        except HTTPException:
+            thread = None
+        if thread:
+            message = await thread.send(view=view, embed=view.embed, content=interaction.user.mention)
+        else:
+            message = await interaction.followup.send(view=view, embed=view.embed, wait=True)
         await view.wait()
         await message.delete()
 
@@ -556,7 +570,7 @@ class Poll(commands.Cog):
         """
         await self.bot.db.execute(query)
 
-    poll = app_commands.Group(name="poll", description="Commands for creating polls")
+    poll = app_commands.Group(name="poll", description="Commands for creating polls", guild_only=True)
     
 
     @poll.command(name="single")
@@ -564,6 +578,7 @@ class Poll(commands.Cog):
     @app_commands.describe(description="Default 24 hours. Describe the purpose of this poll")
     @app_commands.describe(anonymous="Default True. Set if votes should be hidden or openly visible")
     @app_commands.describe(duration="Default 24 hours. Set how long the poll should go")
+    @app_commands.guild_only()
     async def poll_single(self, interaction: discord.Interaction,
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
@@ -587,6 +602,7 @@ class Poll(commands.Cog):
     @app_commands.describe(description="Describe the purpose of this poll")
     @app_commands.describe(duration="Default 24 hours. Set how long the poll should go")
     @app_commands.describe(anonymous="Default True. Set if votes should be hidden or openly visible")
+    @app_commands.guild_only()
     async def poll_multi(self, interaction: discord.Interaction,
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
