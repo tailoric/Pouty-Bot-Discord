@@ -220,7 +220,10 @@ class PollData:
         try:
             await self.message.edit(embed=self.embed, view=None)
             try:
-                thread = await self.message.channel.guild.fetch_channel(self.message.id)
+                if self.message.guild:
+                    thread = await self.message.guild.fetch_channel(self.message.id)
+                else:
+                    thread = None
             except HTTPException:
                 thread = None
             if not self.anonymous:
