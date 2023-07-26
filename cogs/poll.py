@@ -17,6 +17,7 @@ import itertools
 import asyncpg
 import matplotlib.pyplot as plt
 import io
+import imghdr
 import logging
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
@@ -271,10 +272,11 @@ class DurationChangeModal(discord.ui.Modal):
             await interaction.response.send_message("No Time input provided", ephemeral=True)
 
 class PollCreateMenu(discord.ui.View):
-    def __init__(self, *, poll: PollData, bot: commands.Bot):
+    def __init__(self, *, poll: PollData, bot: commands.Bot, image: Optional[discord.Attachment]):
         self.poll = poll
         self.bot = bot
         self.message: Optional[discord.Message] = None
+        self.image = image
         super().__init__(timeout=None)
 
 
@@ -301,7 +303,10 @@ class PollCreateMenu(discord.ui.View):
     @discord.ui.button(label="Start Poll", style=discord.ButtonStyle.green, disabled=True, row=2)
     async def create_poll(self, inter: discord.Interaction, btn: discord.ui.Button):
         poll_view = PollView(bot=self.bot, poll=self.poll)
-        await inter.response.send_message(embed=self.poll.embed, view=poll_view)
+        embed = self.poll.embed
+        if self.image and self.image.content_type and self.image.content_type in ('image/jpeg', 'image/png', 'image/gif'):
+            embed.set_image(url=self.image.url)
+        await inter.response.send_message(embed=embed, view=poll_view)
         self.poll.message = await inter.original_response()
         await self.poll.create_in_store(db=self.bot.db)
         for child in self.children:
@@ -581,11 +586,13 @@ class Poll(commands.Cog):
     @app_commands.describe(description="Default 24 hours. Describe the purpose of this poll")
     @app_commands.describe(anonymous="Default True. Set if votes should be hidden or openly visible")
     @app_commands.describe(duration="Default 24 hours. Set how long the poll should go")
+    @app_commands.describe(image="optional image to provide along the poll")
     @app_commands.guild_only()
     async def poll_single(self, interaction: discord.Interaction,
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
             duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None,
+            image : Optional[discord.Attachment] = None,
             anonymous: bool = False
             ):
         """
@@ -594,7 +601,7 @@ class Poll(commands.Cog):
         if not duration:
             duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
         poll_data = PollData(uuid4(), title=convert_mentions(title, interaction.guild), channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration, description=description, anonymous=anonymous)
-        menu = PollCreateMenu(bot=self.bot, poll=poll_data)
+        menu = PollCreateMenu(bot=self.bot, poll=poll_data, image=image)
         await menu.start(interaction=interaction)
         await menu.wait()
         self.open_polls.append(menu.poll)
@@ -605,11 +612,13 @@ class Poll(commands.Cog):
     @app_commands.describe(description="Describe the purpose of this poll")
     @app_commands.describe(duration="Default 24 hours. Set how long the poll should go")
     @app_commands.describe(anonymous="Default True. Set if votes should be hidden or openly visible")
+    @app_commands.describe(image="optional image to provide along the poll")
     @app_commands.guild_only()
     async def poll_multi(self, interaction: discord.Interaction,
             title: app_commands.Range[str, 1, 255],
             description: Optional[str],
             duration: app_commands.Transform[Optional[datetime], TimeTransformer] = None,
+            image : Optional[discord.Attachment] = None,
             anonymous: bool = False
             ):
         """
@@ -618,7 +627,7 @@ class Poll(commands.Cog):
         if not duration:
             duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
         poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=duration, description=description, anonymous=anonymous)
-        menu = PollCreateMenu(bot=self.bot, poll=poll_data)
+        menu = PollCreateMenu(bot=self.bot, poll=poll_data, image=image)
         await menu.start(interaction=interaction)
         await menu.wait()
         self.open_polls.append(menu.poll)
