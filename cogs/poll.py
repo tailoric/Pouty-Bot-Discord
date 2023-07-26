@@ -94,6 +94,7 @@ class PollData:
     should_update = False
     finished = False
     description: Optional[str] = None
+    image : Optional[str] = None
 
     @tasks.loop(seconds=2)
     async def update_count(self):
@@ -113,6 +114,8 @@ class PollData:
         embed.set_author(name=self.creator.display_name, icon_url=self.creator.display_avatar)
         for option in self.options:
             embed.add_field(name=option.text, value=self.get_vote_count(option), inline=False)
+        if self.image:
+            embed.set_image(url=self.image)
         return embed
     
     def get_vote_count(self, option: PollOption):
@@ -141,13 +144,14 @@ class PollData:
                     creator=guild.get_member(first.get("creator_id")),
                     message=channel.get_partial_message(first.get("message_id")),
                     end_date=first.get("end_date"),
-                    options=[PollOption(id=o.get("option_id"), text=o.get("text")) for o in entries]
+                    options=[PollOption(id=o.get("option_id"), text=o.get("text")) for o in entries],
+                    image=first.get("image")
                     )
 
     async def create_in_store(self, db: Union[asyncpg.Connection, asyncpg.Pool]):
         await db.execute('''
-        INSERT INTO poll.data (poll_id, channel_id, message_id, guild_id, creator_id, type, title, end_date, anonymous ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ''', self.id, self.channel.id, self.message.id, self.guild.id, self.creator.id, self.type, self.title, self.end_date, self.anonymous)
+        INSERT INTO poll.data (poll_id, channel_id, message_id, guild_id, creator_id, type, title, end_date, anonymous, image ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ''', self.id, self.channel.id, self.message.id, self.guild.id, self.creator.id, self.type, self.title, self.end_date, self.anonymous, self.image)
         await db.executemany('''
         INSERT INTO poll.option VALUES ($1, $2, $3)
         ''', [(opt.id, opt.text, self.id) for opt in self.options]
@@ -562,7 +566,8 @@ class Poll(commands.Cog):
                 type TEXT,
                 title TEXT,
                 anonymous boolean NOT NULL DEFAULT true,
-                end_date TIMESTAMP WITH TIME ZONE
+                end_date TIMESTAMP WITH TIME ZONE,
+                image TEXT
             );
             CREATE TABLE IF NOT EXISTS poll.option(
                 option_id UUID PRIMARY KEY,
@@ -600,7 +605,7 @@ class Poll(commands.Cog):
         """
         if not duration:
             duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
-        poll_data = PollData(uuid4(), title=convert_mentions(title, interaction.guild), channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration, description=description, anonymous=anonymous)
+        poll_data = PollData(uuid4(), title=convert_mentions(title, interaction.guild), channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="single", end_date=duration, description=description, anonymous=anonymous, image=image.url if image else None)
         menu = PollCreateMenu(bot=self.bot, poll=poll_data, image=image)
         await menu.start(interaction=interaction)
         await menu.wait()
@@ -626,7 +631,7 @@ class Poll(commands.Cog):
         """
         if not duration:
             duration = datetime.now(tz=timezone.utc) + timedelta(hours=24)
-        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=duration, description=description, anonymous=anonymous)
+        poll_data = PollData(uuid4(), title=title, channel=interaction.channel, guild=interaction.guild, creator=interaction.user, type="multi", end_date=duration, description=description, anonymous=anonymous, image=image.url if image else None)
         menu = PollCreateMenu(bot=self.bot, poll=poll_data, image=image)
         await menu.start(interaction=interaction)
         await menu.wait()
