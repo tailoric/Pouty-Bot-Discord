@@ -111,7 +111,8 @@ class PollData:
         else:
             description += f"\nEnds in {discord.utils.format_dt(self.end_date, 'R')}"
         embed = discord.Embed(title=self.title, description=description)
-        embed.set_author(name=self.creator.display_name, icon_url=self.creator.display_avatar)
+        if self.creator:
+            embed.set_author(name=self.creator.display_name, icon_url=self.creator.display_avatar)
         for option in self.options:
             embed.add_field(name=option.text, value=self.get_vote_count(option), inline=False)
         if self.image:
