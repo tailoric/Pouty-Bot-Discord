@@ -409,7 +409,6 @@ class BlackJack(commands.Cog):
 
         game.message = await ctx.send(content=content, embed=game.build_embed(), view=game)
         await game.wait()
-        await game.message.edit(view=game)
         self.games.remove(game)
 
     @blackjack_group.command(name="hit", aliases=["draw"])
