@@ -27,6 +27,7 @@ class Xkcd(commands.GroupCog, group_name="xkcd"):
         self.pages = {}
 
     async def refresh_page_cache(self):
+        self.pages = {}
         async with self.bot.session.get(self.base_url + "/archive/", raise_for_status=True) as response:
             tree = html.fromstring(await response.text())
             for link in tree.iterfind('.//div[@id="middleContainer"]/a'):
