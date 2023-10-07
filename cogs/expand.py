@@ -44,7 +44,7 @@ class LinkExpander(commands.Cog):
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
         self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?([vf]x)?tw(i|x)tter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
-        self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/comments/(?P<post_id>\w+))?")
+        self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/(?P<pre_id>s|comments)/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
         self.logger = logging.getLogger('PoutyBot')
@@ -135,10 +135,18 @@ class LinkExpander(commands.Cog):
         """
         url, is_spoiler = url
         reddit_match = self.reddit_url_regex.match(url)
+        try:
+            await ctx.typing()
+        except:
+            self.logger.exception("error during typing")
         if not reddit_match:
             return await ctx.send("Please send a valid reddit link")
         
-        if reddit_match.group('video_id'):
+        if reddit_match.group('pre_id') and reddit_match.group('pre_id') == 's':
+            redirect = await self.httpx.get(url=url, follow_redirects=True)
+            reddit_request = "https://" + redirect.url.host + redirect.url.path + '.json'
+            print(reddit_request) 
+        elif reddit_match.group('video_id'):
             reddit_request = f"https://www.reddit.com/video/{reddit_match.group('video_id')}.json"
         elif reddit_match.group('short_id'):
             url = f"https://www.reddit.com/{reddit_match.group('short_id')}"
@@ -147,10 +155,6 @@ class LinkExpander(commands.Cog):
             url = url.partition("?")[0]
             reddit_request = f"{url}.json"
 
-        try:
-            await ctx.typing()
-        except:
-            self.logger.exception("error during typing")
         results = []
 
         post_data = {}
