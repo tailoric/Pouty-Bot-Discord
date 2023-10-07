@@ -145,7 +145,6 @@ class LinkExpander(commands.Cog):
         if reddit_match.group('pre_id') and reddit_match.group('pre_id') == 's':
             redirect = await self.httpx.get(url=url, follow_redirects=True)
             reddit_request = "https://" + redirect.url.host + redirect.url.path + '.json'
-            print(reddit_request) 
         elif reddit_match.group('video_id'):
             reddit_request = f"https://www.reddit.com/video/{reddit_match.group('video_id')}.json"
         elif reddit_match.group('short_id'):
