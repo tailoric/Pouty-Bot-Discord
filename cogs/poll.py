@@ -175,6 +175,11 @@ class PollData:
             self.votes[user_id].add(vote)
         self.should_update = True
 
+    def remove_vote(self, user: Union[discord.User,discord.Member]):
+        if user.id in self.votes:
+            del self.votes[user.id]
+            self.should_update = True
+
     async def sync_votes(self, db: Union[asyncpg.Pool, asyncpg.Connection]):
         for user_id, votes in self.votes.items():
             await db.execute("""
@@ -434,6 +439,15 @@ class TimerButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Poll ends in: {discord.utils.format_dt(self.poll.end_date, style='R')}", ephemeral=True)
 
+class RemoveVotesButton(discord.ui.Button):
+    def __init__(self, *, poll: PollData):
+        self.poll = poll
+        super().__init__(style=discord.ButtonStyle.danger, label="Remove Votes", emoji="\N{PUT LITTER IN ITS PLACE SYMBOL}")
+
+    async def callback(self, interaction: discord.Interaction) -> Any:
+        self.poll.remove_vote(interaction.user)
+        await interaction.response.send_message("Your Votes have been removed", ephemeral=True)
+
 class EndPollButton(discord.ui.Button):
     def __init__(self, *, bot: commands.Bot, poll: PollData):
         self.bot = bot
@@ -477,11 +491,13 @@ class PollView(discord.ui.View):
         self.poll = poll
         self.select = PollOptionSelect(bot=bot, poll=poll)
         self.end_button = EndPollButton(bot=bot, poll=poll)
+        self.remove_votes = RemoveVotesButton(poll=poll)
         self.add_item(self.select)
         if not poll.anonymous:
             self.voter_button = VoterButton(poll=poll, bot=bot)
             self.add_item(self.voter_button)
         self.timer_button = TimerButton(poll=poll)
+        self.add_item(self.remove_votes)
         self.add_item(self.end_button)
         self.add_item(self.timer_button)
 
@@ -516,7 +532,7 @@ class Poll(commands.Cog):
             if poll.finished:
                 finished_polls.append(poll)
             elif poll.end_date < datetime.now(tz=timezone.utc):
-                await poll.finish(self.bot.db, interaction=None)
+                self.bot.loop.create_task(poll.finish(self.bot.db, interaction=None))
                 finished_polls.append(poll)
             elif self.check_poll_status.next_iteration and poll.end_date < self.check_poll_status.next_iteration:
                 self.bot.loop.create_task(self.finish_up_poll(poll))
