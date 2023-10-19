@@ -442,7 +442,7 @@ class TimerButton(discord.ui.Button):
 class RemoveVotesButton(discord.ui.Button):
     def __init__(self, *, poll: PollData):
         self.poll = poll
-        super().__init__(style=discord.ButtonStyle.danger, label="Remove Votes", emoji="\N{PUT LITTER IN ITS PLACE SYMBOL}")
+        super().__init__(style=discord.ButtonStyle.danger, label="Remove Votes", emoji="\N{PUT LITTER IN ITS PLACE SYMBOL}", custom_id=f"{poll.id}-delvote")
 
     async def callback(self, interaction: discord.Interaction) -> Any:
         self.poll.remove_vote(interaction.user)
