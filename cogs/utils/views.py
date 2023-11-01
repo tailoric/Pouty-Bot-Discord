@@ -3,13 +3,13 @@ from discord.ext import commands, menus
 import typing
 
 class Confirm(discord.ui.View):
-    def __init__(self, ctx: commands.Context, *args, **kwargs):
+    def __init__(self, user: typing.Union[discord.Member, discord.User], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.context = ctx
+        self.user = user
         self.is_confirmed = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user is not None and self.context.author.id == interaction.user.id
+        return interaction.user is not None and self.user.id == interaction.user.id
 
     async def on_timeout(self) -> None:
         self.is_confirmed = False
@@ -22,7 +22,7 @@ class Confirm(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
 
-    @discord.ui.button(emoji="\N{CROSS MARK}", style=discord.ButtonStyle.danger)
+    @discord.ui.button(emoji="\N{HEAVY MULTIPLICATION X}", style=discord.ButtonStyle.danger)
     async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_confirmed = False
         self.clear_items()

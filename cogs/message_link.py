@@ -1,15 +1,46 @@
+from typing import Optional
 import discord
 import re
 from textwrap import shorten
 from discord.ext import commands
+from .utils.views import Confirm
 
 
 class JumpView(discord.ui.View):
-    def __init__(self, message: discord.Message):
+    def __init__(self, message: Optional[discord.Message]):
         super().__init__(timeout=None)
-        self.message = message
-        jump_button = discord.ui.Button(label="Jump!", url=message.jump_url)
-        self.add_item(jump_button)
+        if message:
+            jump_button = discord.ui.Button(label="Jump!", url=message.jump_url)
+            self.add_item(jump_button)
+            self.message = message
+
+    @discord.ui.button(label="Opt Out/In", style=discord.ButtonStyle.danger, row=1, custom_id="message_link:optout_in:button")
+    async def opt_out(self, interaction: discord.Interaction, button: discord.ui.Button):
+        confirm = Confirm(interaction.user)
+        opted_out = await interaction.client.db.fetchval("""
+        SELECT opt_out FROM message_link_optout WHERE user_id = $1
+        """, interaction.user.id)
+        if opted_out:
+            await interaction.response.send_message("You're already opted out, do you want to opt-in again?", view=confirm, ephemeral=True)
+        else:
+            await interaction.response.send_message("Do you really want to opt out of embedding message links?", view=confirm, ephemeral=True)
+        await confirm.wait()
+        if confirm.is_confirmed:
+            if opted_out:
+                await interaction.client.db.execute("""
+                DELETE FROM message_link_optout WHERE user_id = $1
+                """, interaction.user.id)
+                await interaction.followup.send("I will embed message links for you from now on" ,ephemeral=True)
+            else:
+                await interaction.client.db.execute("""
+                INSERT INTO message_link_optout VALUES ($1, $2)
+                """, interaction.user.id, True)
+                await interaction.followup.send("I will not embed your message links from now on." ,ephemeral=True)
+        else:
+            if opted_out:
+                await interaction.followup.send("You are still opted out of this feature", ephemeral=True)
+            else:
+                await interaction.followup.send("Not opted out", ephemeral=True)
 
     def create_embed(self, author: discord.User):
         """Creates an embed for the message that was linked by the user."""
@@ -66,10 +97,24 @@ class MessageLink(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_load(self) -> None:
+        await self.bot.db.execute("""
+        CREATE TABLE IF NOT EXISTS message_link_optout(
+            user_id BIGINT,
+            opt_out BOOLEAN
+        )
+        """)
+        self.bot.add_view(JumpView(None))
+
     @commands.Cog.listener('on_message')
     async def link_message(self, message: discord.Message):
         """Command for embedding a linked message."""
         if message.author == self.bot.user:
+            return
+        opted_out = await self.bot.db.fetchval("""
+            SELECT opt_out FROM message_link_optout WHERE user_id = $1
+        """, message.author.id)
+        if opted_out:
             return
         # Checking if the message sent is a link to a discord message.
         id_regex = re.compile(
@@ -93,7 +138,11 @@ class MessageLink(commands.Cog):
         linked_message = await partial_linked_message.fetch()
         # Constructing the embed, and then deleting the original
         jump_view = JumpView(linked_message)
-        await message.channel.send(embed=jump_view.create_embed(message.author), view=jump_view)
+        mentions = discord.AllowedMentions.none()
+        if message.reference and message.reference.resolved and isinstance(message.reference.resolved, discord.Message):
+            mentions.replied_user = message.reference.resolved.author in message.mentions
+            
+        await message.channel.send(embed=jump_view.create_embed(message.author), view=jump_view, reference=message.reference or None, allowed_mentions=mentions)
         # Only deleting if this is within a server, rather than a DM channel.
         if message.guild:
             await message.delete()

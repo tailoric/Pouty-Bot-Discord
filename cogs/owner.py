@@ -233,7 +233,7 @@ class Owner(commands.Cog):
         modules = self.find_modules_from_git(stdout)
         mods_text = '\n'.join(f'{index}. `{module}`' for index, (_, module) in enumerate(modules, start=1))
         prompt_text = f'This will update the following modules, are you sure?\n{mods_text}'
-        confirm = views.Confirm(ctx)
+        confirm = views.Confirm(ctx.author)
         mes = await ctx.send(prompt_text, view=confirm)
         await confirm.wait()
         if not confirm.is_confirmed:
