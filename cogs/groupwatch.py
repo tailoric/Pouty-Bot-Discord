@@ -2,6 +2,8 @@ import asyncio
 import textwrap
 import typing
 import itertools
+from discord.enums import ChannelType
+from discord.ext.commands.core import group
 from thefuzz import process
 from thefuzz import fuzz
 from typing import Dict, List, Optional
@@ -334,12 +336,8 @@ class GroupWatch(commands.Cog):
         title: str
            the title of the thread
         """
-        if ctx.guild.premium_tier >= 2:
-            thread_type = discord.ChannelType.private_thread
-        else:
-            thread_type = discord.ChannelType.public_thread
         embed = discord.Embed(title=title, description="Groupwatch thread created join via button", colour=ctx.guild.me.colour)
-        groupwatch_thread = await ctx.channel.create_thread(name=title, type=thread_type, auto_archive_duration=60)
+        groupwatch_thread = await ctx.channel.create_thread(name=title, type=ChannelType.private_thread, auto_archive_duration=60)
         groupwatch_view = JoinView(groupwatch_thread)
         groupwatch_view.cog = self
         start_message = await ctx.send(embed=embed, view=groupwatch_view)
@@ -400,6 +398,41 @@ class GroupWatch(commands.Cog):
                 return await ctx.send("There are no groupwatches active, create one with `gw create`")
             await ctx.send("Please choose which groupwatch to start", view=GroupwatchesSelectView(groupwatch_threads, ctx.author, self, is_open=True))
 
+    @groupwatch.command(name="ping")
+    @commands.guild_only()
+    async def gw_ping(self, ctx: commands.Context, thread: Optional[app_commands.Transform[discord.Thread, GroupWatchAuthorThreadTransformer]], *, message: Optional[str]):
+        """
+        Do an everyone ping within the specified thread, for announcements aside the start command.
+
+        Parameters
+        ----------
+        thread: 
+            The thread to notify with an everyone ping
+        message:
+            The message the bot should say
+        """
+        if isinstance(ctx.channel, discord.Thread):
+            thread = ctx.channel
+        if not thread:
+            return await ctx.send("You need to use this command within a thread or specify the optional thread argument", ephemeral=True)
+        if thread:
+            creator = await self.bot.db.fetchval("""
+            SELECT creator_id FROM groupwatches WHERE thread_id = $1
+            """, thread.id)            
+            if not creator:
+                await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
+            elif int(creator) == ctx.author.id:
+                await thread.edit(archived=False)
+                if ctx.channel == thread:
+                    await ctx.send("@everyone " + message if message else "")
+                else:
+                    await thread.send("@everyone " + message if message else "")
+                    await ctx.send(f"message send to thread {thread.mention}", ephemeral=True)
+            else:
+                await ctx.send("You don't own this groupwatch", ephemeral=True)
+                return
+
+        
     @groupwatch.command(name="end")
     @commands.guild_only()
     async def gw_end(self, ctx: commands.Context, thread: Optional[app_commands.Transform[discord.Thread, GroupWatchAuthorThreadTransformer]]):
