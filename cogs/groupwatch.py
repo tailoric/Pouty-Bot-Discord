@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import textwrap
 import typing
 import itertools
@@ -490,9 +491,16 @@ class GroupWatch(commands.Cog):
             if not creator:
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
+
                 await thread.edit(archived=True, locked=True)
                 if ctx.interaction:
-                    await ctx.send(f"{thread.mention} archived", ephemeral=True)
+                    try:
+                        await ctx.send(f"{thread.mention} archived", ephemeral=True)
+                    except discord.HTTPException as e:
+                        if e.code == 50083:
+                            logging.exception("Error during thread completion", e)
+                            return
+                        raise
                 async with ctx.bot.db.acquire() as con, con.transaction():
                     await con.execute("DELETE FROM groupwatches WHERE thread_id = $1", thread.id)
                     await con.execute("""SELECT pg_notify('groupwatch', $1)""", str(thread.guild.id))
