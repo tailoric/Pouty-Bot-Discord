@@ -492,15 +492,15 @@ class GroupWatch(commands.Cog):
                 await ctx.send(f"Groupwatch with id `{thread}` not found.", ephemeral=True)
             elif int(creator) == ctx.author.id:
 
-                await thread.edit(archived=True, locked=True)
+                try:
+                    await thread.edit(archived=True, locked=True)
+                except discord.HTTPException as e:
+                    if e.code == 50083:
+                        logging.exception("Error during thread completion", e)
+                        return
+                    raise
                 if ctx.interaction:
-                    try:
                         await ctx.send(f"{thread.mention} archived", ephemeral=True)
-                    except discord.HTTPException as e:
-                        if e.code == 400:
-                            logging.exception("Error during thread completion", e)
-                            return
-                        raise
                 async with ctx.bot.db.acquire() as con, con.transaction():
                     await con.execute("DELETE FROM groupwatches WHERE thread_id = $1", thread.id)
                     await con.execute("""SELECT pg_notify('groupwatch', $1)""", str(thread.guild.id))
