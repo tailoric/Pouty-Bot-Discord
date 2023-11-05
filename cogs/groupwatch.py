@@ -497,8 +497,8 @@ class GroupWatch(commands.Cog):
                 except discord.HTTPException as e:
                     if e.code == 50083:
                         logging.exception("Error during thread completion", e)
-                        return
-                    raise
+                    else:
+                        raise
                 if ctx.interaction:
                         await ctx.send(f"{thread.mention} archived", ephemeral=True)
                 async with ctx.bot.db.acquire() as con, con.transaction():
