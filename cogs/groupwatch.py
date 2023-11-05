@@ -497,7 +497,7 @@ class GroupWatch(commands.Cog):
                     try:
                         await ctx.send(f"{thread.mention} archived", ephemeral=True)
                     except discord.HTTPException as e:
-                        if e.code == 50083:
+                        if e.code == 400:
                             logging.exception("Error during thread completion", e)
                             return
                         raise
