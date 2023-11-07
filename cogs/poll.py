@@ -17,8 +17,6 @@ import itertools
 import asyncpg
 import matplotlib.pyplot as plt
 import io
-import imghdr
-import logging
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
@@ -324,7 +322,7 @@ class PollCreateMenu(discord.ui.View):
                 child.disabled = True
         if self.message:
             await self.message.delete()
-        await self.poll.message.create_thread(name=self.poll.title)
+        await self.poll.message.create_thread(name=textwrap.shorten(self.poll.title, 100))
         self.stop()
         
     @discord.ui.button(label="Toggle Anonymous", emoji="\N{SLEUTH OR SPY}\N{VARIATION SELECTOR-16}", row=1)
