@@ -214,9 +214,10 @@ class Starboard(commands.Cog):
                 embed.add_field(name=f"Reply to {replied_to.author}", value=f"[{shorten(content, 50) or 'click to view'}]({replied_to.jump_url})", inline=False)
         if message.attachments:
             file = message.attachments[0]
+            file_url, url_params = file.url.split("?")
             spoiler = file.is_spoiler()
             is_nsfw = message.channel.is_nsfw()
-            if not spoiler and not is_nsfw and not isinstance(message.channel, discord.Thread) and file.url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
+            if not spoiler and not is_nsfw and not isinstance(message.channel, discord.Thread) and file_url and file_url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
                 embed.set_image(url=file.url)
             elif (spoiler and not is_nsfw) or isinstance(message.channel, discord.Thread):
                 embed.add_field(name="Attachment", value=f"|| [{file.filename}]({file.url}) ||", inline=False)
