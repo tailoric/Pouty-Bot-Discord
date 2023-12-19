@@ -146,10 +146,10 @@ class LinkExpander(commands.Cog):
             redirect = await self.httpx.get(url=url, follow_redirects=True)
             reddit_request = "https://" + redirect.url.host + redirect.url.path + '.json'
         elif reddit_match.group('video_id'):
-            reddit_request = f"https://www.reddit.com/video/{reddit_match.group('video_id')}.json"
+            reddit_request = f"https://old.reddit.com/video/{reddit_match.group('video_id')}.json"
         elif reddit_match.group('short_id'):
-            url = f"https://www.reddit.com/{reddit_match.group('short_id')}"
-            reddit_request = f"https://www.reddit.com/{reddit_match.group('short_id')}.json"
+            url = f"https://old.reddit.com/{reddit_match.group('short_id')}"
+            reddit_request = f"https://old.reddit.com/{reddit_match.group('short_id')}.json"
         else:
             url = url.partition("?")[0]
             reddit_request = f"{url}.json"

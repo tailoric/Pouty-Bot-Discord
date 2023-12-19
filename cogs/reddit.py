@@ -88,10 +88,10 @@ class Reddit(commands.Cog):
         embed.description = comment["data"]["body"][:500]+"..."
         await message.edit(embed=embed)
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=60)
     async def check_reddit_for_pinned_threads(self):
         try:
-            resp = await self.session.get(url="https://www.reddit.com/r/Animemes.json", auth=self.auth,
+            resp = await self.session.get(url="https://old.reddit.com/r/Animemes.json", auth=self.auth,
                                         headers=self.headers)
             resp.raise_for_status()
             resp_data = resp.json()
