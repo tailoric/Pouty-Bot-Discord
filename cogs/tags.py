@@ -56,7 +56,7 @@ class Tags(commands.Cog):
             );
         """)
         await self.refresh_cache()
-    tags = app_commands.Group(name="tag", description="Commands for handling tags and quickly calling said tags.")
+    tags = app_commands.Group(name="tag", description="Commands for handling tags and quickly calling said tags.", guild_only=True)
 
     @tags.command(name="get", description="get content of a tag")
     @app_commands.describe(tag="the name of the tag to use")
