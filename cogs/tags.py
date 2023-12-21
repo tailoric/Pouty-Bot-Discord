@@ -60,6 +60,7 @@ class Tags(commands.Cog):
 
     @tags.command(name="get", description="get content of a tag")
     @app_commands.describe(tag="the name of the tag to use")
+    @app_commands.guild_only()
     async def app_tag(self, interaction: discord.Interaction, tag: str) -> None:
         result = await self.bot.db.fetchval("""
             SELECT content

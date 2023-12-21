@@ -3,6 +3,7 @@ import logging
 import textwrap
 import typing
 import itertools
+from discord.app_commands.commands import guild_only
 from discord.enums import ChannelType
 from discord.ext.commands.core import group
 from thefuzz import process
@@ -254,6 +255,7 @@ class GroupWatch(commands.Cog):
 
 
     @commands.hybrid_group(name="groupwatch", aliases=["gw"], invoke_without_command=True)
+    @app_commands.guild_only()
     async def groupwatch(self, ctx):
         """
         groupwatch commands

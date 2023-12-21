@@ -24,6 +24,7 @@ async def setup(bot: commands.Bot):
     @app_commands.describe(role="The role you want to ping")
     @app_commands.describe(message="Optional message to accompany with the ping")
     @app_commands.describe(image="An image to attach with the ping")
+    @app_commands.guild_only()
     async def at_role_ping(interaction: discord.Interaction, role: discord.Role, message: Optional[str], image: Optional[discord.Attachment]):
         """
         """
