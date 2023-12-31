@@ -210,7 +210,7 @@ class Roles(commands.Cog):
     async def remove_role(self, ctx, *, role: CustomRoleConverter):
         """removes a role from you"""
         settable_role = await self._fetch_assignable_roles(ctx)
-        if not settable_role:
+        if role not in settable_role:
             await ctx.send("can't remove that role")
             return
         try:
