@@ -259,6 +259,7 @@ class Search(commands.Cog):
             link = self.get_referenced_message_image(ctx)
         if link is None and not file:
             await ctx.send('Message didn\'t contain Image')
+            return
         if self.sauce_nao_settings.get("short_remaining") == 0:
             return await ctx.send("Ratelimit reached. Please wait 30 seconds before doing another search")
         if self.sauce_nao_settings.get("long_remaining") == 0:
@@ -284,10 +285,12 @@ class Search(commands.Cog):
                     }
             async with self.sauce_session.get(url=saucenao_url, params=params) as response:
                 source = None
+                print(saucenao_url)
                 if response.status == 200:
                     resp = await response.json()
                     header = resp['header']
-                    results = resp['results']
+                    results = resp.get('results', list())
+                    print(await response.text())
                     self.sauce_nao_settings['short_remaining'] = header['short_remaining']
                     self.sauce_nao_settings['long_remaining'] = header['long_remaining']
                     if self.sauce_nao_settings.get("short_remaining") == 0:
