@@ -5,6 +5,7 @@ from discord.ext import commands
 from email.mime import base
 from pathlib import Path
 from urllib import parse
+from lxml import html
 from .utils.converters import SimpleUrlArg
 
 import aiohttp
@@ -285,12 +286,10 @@ class Search(commands.Cog):
                     }
             async with self.sauce_session.get(url=saucenao_url, params=params) as response:
                 source = None
-                print(saucenao_url)
                 if response.status == 200:
                     resp = await response.json()
                     header = resp['header']
                     results = resp.get('results', list())
-                    print(await response.text())
                     self.sauce_nao_settings['short_remaining'] = header['short_remaining']
                     self.sauce_nao_settings['long_remaining'] = header['long_remaining']
                     if self.sauce_nao_settings.get("short_remaining") == 0:
@@ -317,7 +316,12 @@ class Search(commands.Cog):
                                 embed.add_field(name="Artist", value=sn_result.get('artist'))
                             return await ctx.send(embed=embed)
                     if source is None:
-                        await ctx.send('No source over the similarity threshold')
+                        if message := header.get('message'):
+                            message = html.fromstring(message)
+                            await ctx.send(message.text_content())
+                        else:
+                            await ctx.send('No source over the similarity threshold')
+                        return
                 else:
                     info = await response.json()
                     paginator = commands.Paginator()
@@ -442,7 +446,6 @@ class Search(commands.Cog):
         anilist_url = None
         title = None
         data = None
-        print(first_result)
         if first_result.get('anilist'):
             anilist_url = f"https://anilist.co/anime/{first_result.get('anilist')}"
             async with self.sauce_session.post(url="https://graphql.anilist.co", json={"query": TraceMoe.anilist_query, "variables": {'id': first_result.get('anilist')}}) as resp:
