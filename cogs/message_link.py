@@ -73,7 +73,8 @@ class JumpView(discord.ui.View):
             file = msg.attachments[0]
             spoiler = file.is_spoiler()
             is_nsfw = msg.channel.is_nsfw()
-            if not spoiler and not is_nsfw and not isinstance(msg.channel, discord.Thread) and file.url.lower().endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
+            file_url , _ = file.url.lower().split("?")
+            if not spoiler and not is_nsfw and not isinstance(msg.channel, discord.Thread) and file_url and file_url.endswith(('png', 'jpg', 'jpeg', 'gif', 'webp')):
                 embed.set_image(url=file.url)
             elif (spoiler and not is_nsfw) or isinstance(msg.channel, discord.Thread):
                 embed.add_field(
