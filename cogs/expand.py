@@ -43,7 +43,7 @@ class LinkExpander(commands.Cog):
                 "Referer" : "https://pixiv.net"
                 }
         self.pixiv_url_regex = re.compile(r".*pixiv.net.*/artworks/(\d+)")
-        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?([vf]x)?tw(i|x)tter\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
+        self.twitter_url_regex = re.compile(r"https://(?:\w*\.)?(?P<domain>x|twitter)\.com/(?P<user>\w+)/status/(?P<post_id>\d+)")
         self.reddit_url_regex = re.compile(r"https?://(?:www)?(?:(?:v|old|new)?\.)?(?:redd\.?it)?(?:.com)?/(?:(?P<video_id>(?!r/)\w{10,15})|r|(?P<short_id>\w{4,8}))(?:/(?P<subreddit>\w+)/(?P<pre_id>s|comments)/(?P<post_id>\w+))?")
         path = Path('config/twitter.json')
         path_streamable = Path('config/streamable.json')
@@ -69,10 +69,25 @@ class LinkExpander(commands.Cog):
 
     @commands.command(name="twitter", aliases=['twt', 'twttr'])
     async def twitter_expand(self, ctx, * ,link: SpoilerLinkConverter):
+    @commands.Cog.listener("on_message")
+    async def twitter_expand(self, message: discord.Message):
         """
         expand a twitter link to its images
         """
-        await ctx.send("https://twitter.com/TwitterDev/status/1621026986784337922?s=20")
+        if message.author.bot:
+            return
+        matches = list(self.twitter_url_regex.finditer(message.content))
+        if not matches:
+            return
+        urls = []
+        for match in matches:
+            url = re.sub(r"(x|twitter).com", "fxtwitter.com", match.group(0))
+            if re.search(r"(\|\|\s*)(.*)(\|\|\s*)", message.content):
+                url = f"|| {url} ||"
+            urls.append(url)
+        url_strings = "\n".join(urls)
+        prefix = "" if len(url_strings) >= 3900 else f"converted {len(urls)} twitter urls in this message:\n"
+        await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none())
 
 
     fclyde = app_commands.Group(name="fclyde", description="get around the clyde filter for upload")
