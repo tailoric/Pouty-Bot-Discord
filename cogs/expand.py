@@ -85,7 +85,7 @@ class LinkExpander(commands.Cog):
                 url = f"|| {url} ||"
             urls.append(url)
         url_strings = "\n".join(urls)
-        prefix = "" if len(url_strings) >= 3900 else f"converted {len(urls)} twitter urls in this message:\n"
+        prefix = "" if len(url_strings) >= 3900 else f"converted {len(urls)} twitter url{'s' if len(urls) > 1 else ''} in this message:\n"
         await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none())
 
 
