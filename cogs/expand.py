@@ -1,4 +1,5 @@
 from discord.ext.commands.help import Paginator
+from discord.mentions import AllowedMentions
 import httpx
 import aiohttp
 import asyncio
@@ -67,8 +68,6 @@ class LinkExpander(commands.Cog):
         self.bot.loop.create_task(self.session.close())
 
 
-    @commands.command(name="twitter", aliases=['twt', 'twttr'])
-    async def twitter_expand(self, ctx, * ,link: SpoilerLinkConverter):
     @commands.Cog.listener("on_message")
     async def twitter_expand(self, message: discord.Message):
         """
@@ -102,6 +101,9 @@ class LinkExpander(commands.Cog):
             is_spoiler="spoiler"
             )
     async def fuck_clyde_link(self, interaction: discord.Interaction, link:str , warning: Optional[str], is_spoiler: bool=False) -> None:
+        """
+        Make an url embed that would incorrectly be caught by the nsfw filter (aka clyde) and not embed
+        """
         if is_spoiler and not warning:
             return await interaction.response.send_message("Please set a `warning:` when sending a spoiler", ephemeral=True)
         try:
