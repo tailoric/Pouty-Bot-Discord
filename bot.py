@@ -12,8 +12,10 @@ import aiohttp
 description = 'Pouty Bot MKII by Saikimo'
 
 data_io = DataIO()
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix=['!', '.'], description=description,
-                   owner_id=134310073014026242, case_insensitive=True, intents=Intents.all())
+                   owner_id=134310073014026242, case_insensitive=True, intents=intents)
 LOG_SIZE = 200 * 1024 * 1024
 
 
@@ -46,5 +48,6 @@ if __name__ == '__main__':
                                   mode='a',
                                   maxBytes=LOG_SIZE,
                                   backupCount=2)
-    discord.utils.setup_logging(handler=handler, level=logging.WARNING, root=False)
+    discord.utils.setup_logging(handler=handler, level=logging.INFO, root=False)
+    logging.getLogger('discord').addHandler(logging.StreamHandler())
     asyncio.run(connect_db_and_start_bot())
