@@ -11,6 +11,7 @@ import os
 import re
 from discord.ext import commands
 from discord import app_commands
+from discord.ui import DynamicItem
 from functools import partial 
 from itertools import filterfalse
 from pathlib import Path
@@ -29,6 +30,35 @@ class SpoilerLinkConverter(commands.Converter):
             argument = re.split(r"\s", argument)[0]
             return argument.strip("<>"), False
         
+
+class AutomaticExpandDeleteButton(DynamicItem[discord.ui.Button], template=r'expand:delete:(?P<user_id>[0-9]+)'):
+    def __init__(self, user_id: int) -> None:
+        super().__init__(
+                discord.ui.Button(
+                    label="Delete",
+                    custom_id=f"expand:delete:{user_id}",
+                    emoji="\N{WASTEBASKET}\N{VARIATION SELECTOR-16}"
+                    )
+                )
+        self.user_id: int = user_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match: re.Match[str], /):
+        user_id = int(match['user_id'])
+        return cls(user_id)
+
+    async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
+        can_delete = False
+        if interaction.guild:
+            member : discord.Member = interaction.user
+            can_delete = member.resolved_permissions.manage_messages
+        if interaction.user.id == self.user_id or can_delete:
+            return True
+        await interaction.response.send_message("You can't delete this message", ephemeral=True)
+        return False
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.message.delete()
 
 class LinkExpander(commands.Cog):
     """
@@ -63,7 +93,11 @@ class LinkExpander(commands.Cog):
             with path_streamable.open('r') as f:
                 self.streamable_auth = json.load(f)
 
+    async def cog_load(self) -> None:
+        self.bot.add_dynamic_items(AutomaticExpandDeleteButton)
+
     async def cog_unload(self):
+        self.bot.remove_dynamic_items(AutomaticExpandDeleteButton)
         self.bot.loop.create_task(self.httpx.aclose())
         self.bot.loop.create_task(self.session.close())
 
@@ -86,7 +120,9 @@ class LinkExpander(commands.Cog):
             urls.append(url)
         url_strings = "\n".join(urls)
         prefix = "" if len(url_strings) >= 3900 else f"converted {len(urls)} twitter url{'s' if len(urls) > 1 else ''} in this message:\n"
-        await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none())
+        view = discord.ui.View(timeout=None)
+        view.add_item(AutomaticExpandDeleteButton(message.author.id))
+        await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none(), view=view)
 
 
     fclyde = app_commands.Group(name="fclyde", description="get around the clyde filter for upload")
