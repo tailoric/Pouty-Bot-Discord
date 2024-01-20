@@ -14,6 +14,7 @@ description = 'Pouty Bot MKII by Saikimo'
 data_io = DataIO()
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix=['!', '.'], description=description,
                    owner_id=134310073014026242, case_insensitive=True, intents=intents)
 LOG_SIZE = 200 * 1024 * 1024
