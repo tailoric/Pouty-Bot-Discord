@@ -338,6 +338,7 @@ class ReadRules(commands.Cog):
     async def new_memester_assigned(self, before: discord.Member, after: discord.Member):
         if self.memester_role in before.roles and self.new_memester in after.roles:
             await after.remove_roles(self.new_memester)
+            return
         if self.new_memester in after.roles and not self.new_memester in before.roles:
             await self.add_new_memester(after)
 
