@@ -5,7 +5,7 @@ import json
 import datetime
 import logging
 import traceback
-from random import choice
+from random import choice, random, randint
 import re
 import asyncio
 from .utils.dataIO import DataIO
@@ -23,22 +23,6 @@ class JumpMessageView(discord.ui.View):
             emoji="\N{OPEN BOOK}"
             ))
          
-
-class AnimemesHelpFormat(CustomHelpCommand):
-
-
-    def random_response(self):
-        with open("data/rules_channel_phrases.json")as f:
-            phrases = json.load(f)
-            return choice(phrases["help"])
-
-
-    async def send_bot_help(self, mapping):
-        channel = self.context.channel
-        if channel and channel.id == 366659034410909717:
-            await self.context.send(self.random_response())
-            return
-        await super().send_bot_help(mapping)
 
 
 class ReadRules(commands.Cog):
@@ -65,6 +49,7 @@ class ReadRules(commands.Cog):
             time_over = datetime.datetime.utcnow() + datetime.timedelta(weeks=1)
             async with con.transaction():
                 await statement.fetch(new_user.id, time_over)
+        await self.join_log.send(**self.build_join_message(new_user))
 
     async def fetch_new_memesters(self):
         query = '''
@@ -85,9 +70,6 @@ class ReadRules(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bucket = commands.CooldownMapping.from_cooldown(3, 600, commands.BucketType.member)
         self.bot = bot
-        self._original_help_command = bot.help_command
-        self.bot.help_command = AnimemesHelpFormat()
-        self.bot.help_command.cog = self
         self.data_io = DataIO()
         self.checkers_channel = self.bot.get_channel(self.data_io.load_json("reddit_settings")["channel"])
         self.animemes_guild = self.bot.get_guild(187423852224053248)
@@ -116,7 +98,6 @@ class ReadRules(commands.Cog):
         self.check_for_new_memester.start()
 
     async def cog_unload(self):
-        self.bot.help_command = self._original_help_command
         self.check_for_new_memester.stop()
         self.limit_reset.cancel()
 
@@ -304,66 +285,6 @@ class ReadRules(commands.Cog):
 
         return {'content': member.id, 'embed': embed}
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        channel = message.channel
-        if message.author.id == self.bot.user.id or not message.guild:
-            return
-        if channel.id != self.rules_channel.id:
-            return
-
-        iam_memester_regex = re.compile(r'\.?i\s?a?m\s?meme?(ma)?st[ea]r', re.IGNORECASE)
-        if iam_memester_regex.match(message.clean_content):
-            await message.author.add_roles(self.new_memester)
-            await message.delete()
-            await self.join_log.send(**self.build_join_message(message.author))
-            if self.limit_reset.is_running():
-                self.join_counter += 1
-            if self.join_counter >= self.join_limit and self.join_limit > 0 and self.limit_reset.is_running():
-                default_role = message.guild.default_role
-                overwrite = message.channel.overwrites_for(default_role)
-                overwrite.send_messages = False
-                await self.rules_channel.set_permissions(default_role, overwrite=overwrite)
-                time_diff = self.limit_reset.next_iteration - datetime.datetime.now(datetime.timezone.utc) 
-                if self.lockdown_channel:
-                    def is_previous_lockdown_message(m):
-                        return "join limit was exceeded try again in" in m.content
-                    await self.lockdown_channel.purge(limit=100, check=is_previous_lockdown_message)
-                    await self.lockdown_channel.send(f"current join limit was exceeded try again in {round(time_diff.seconds / 3600)} hours")
-            return
-        content = message.content.lower()
-        with open("data/rules_channel_phrases.json") as f:
-            phrases = json.load(f)
-            curses = ["fuck you", "fuck u", "stupid bot", "fucking bot"]
-            has_confirm_in_message = "yes" in content or "i have" in content
-            if "gaston is always tight" in content.lower():
-                await channel.send(choice(phrases["tight"]))
-                return
-            if any([c in content for c in curses]):
-                await channel.send(choice(phrases["curse"]))
-                return
-            if message.role_mentions:
-                await channel.send(choice(phrases["pinged"]))
-                return
-            if has_confirm_in_message:
-                if self.bucket.update_rate_limit(message):
-                    await channel.send(choice(phrases['repeat']))
-                    return
-                await channel.send(choice(phrases["yes"]))
-                return
-            if "sex-shack" in content:
-                if self.bucket.update_rate_limit(message):
-                    await channel.send(choice(phrases['repeat']))
-                    return
-                await channel.send(choice(phrases["shack"]))
-                return
-            if "general-discussion" in content or re.match(r"#(\w+-?)+", content) or message.channel_mentions:
-                if self.bucket.update_rate_limit(message):
-                    await channel.send(choice(phrases['repeat']))
-                    return
-                await channel.send(choice(phrases["channel"]))
-                return
-
     async def fetch_member_via_api(self, user_id):
         """
         for fetching the user via the api if the member may not be in the cache
@@ -414,16 +335,11 @@ class ReadRules(commands.Cog):
             self.check_for_new_memester.restart()
 
     @commands.Cog.listener(name="on_member_update")
-    async def new_memester_assigned(self, before, after):
-        if self.new_memester in before.roles:
-            return
-        if self.new_memester not in before.roles and self.new_memester not in after.roles:
-            return
-        if self.memester_role in after.roles and self.new_memester not in before.roles:
-            await after.remove_roles(self.memester_role)
-        if self.new_memester:
-            await after.add_roles(self.new_memester)
-        await self.add_new_memester(after)
+    async def new_memester_assigned(self, before: discord.Member, after: discord.Member):
+        if self.memester_role in before.roles and self.new_memester in after.roles:
+            await after.remove_roles(self.new_memester)
+        if self.new_memester in after.roles and not self.new_memester in before.roles:
+            await self.add_new_memester(after)
 
     @commands.Cog.listener(name="on_member_update")
     async def horny_jail_check(self, _: discord.Member, after: discord.Member):
@@ -436,27 +352,14 @@ class ReadRules(commands.Cog):
             color = after.color
             await self.new_memester.edit(color=color)
 
-    async def check_member_for_valid_character(self, member) -> bool:
-        def name_check(c):
-            return c.isascii() or c.isdigit()
-        valid_chars_nick = ""
-        if member.nick:
-            valid_chars_nick = list(filter(name_check, member.nick))
-        valid_chars_name = list(filter(name_check, member.name))
-        if len(valid_chars_nick) >=1 or len(valid_chars_name) >= 1:
-            return True
-        return False
-
     @commands.Cog.listener(name="on_member_update")
     async def check_member_name(self, before, after):
         if self.memester_role not in after.roles and self.new_memester not in after.roles:
             return
         forbidden_match = self.word_filter.search(after.display_name.lower())
         old_name = after.display_name
-        if not await self.check_member_for_valid_character(after):
-            await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match:
-            await after.edit(nick=f"bad_name#{after.discriminator}")
+        if forbidden_match:
+            await after.edit(nick=f"bad_name#{randint(1000,9999)}")
             if self.checkers_channel:
                 await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
         else:
@@ -497,10 +400,8 @@ class ReadRules(commands.Cog):
             return
         forbidden_match = self.word_filter.search(after.display_name.lower())
         old_name = after.display_name
-        if not await self.check_member_for_valid_character(after):
-            await after.edit(nick=f"pingable_username#{after.discriminator}")
-        elif forbidden_match:
-            await after.edit(nick=f"bad_name#{after.discriminator}")
+        if forbidden_match:
+            await after.edit(nick=f"bad_name#{randint(1000,9999)}")
             if self.checkers_channel:
                 await self.checkers_channel.send(f"changed {after.mention}'s nickname was {old_name} before.")
         else:
