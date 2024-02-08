@@ -157,7 +157,7 @@ class GroupwatchThreadNotFound(app_commands.AppCommandError):
 
 class GroupwatchThreadInvalidOption(app_commands.AppCommandError):
     pass 
-class GroupWatchAuthorThreadTransformer(app_commands.Transformer):
+class GroupWatchAuthorThreadTransformer(app_commands.Transformer, commands.ThreadConverter):
 
     async def transform(self, interaction: discord.Interaction, value: str) -> discord.Thread:
         if interaction.guild:
@@ -427,9 +427,9 @@ class GroupWatch(commands.Cog):
             elif int(creator) == ctx.author.id:
                 await thread.edit(archived=False)
                 if ctx.channel == thread:
-                    await ctx.send("@everyone " + message if message else "")
+                    await ctx.send("@everyone " + (message if message else ""))
                 else:
-                    await thread.send("@everyone " + message if message else "")
+                    await thread.send("@everyone " + (message if message else ""))
                     await ctx.send(f"message send to thread {thread.mention}", ephemeral=True)
             else:
                 await ctx.send("You don't own this groupwatch", ephemeral=True)
