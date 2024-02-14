@@ -109,6 +109,8 @@ class LinkExpander(commands.Cog):
         """
         if message.author.bot:
             return
+        if any(bool(embed.video) for embed in message.embeds):
+            return
         matches = list(self.twitter_url_regex.finditer(message.content))
         if not matches:
             return
@@ -122,7 +124,27 @@ class LinkExpander(commands.Cog):
         prefix = "" if len(url_strings) >= 3900 else f"converted {len(urls)} twitter url{'s' if len(urls) > 1 else ''} in this message:\n"
         view = discord.ui.View(timeout=None)
         view.add_item(AutomaticExpandDeleteButton(message.author.id))
-        await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none(), view=view)
+        msg = await message.channel.send(prefix + url_strings, reference=message, allowed_mentions=AllowedMentions.none(), view=view)
+        if msg.embeds:
+            for embed in msg.embeds:
+                if embed.video:
+                    await message.edit(suppress=True)
+                    return
+            return await msg.delete()
+        else:
+            print('waiting for edit')
+            def check(_, after):
+                return msg.id == after.id
+            try:
+                _, after = await self.bot.wait_for('message_edit', check=check, timeout=10)
+                for embed in after.embeds:
+                    if embed.video:
+                        return
+                return await msg.delete()
+            except asyncio.TimeoutError:
+                pass
+
+
 
 
     fclyde = app_commands.Group(name="fclyde", description="get around the clyde filter for upload")
