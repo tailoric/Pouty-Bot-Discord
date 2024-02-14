@@ -128,7 +128,8 @@ class LinkExpander(commands.Cog):
         if msg.embeds:
             for embed in msg.embeds:
                 if embed.video:
-                    await message.edit(suppress=True)
+                    if message.channel.permissions_for(message.guild.me).manage_messages:
+                        await message.edit(suppress=True)
                     return
             return await msg.delete()
         else:
@@ -139,6 +140,8 @@ class LinkExpander(commands.Cog):
                 _, after = await self.bot.wait_for('message_edit', check=check, timeout=10)
                 for embed in after.embeds:
                     if embed.video:
+                        if message.channel.permissions_for(message.guild.me).manage_messages:
+                            await message.edit(suppress=True)
                         return
                 return await msg.delete()
             except asyncio.TimeoutError:
