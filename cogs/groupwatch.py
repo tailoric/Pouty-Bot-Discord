@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import logging
 import textwrap
 import typing
@@ -162,13 +163,22 @@ class GroupWatchAuthorThreadTransformer(app_commands.Transformer, commands.Threa
     async def transform(self, interaction: discord.Interaction, value: str) -> discord.Thread:
         if interaction.guild:
             try:
-                thread = await interaction.guild.fetch_channel(int(value))
+                thread = None
+                if not value.isdigit():
+                    thread_obj = next(filter(lambda th: th['title'] == value, interaction.client.groupwatches[interaction.guild.id]), None)
+                    if thread_obj:
+                        thread = await interaction.guild.fetch_channel(thread_obj['thread_id'])
+                if not thread:
+                    thread = await interaction.guild.fetch_channel(int(value))
                 if isinstance(thread, discord.Thread):
                     return thread
             except discord.NotFound:
                 raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
             except ValueError:
                 raise GroupwatchThreadInvalidOption(f"Thread with name or id `{value}` does not exist. Use `/groupwatch create` to create it")
+            except Exception as e:
+                logger = logging.getLogger('discord')
+                logger.exception(e)
                 
 
         raise GroupwatchThreadNotFound(f"Thread with id {value} not found")
@@ -176,7 +186,6 @@ class GroupWatchAuthorThreadTransformer(app_commands.Transformer, commands.Threa
     async def autocomplete(self, interaction: discord.Interaction, current: str)->List[app_commands.Choice[str]]:
         if not interaction.guild:
             return []
-        await interaction.response.defer()
         if interaction.guild.id not in interaction.client.groupwatches:
             interaction.client.groupwatches[interaction.guild.id] = await interaction.client.db.fetch("""
             SELECT thread_id, title, creator_id from groupwatches WHERE guild_id = $1
