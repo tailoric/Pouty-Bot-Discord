@@ -432,7 +432,7 @@ class Music(commands.Cog):
         if not player.is_playing:
             return await ctx.send('Nothing playing.')
 
-        player.set_loop(2) if player.loop else player.set_loop(0)
+        player.set_loop(2) if not player.loop else player.set_loop(0)
         await ctx.send('🔁 | Repeat ' + ('enabled' if player.loop else 'disabled'))
 
     @commands.command()
