@@ -350,7 +350,7 @@ class Music(commands.Cog):
         embed = discord.Embed(color=discord.Color.blurple(),
                               title='Now Playing', description=song)
         status = (f"\N{TWISTED RIGHTWARDS ARROWS} Shuffle: {'enabled' if player.shuffle else 'disabled'} | "
-        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if player.repeat else 'disabled'} | "
+        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if player.loop else 'disabled'} | "
         f"\N{SPEAKER} Volume : {player.volume}")
 
         embed.set_footer(text=status)
@@ -432,7 +432,7 @@ class Music(commands.Cog):
         if not player.is_playing:
             return await ctx.send('Nothing playing.')
 
-        player.repeat = not player.repeat
+        player.set_loop(2) if player.loop else player.set_loop(0)
         await ctx.send('🔁 | Repeat ' + ('enabled' if player.repeat else 'disabled'))
 
     @commands.command()
