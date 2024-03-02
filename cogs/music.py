@@ -11,6 +11,7 @@ import discord
 import lavalink
 from discord.ext import commands
 from discord.ext import menus
+from lavalink.server import LoadType
 from .utils import checks
 from typing import List
 import asyncio
@@ -196,7 +197,7 @@ class Music(commands.Cog):
 
         embed = discord.Embed(color=discord.Color.blurple())
 
-        if results['loadType'] == 'PLAYLIST_LOADED':
+        if results['load_type'] == LoadType.PLAYLIST:
             tracks = results['tracks']
 
             for track in tracks:
