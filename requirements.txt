@@ -9,7 +9,7 @@ beautifulsoup4==4.10.0
 braceexpand==0.1.7
 Brotli==1.0.9
 bs4==0.0.1
-certifi==2021.10.8
+certifi==2023.7.22
 cffi==1.15.0
 charset-normalizer==2.0.12
 click==8.1.2
@@ -45,14 +45,12 @@ pyparsing==3.0.7
 python-dateutil==2.8.2
 python-Levenshtein==0.12.2
 pytz==2023.3
-requests==2.27.1
 rfc3986==1.5.0
 six==1.16.0
 sniffio==1.2.0
 soupsieve==2.3.1
 thefuzz==0.19.0
 typing_extensions==4.1.1
-urllib3==1.26.9
 websockets==10.4
 wikipedia==1.4.0
 wordcloud==1.9.2
