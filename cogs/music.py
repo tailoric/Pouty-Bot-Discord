@@ -433,7 +433,7 @@ class Music(commands.Cog):
             return await ctx.send('Nothing playing.')
 
         player.set_loop(2) if player.loop else player.set_loop(0)
-        await ctx.send('🔁 | Repeat ' + ('enabled' if player.repeat else 'disabled'))
+        await ctx.send('🔁 | Repeat ' + ('enabled' if player.loop else 'disabled'))
 
     @commands.command()
     async def remove(self, ctx, index: int):
