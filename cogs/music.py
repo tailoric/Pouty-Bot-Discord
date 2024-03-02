@@ -77,7 +77,7 @@ class MusicQueue(menus.ListPageSource):
                     )
                 )
         status = (f"\N{TWISTED RIGHTWARDS ARROWS} Shuffle: {'enabled' if self.player.shuffle else 'disabled'} | "
-        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if self.player.repeat else 'disabled'} | "
+        f"\N{CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS} Repeat: {'enabled' if self.player.loop else 'disabled'} | "
         f"\N{SPEAKER} Volume : {self.player.volume}")
         embed.set_footer(text=status)
         return embed
