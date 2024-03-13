@@ -4,6 +4,8 @@ from typing import Optional, NamedTuple
 import discord
 import json
 
+from discord.interactions import Interaction
+
 class JumpView(discord.ui.View):
     def __init__(self, message: discord.Message, timeout=None):
         super().__init__(timeout=timeout)
@@ -102,6 +104,22 @@ class OutputTransformer(LanguageTransformer):
     "ZH" : "Chinese (simplified)",
     }
 
+class NoMessageContent(app_commands.CheckFailure):
+    pass
+def message_content_check(interaction: Interaction) -> bool:
+    data = interaction.data
+    message = next(iter(data.get('resolved').get('messages').values()), None)
+    if message:
+        if message.get('embeds'):
+            source_text = message.get('embeds')[0].get('description')
+        else:
+            source_text = discord.utils.remove_markdown(message.get('content'))
+            source_text = source_text[:295] + '[...]' if len(source_text) >= 300 else source_text
+        if not source_text:
+            raise NoMessageContent('No content to translate!')
+        interaction.extras['source_text'] = source_text
+    return True 
+
 class Deepl(commands.Cog):
     """The description for Deepl goes here."""
 
@@ -167,13 +185,10 @@ class Deepl(commands.Cog):
             await interaction.followup.send(response_message)
 
     @app_commands.checks.cooldown(1, 180)
+    @app_commands.check(message_content_check)
     async def translate_message(self, interaction: discord.Interaction, message: discord.Message) -> None:
         await interaction.response.defer()
-        if message.embeds:
-            source_text = message.embeds[0].description
-        else:
-            source_text = discord.utils.remove_markdown(message.content)
-            source_text = source_text[:295] + '[...]' if len(source_text) >= 300 else source_text
+        source_text = interaction.extras['source_text']
         params = {
                 "text": source_text,
                 "target_lang": "EN"
