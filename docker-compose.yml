@@ -8,6 +8,11 @@ services:
       - ./:/bot
     depends_on:
       - postgres
+    develop:
+      watch:
+        - action: sync
+          path: ./cogs
+          target: /bot/cogs
   postgres:
     image: postgres:13
     ports:
@@ -18,7 +23,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgres/data
   lavalink:
-    image: fredboat/lavalink:master
+    image: ghcr.io/lavalink-devs/lavalink:4.0.4
     ports: 
       - 2333:2333
     volumes:

@@ -35,6 +35,7 @@ async def connect_db_and_start_bot():
     try:
         async with aiohttp.ClientSession() as session, bot:
             bot.loop.create_task(bot.load_extension("cogs.default"))
+            bot.loop.create_task(bot.load_extension("cogs.owner"))
             bot.session = session
             await bot.start(token)
     except KeyboardInterrupt:
