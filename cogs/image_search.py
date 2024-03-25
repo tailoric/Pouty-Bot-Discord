@@ -375,11 +375,6 @@ class Search(commands.Cog):
         """give a google search link"""
         search = parse.quote_plus(query)
         await ctx.send("https://google.com/search?q={}".format(search))
-    @commands.command()
-    async def lmgtfy(self,  ctx, *, query: str):
-        """give a let me google that for you link"""
-        search = parse.quote_plus(query)
-        await ctx.send("<https://lmgtfy.com/?q={}>".format(search))
 
     def get_referenced_message_image(self, ctx):
         link = None
