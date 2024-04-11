@@ -340,8 +340,9 @@ class PollCreateMenu(discord.ui.View):
         embed = discord.Embed(title=self.poll.title, description="This is an interactive menu to add options to your poll use the +Options button to add vote options to the poll")
         for idx,option in enumerate(self.poll.options):
             embed.add_field(name=idx+1, value=option.text, inline=False)
-        embed.add_field(name="Anonymous Votes", value="\N{WHITE HEAVY CHECK MARK}" if self.poll.anonymous else "\N{CROSS MARK}", inline=False)
-        embed.add_field(name="Ends", value=discord.utils.format_dt(self.poll.end_date, "R"), inline=False)
+        if len(self.poll.options) <= 23:
+            embed.add_field(name="Anonymous Votes", value="\N{WHITE HEAVY CHECK MARK}" if self.poll.anonymous else "\N{CROSS MARK}", inline=False)
+            embed.add_field(name="Ends", value=discord.utils.format_dt(self.poll.end_date, "R"), inline=False)
         return embed
 
     async def start(self, interaction: discord.Interaction):
