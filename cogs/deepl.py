@@ -3,7 +3,9 @@ from discord import app_commands
 from typing import Optional, NamedTuple
 import discord
 import json
+import logging
 
+#print
 from discord.interactions import Interaction
 
 class JumpView(discord.ui.View):
@@ -106,7 +108,10 @@ class OutputTransformer(LanguageTransformer):
 
 class NoMessageContent(app_commands.CheckFailure):
     pass
+
 def message_content_check(interaction: Interaction) -> bool:
+    import json 
+    print(json.dumps(interaction.data))
     data = interaction.data
     message = next(iter(data.get('resolved').get('messages').values()), None)
     if message:
@@ -202,7 +207,7 @@ class Deepl(commands.Cog):
             if not translation:
                 return await interaction.followup.send("No translation found.")
             translation = translation[0]
-            if interaction.guild and interaction.guild.me.colour.value:
+            if interaction.guild and interaction.guild.me and interaction.guild.me.colour.value:
                 colour = interaction.guild.me.colour
             else:
                 colour = discord.Colour.blurple()
