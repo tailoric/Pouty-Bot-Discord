@@ -176,9 +176,9 @@ class Music(commands.Cog):
                     )
         if isinstance(event, lavalink.events.TrackExceptionEvent):
             channel = event.player.fetch('channel')
+            logging.error('Error while playing Track: %s, %s\n%s', event.track, event.message, event.cause)
             await channel.send(f"Error while playing Track: "
-                               f"**{event.track.title}**:"
-                               f"\n`{event.exception}`")
+                               f"**{event.track.title}**:")
 
     @commands.group(aliases=['p'],invoke_without_command=True)
     async def play(self, ctx, *, query: str):
