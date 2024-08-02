@@ -9,10 +9,28 @@ import random
 import colorsys
 from .utils.checks import channel_only
 from .utils.paginator import FieldPages
+from .utils.views import PaginatedView
 import typing
 import re
 from math import ceil
 from random import randint
+
+class RoleInfoPaginator(PaginatedView):
+    def __init__(self, source: menus.PageSource, *args, **kwargs) -> None:
+        super().__init__(source, *args, **kwargs)
+
+class RoleList(menus.ListPageSource):
+    
+    def __init__(self, entries:list[discord.Role]):
+        super().__init__(entries, per_page=25)
+
+    def format_page(self, menu: RoleInfoPaginator, page: list[discord.Role]):
+        embed = discord.Embed(title="Server Roles")
+        embed.set_footer(text=f"Page {menu.current_page+1}/{self.get_max_pages()}")
+        for entry in page:
+            embed.add_field(name=entry.name, value=f"{len(entry.members)} Member{'s' if len(entry.members) > 1 else ''}")
+        return embed
+
 
 class RoleSelect(discord.ui.Select):
     def __init__(self, roles: typing.List[discord.Role]):
@@ -251,10 +269,8 @@ class Roles(commands.Cog):
         if command_invoke_str and not role:
             return await ctx.send("Role not found.")
         if not role:
-            for role in roles:
-                if role.name == "@everyone":
-                    continue
-                embed.add_field(name=role.name, value="{} Member(s)".format(len(role.members)))
+            view = RoleInfoPaginator(source=RoleList(roles))
+            return await view.start(ctx)
         else:
             info = await self.fetch_role_info(role.id)
             embed.title = role.name
