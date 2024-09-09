@@ -23,7 +23,7 @@ class LanguageTransformer(app_commands.Transformer):
     languages = {
         }
     async def transform(self, interaction, value):
-        lang = self.languages[value]
+        lang = self.languages.get(value, value)
         return Language(iso=value, full_name=lang)
 
     async def autocomplete(self, interaction: discord.Interaction, value: str):
@@ -38,6 +38,7 @@ class LanguageTransformer(app_commands.Transformer):
 class InputTransformer(LanguageTransformer):
 
     languages = {
+    "AR": "Arabic",
     "BG" : "Bulgarian",
     "CS" : "Czech",
     "DA" : "Danish",
@@ -71,6 +72,7 @@ class InputTransformer(LanguageTransformer):
 
 class OutputTransformer(LanguageTransformer):
     languages = {
+    "AR": "Arabic",
     "BG" : "Bulgarian",
     "CS" : "Czech",
     "DA" : "Danish",
@@ -182,7 +184,7 @@ class Deepl(commands.Cog):
             translation = translation[0]
             if not input_lang:
                 iso = translation.get("detected_source_language")
-                input_lang = Language(full_name=InputTransformer.languages[iso], iso=iso)
+                input_lang = Language(full_name=InputTransformer.languages.get(iso, iso), iso=iso)
             response_message = (
                     f'**{input_lang.full_name}**: \n\t{text}\n'
                     f'**{output_lang.full_name}**: \n\t{translation.get("text")}'
