@@ -148,7 +148,7 @@ class Deepl(commands.Cog):
     @app_commands.checks.cooldown(1, 60)
     async def deepl_translate(self,
             interaction: discord.Interaction,
-            text: app_commands.Range[str, 10, 300],
+            text: app_commands.Range[str, 0, 300],
             output_lang: app_commands.Transform[Language, OutputTransformer],
             input_lang: Optional[app_commands.Transform[Language, InputTransformer]]
             ):
