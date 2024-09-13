@@ -466,7 +466,7 @@ class PollOptionSelect(discord.ui.Select):
         self.is_multi = poll.type == "multi"
         max_values = 1
         if self.is_multi:
-            max_values = len(poll.options) - 1
+            max_values = len(poll.options)
         super().__init__(placeholder="Choose an option to vote on", max_values=max_values, row=0, custom_id=f"{poll.id}:select")
         for option in poll.options:
             self.add_option(label=option.text, value=str(option.id))
