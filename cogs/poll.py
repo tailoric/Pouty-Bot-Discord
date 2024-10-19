@@ -524,6 +524,16 @@ class Poll(commands.Cog):
         self.open_polls: List[PollData] = []
 
 
+    @commands.Cog.listener('on_raw_message_delete')
+    async def poll_removed(self, payload: discord.RawMessageDeleteEvent):
+        poll = discord.utils.find(lambda p: p.message.id == payload.message_id, self.open_polls)
+        if poll:
+            self.open_polls.remove(poll)
+            await self.bot.db.execute("""
+            DELETE FROM poll.data WHERE poll_id = $1
+            """, poll.id)
+
+
     @tasks.loop(minutes=1)
     async def check_poll_status(self):
         finished_polls = []
