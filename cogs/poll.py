@@ -17,6 +17,7 @@ import itertools
 import asyncpg
 import matplotlib.pyplot as plt
 import io
+import logging
 
 timing_regex = re.compile(r"^(?P<days>\d+\s?d(?:ay)?s?)?\s?(?P<hours>\d+\s?h(?:our)?s?)?\s?(?P<minutes>\d+\s?m(?:in(?:ute)?s?)?)?\s?(?P<seconds>\d+\s?s(?:econd)?s?)?")
 
@@ -251,7 +252,8 @@ class PollData:
             if thread:
                 await thread.edit(archived=True)
         except discord.HTTPException as e:
-            pass
+            logging.error('Error when finishing poll', e)
+
         await db.execute("""
         DELETE FROM poll.data WHERE poll_id = $1
         """, self.id)
