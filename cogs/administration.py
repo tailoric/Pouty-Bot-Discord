@@ -681,7 +681,6 @@ class Admin(commands.Cog):
                 await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await ctx.send("couldn't DM reason to user")
-        print(reason.delete_days)
         try:
             if isinstance(member, discord.Member):
                 if 191094827562041345 in [role.id for role in member.roles]:
@@ -897,7 +896,54 @@ class Admin(commands.Cog):
             description="different moderation commands for admins",
             default_permissions=discord.Permissions(moderate_members=True, manage_roles=True)
             )
+
     
+    @moderation.command(name="ban")
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(manage_roles=True, moderate_members=True)
+    @app_commands.default_permissions(manage_roles=True,moderate_members=True)
+    @app_commands.rename(delete='delete-messages')
+    async def moderation_ban(self, interaction: discord.Interaction, user: discord.Member, delete: typing.Optional[bool], reason: str):
+        """
+        Ban a user
+
+        Parameters
+        __________
+        
+        user: discord.Member
+            The user to ban.
+        delete: typing.Optional[bool]
+            If you want to delete 1 day worth of messages
+        reason: str
+            The reason to ban for.
+        """
+        await interaction.response.defer()
+        if user.top_role > interaction.guild.me.top_role or user.guild_permissions.moderate_members or user.guild_permissions.administrator:
+            return await interaction.followup.send("I could never ban a dear senpai of mine <a:shinpanic:427749630445486081>")
+        
+        dm_message = f"you have been banned for the following reasons:\n{reason}"
+        try:
+            _ = await user.send(dm_message)
+        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+            await interaction.followup.send("Could not send reason to user")
+
+        try:
+            await user.ban(delete_message_days=1 if delete else 0, reason=textwrap.shorten(reason, width=512))
+        except discord.Forbidden:
+            await interaction.followup.send("I am not allowed to ban this user.")
+        except discord.HTTPException as ex:
+            await interaction.followup.send(f"Ban failed reason: {ex}")
+        embed = discord.Embed(title="Ban", description=f"**{user.mention} banned for the following reason:**\n{reason}")
+        msg = await interaction.original_response()
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, url=msg.jump_url, label="Jump to Ban"))
+        embed.add_field(name="Username", value=user.name)
+        embed.add_field(name="User-ID", value=user.id)
+        embed.add_field(name="By Moderator", value=interaction.user.mention)
+        await self.check_channel.send(embed=embed, view=view)
+        await interaction.followup.send(await self.get_ban_image(interaction.user.id))
+
+
     @moderation.command(name="mute")
     @app_commands.checks.has_permissions(manage_roles=True, moderate_members=True)
     @app_commands.default_permissions(manage_roles=True,moderate_members=True)
