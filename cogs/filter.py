@@ -9,6 +9,8 @@ from .utils.checks import is_owner_or_moderator
 from .utils.paginator import FieldPages
 from typing import Union, Optional
 
+YT_SOURCE_IDENTIFIER_FILTER = re.compile(r"(?P<SI>si=([\w_-])+)")
+
 class Filter(commands.Cog):
     """
     filters messages and removes them
@@ -48,6 +50,22 @@ class Filter(commands.Cog):
 
     async def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
+
+    @commands.Cog.listener("on_message")
+    async def filter_youtube_source_identifier(self, message: discord.Message):
+        if not message.content:
+            return
+        replacement_link = YT_SOURCE_IDENTIFIER_FILTER.sub('',message.content)
+        if replacement_link != message.content:
+            link_button_view = discord.ui.View()
+            link_button_view.add_item(discord.ui.Button(url="https://i.imgur.com/D696lVp.png", label="Why?"))
+            _ = await message.channel.send(f'[Repost without source identifier]({replacement_link})',
+                                           reference=message,
+                                           allowed_mentions=discord.AllowedMentions.none(),
+                                           view=link_button_view)
+            if message.guild and message.guild.me.guild_permissions.manage_messages:
+                await message.edit(suppress=True)
+
 
     @commands.Cog.listener("on_message")
     async def filter_stickers(self, message):
