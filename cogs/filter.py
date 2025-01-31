@@ -9,8 +9,8 @@ from .utils.checks import is_owner_or_moderator
 from .utils.paginator import FieldPages
 from typing import Union, Optional
 
-#https://regex101.com/r/OevXng/1
-YT_LINK = re.compile(r"(https://(youtu.be/[\w_-]+|\w+\.youtube.\w+/watch)\?(\w{1,}=[\w_-]+)(&\w{1,}=[\w_-]+){0,})")
+# https://regex101.com/r/OevXng/2
+YT_LINK = re.compile(r"(https://(youtu.be/[\w_-]+|youtube\.com/shorts/[\w_-]+|\w+\.youtube.\w+/watch)\?(\w{1,}=[\w_-]+)(&\w{1,}=[\w_-]+){0,})")
 YT_SOURCE_IDENTIFIER_FILTER = re.compile(r"(?P<SI>si=([\w_-])+)")
 
 class Filter(commands.Cog):
