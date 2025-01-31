@@ -9,6 +9,8 @@ from .utils.checks import is_owner_or_moderator
 from .utils.paginator import FieldPages
 from typing import Union, Optional
 
+#https://regex101.com/r/OevXng/1
+YT_LINK = re.compile(r"(https://(youtu.be/[\w_-]+|\w+\.youtube.\w+/watch)\?(\w{1,}=[\w_-]+)(&\w{1,}=[\w_-]+){0,})")
 YT_SOURCE_IDENTIFIER_FILTER = re.compile(r"(?P<SI>si=([\w_-])+)")
 
 class Filter(commands.Cog):
@@ -53,18 +55,27 @@ class Filter(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def filter_youtube_source_identifier(self, message: discord.Message):
-        if not message.content:
+        if not message.content or message.author.bot:
             return
-        replacement_link = YT_SOURCE_IDENTIFIER_FILTER.sub('',message.content)
-        if replacement_link != message.content:
-            link_button_view = discord.ui.View()
-            link_button_view.add_item(discord.ui.Button(url="https://i.imgur.com/D696lVp.png", label="Why?"))
-            _ = await message.channel.send(f'[Repost without source identifier]({replacement_link})',
-                                           reference=message,
-                                           allowed_mentions=discord.AllowedMentions.none(),
-                                           view=link_button_view)
-            if message.guild and message.guild.me.guild_permissions.manage_messages:
-                await message.edit(suppress=True)
+        youtube_links = []
+        for link in YT_LINK.findall(message.content):
+            cleared_link = YT_SOURCE_IDENTIFIER_FILTER.sub('', link[0])
+            youtube_links.append((cleared_link, cleared_link != link[0]))
+        link_button_view = discord.ui.View()
+        link_button_view.add_item(discord.ui.Button(label="Why?", url='https://i.imgur.com/D696lVp.png'))
+        if len(list(filter(lambda yt: yt[1], youtube_links))) == 0:
+            return
+        elif len(youtube_links) == 1:
+            content = f'[Repost without source identifier]({youtube_links[0][0]})'
+        else:
+            content = "**Source Identifier removed**\n"
+            content += '\n'.join(map(lambda yt: yt[0], youtube_links))
+        _ = await message.channel.send(content=content,
+                                       reference=message,
+                                       allowed_mentions=discord.AllowedMentions.none(),
+                                       view=link_button_view)
+        if message.guild and message.guild.me.guild_permissions.manage_messages:
+            await message.edit(suppress=True)
 
 
     @commands.Cog.listener("on_message")
