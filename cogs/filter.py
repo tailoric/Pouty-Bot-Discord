@@ -14,7 +14,7 @@ from typing import Union, Optional
 # https://regex101.com/r/OevXng/2
 YT_LINK = re.compile(r"(https://(youtu.be/[\w_-]+|youtube\.com/shorts/[\w_-]+|\w+\.youtube.\w+/watch)\?(\w{1,}=[\w_-]+)(&\w{1,}=[\w_-]+){0,})")
 YT_SOURCE_IDENTIFIER_FILTER = re.compile(r"(?P<SI>si=([\w_-])+)")
-SPOILER_MATCH = re.compile(r"||\s?[\w\W_]+\s?||")
+SPOILER_MATCH = re.compile(r"\|\|\s?[\w\W_]+\s?\|\|")
 
 class Filter(commands.Cog):
     """
