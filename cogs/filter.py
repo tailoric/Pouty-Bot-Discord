@@ -5,6 +5,8 @@ import asyncio
 import re
 import os
 from aiohttp import ClientSession
+
+from cogs.utils.views import UserDeleteButton
 from .utils.checks import is_owner_or_moderator
 from .utils.paginator import FieldPages
 from typing import Union, Optional
@@ -12,6 +14,7 @@ from typing import Union, Optional
 # https://regex101.com/r/OevXng/2
 YT_LINK = re.compile(r"(https://(youtu.be/[\w_-]+|youtube\.com/shorts/[\w_-]+|\w+\.youtube.\w+/watch)\?(\w{1,}=[\w_-]+)(&\w{1,}=[\w_-]+){0,})")
 YT_SOURCE_IDENTIFIER_FILTER = re.compile(r"(?P<SI>si=([\w_-])+)")
+SPOILER_MATCH = re.compile(r"||\s?[\w\W_]+\s?||")
 
 class Filter(commands.Cog):
     """
@@ -58,18 +61,26 @@ class Filter(commands.Cog):
         if not message.content or message.author.bot:
             return
         youtube_links = []
+        contains_spoilers = SPOILER_MATCH.search(message.content)
         for link in YT_LINK.findall(message.content):
             cleared_link = YT_SOURCE_IDENTIFIER_FILTER.sub('', link[0])
             youtube_links.append((cleared_link, cleared_link != link[0]))
         link_button_view = discord.ui.View()
         link_button_view.add_item(discord.ui.Button(label="Why?", url='https://i.imgur.com/D696lVp.png'))
+        link_button_view.add_item(UserDeleteButton(message.author.id))
         if len(list(filter(lambda yt: yt[1], youtube_links))) == 0:
             return
         elif len(youtube_links) == 1:
-            content = f'[Repost without source identifier]({youtube_links[0][0]})'
+            if contains_spoilers:
+                content = f'Reposted without source identifier:\n|| {youtube_links[0][0]} ||'
+            else:
+                content = f'[Repost without source identifier]({youtube_links[0][0]})'
+
         else:
             content = "**Source Identifier removed**\n"
-            content += '\n'.join(map(lambda yt: yt[0], youtube_links))
+            content += '\n'.join(
+                    map(lambda content: f"|| {content} ||" if contains_spoilers else content,
+                        map(lambda yt: yt[0], youtube_links)))
         _ = await message.channel.send(content=content,
                                        reference=message,
                                        allowed_mentions=discord.AllowedMentions.none(),

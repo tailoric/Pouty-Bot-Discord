@@ -215,6 +215,7 @@ class Default(commands.Cog):
         await self.bot.wait_until_ready()
         await self.create_loaded_cogs_table()
         await self.load_cogs()
+        self.bot.add_dynamic_items(views.UserDeleteButton)
 
     async def create_loaded_cogs_table(self):
         await self.bot.db.execute("""
@@ -240,6 +241,7 @@ class Default(commands.Cog):
         self.bot.remove_check(self.check_for_black_list_user, call_once=True)
         self.bot.remove_check(self.check_disabled_command, call_once=True)
         self.bot.help_command = self._original_help_command
+        self.bot.remove_dynamic_items(views.UserDeleteButton)
 
     async def on_ready(self):
         print('Logged in as')

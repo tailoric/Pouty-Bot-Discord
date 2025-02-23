@@ -5,7 +5,6 @@ from cogs.utils.dataIO import DataIO
 import logging
 from logging.handlers import RotatingFileHandler
 import asyncpg
-import sys
 import asyncio
 import aiohttp
 
@@ -25,7 +24,7 @@ def load_credentials():
 
 
 async def connect_db_and_start_bot():
-    token = credentials['token']
+    token: str = credentials['token']
     db_info = data_io.load_json("postgres")
     bot.db = await asyncpg.create_pool(database=db_info['dbname'],
                                        user=db_info['user'],
