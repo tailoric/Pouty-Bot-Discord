@@ -27,6 +27,13 @@ class April(commands.Cog):
             and random.random() <= 0.001
         ):
             await message.channel.send("huga_!_")
+        if (
+            message.guild
+            and not message.author.bot
+            and 'huga' in message.content
+            and random.random() <= 0.1
+        ):
+            await message.channel.send("huga!!")
 
 
 async def setup(bot: commands.Bot):
