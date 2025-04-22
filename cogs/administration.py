@@ -903,7 +903,7 @@ class Admin(commands.Cog):
     @app_commands.checks.has_permissions(manage_roles=True, moderate_members=True)
     @app_commands.default_permissions(manage_roles=True,moderate_members=True)
     @app_commands.rename(delete='delete-messages')
-    async def moderation_ban(self, interaction: discord.Interaction, user: discord.Member, delete: typing.Optional[bool], reason: str):
+    async def moderation_ban(self, interaction: discord.Interaction, user: discord.User, delete: bool, reason: str):
         """
         Ban a user
 
@@ -918,17 +918,19 @@ class Admin(commands.Cog):
             The reason to ban for.
         """
         await interaction.response.defer()
-        if user.top_role > interaction.guild.me.top_role or user.guild_permissions.moderate_members or user.guild_permissions.administrator:
+        member = interaction.guild.get_member(user.id)
+        if member and (member.top_role > interaction.guild.me.top_role or user.guild_permissions.moderate_members or user.guild_permissions.administrator):
             return await interaction.followup.send("I could never ban a dear senpai of mine <a:shinpanic:427749630445486081>")
         
         dm_message = f"you have been banned for the following reasons:\n{reason}"
         try:
-            _ = await user.send(dm_message)
+            if member:
+                _ = await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             await interaction.followup.send("Could not send reason to user")
 
         try:
-            await user.ban(delete_message_days=1 if delete else 0, reason=textwrap.shorten(reason, width=512))
+            await interaction.guild.ban(user, delete_message_days=1 if delete else 0, reason=textwrap.shorten(reason, width=512))
         except discord.Forbidden:
             await interaction.followup.send("I am not allowed to ban this user.")
         except discord.HTTPException as ex:
