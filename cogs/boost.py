@@ -73,10 +73,10 @@ class Boost(commands.Cog):
             new_role = await ctx.guild.create_role(name=ctx.author.name, colour=colour)
             if top_role < ctx.guild.me.top_role:
                 await asyncio.sleep(2)
-                await new_role.edit(position=top_role.position)
+                await new_role.edit(position=top_role.position + 1)
             else:
                 top_color_role = sorted(filter(lambda r: r.color != discord.Colour.default() ,ctx.author.roles)).pop()
-                await new_role.edit(position=top_color_role.position)
+                await new_role.edit(position=top_color_role.position + 1)
             await ctx.author.add_roles(new_role)
             await self.bot.db.execute('''
             INSERT INTO boost_color (user_id, role_id, guild_id, color_val)
