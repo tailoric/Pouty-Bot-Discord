@@ -13,7 +13,10 @@ class Wikipedia(commands.Cog):
                 "limit": "1",
                 "format": "json"
                 }
-        async with self.bot.session.get("https://en.wikipedia.org/w/api.php", params=params, raise_for_status=True) as resp:
+        headers = {
+            "User-Agent": 'Pouty-Bot/master (https://github.com/tailoric/Pouty-Bot-Discord)"
+        }
+        async with self.bot.session.get("https://en.wikipedia.org/w/api.php", params=params, headers=headers, raise_for_status=True) as resp:
             data = await resp.json()
             if len(data) == 4 and data[3]:
                 await ctx.send(data[3][0])
