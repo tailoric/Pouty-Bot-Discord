@@ -14,7 +14,7 @@ class Wikipedia(commands.Cog):
                 "format": "json"
                 }
         headers = {
-            "User-Agent": 'Pouty-Bot/master (https://github.com/tailoric/Pouty-Bot-Discord)"
+            "User-Agent": "Pouty-Bot/master (https://github.com/tailoric/Pouty-Bot-Discord)"
         }
         async with self.bot.session.get("https://en.wikipedia.org/w/api.php", params=params, headers=headers, raise_for_status=True) as resp:
             data = await resp.json()
