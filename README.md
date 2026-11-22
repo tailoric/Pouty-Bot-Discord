@@ -33,9 +33,9 @@
     "cogs.playlist"
   ]
   ```
-* [set up an virtual environment](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment)
-* install the requirements via `pip install -r requirements.txt` inside the root directory of the repository
-* run the bot via `python bot.py` (I currently run the bot on python version 3.5.2)
+* install [uv](https://docs.astral.sh/uv/getting-started/installation/) for your system
+* install the requirements & python venv (pinned to python 3.11) via `uv sync` inside the root directory of the repository
+* run the bot via `uv run python bot.py`
 
 ### Docker
 
