@@ -14,3 +14,6 @@ discord.log
 tags
 wuxia_feed/
 config
+.venv/
+# eliza note - lmfao. macos momento. :p
+.DS_Store
